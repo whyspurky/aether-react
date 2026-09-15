@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || '0.0.0.0', // 👈 ДОБАВЛЕНО для доступа по сети
+    host: host || '0.0.0.0',
     hmr: host
       ? {
           protocol: 'ws',
