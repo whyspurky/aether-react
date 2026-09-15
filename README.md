@@ -4,7 +4,6 @@
 
 десктопный музыкальный плеер, стримящий треки с внутреннего апи ск
 
-[![releases](https://img.shields.io/github/v/release/whyspurky/aether-react?style=flat-square&color=white&labelColor=0F0F0F)](https://github.com/whyspurky/aether-react/releases)
 [![telegram](https://img.shields.io/badge/telegram-iqaether-white?style=flat-square&logo=telegram&logoColor=white&labelColor=0F0F0F)](https://t.me/iqaether)
 
 </div>
@@ -15,7 +14,7 @@
 
 **frontend** — react 18 + typescript + tailwind css + zustand
 **backend** — tauri 2 (rust) + rodio + symphonia + reqwest
-**сборка** — vite 5
+**сборка** — vite 5 
 
 ---
 
