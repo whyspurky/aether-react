@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store/store';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { BrokenTracksModal } from '../components/Modals/BrokenTracksModal';
+import { getVersion } from '@tauri-apps/api/app';
 
 type SettingsTab = 'data' | 'appearance' | 'diagnostics' | 'about';
 
@@ -48,6 +49,13 @@ export default function SettingsPage() {
     { id: 'diagnostics', label: 'диагностика', icon: 'bug' },
     { id: 'about', label: 'о приложении', icon: 'info' },
   ];
+
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then(setVersion);
+  }, []);
+
 
   return (
     <div className="h-full flex bg-bg-primary rounded-2xl overflow-hidden border border-border-subtle">
@@ -210,7 +218,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <p className="text-base font-medium text-text-primary">aether</p>
-                    <p className="text-xs text-text-tertiary">версия 2.0.0</p>
+                    <p className="text-xs text-text-tertiary">версия {version}</p>
                   </div>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
