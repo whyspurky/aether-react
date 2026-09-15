@@ -15,7 +15,7 @@
 
 **frontend** — react 18 + typescript + tailwind css + zustand
 **backend** — tauri 2 (rust) + rodio + symphonia + reqwest
-**сборка** — vite 5
+**сборка** — vite 5 
 
 ---
 
