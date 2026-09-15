@@ -1,0 +1,334 @@
+/* src/index.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #0F0F0F;
+    --bg-secondary: #1A1A1A;
+    --bg-tertiary: #262626;
+    --bg-card: #181818;
+    --bg-elevated: #2A2A2A;
+
+    --text-primary: #FFFFFF;
+    --text-secondary: #C8C8C8;
+    --text-tertiary: #888888;
+    --text-inverse: #0F0F0F;
+
+    --accent-primary: #B0B0B0;
+    --accent-secondary: #D0D0D0;
+    --accent-hover: #C8C8C8;
+    --accent-active: #808080;
+    --accent-muted: rgba(255, 255, 255, 0.08);
+
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-visible: rgba(255, 255, 255, 0.12);
+
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.08);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
+
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  /* фикс размытых краев на скруглениях */
+  .rounded-2xl,
+  .rounded-xl,
+  .rounded-lg {
+    isolation: isolate;
+    will-change: transform;
+  }
+}
+
+@layer utilities {
+  /* ===== скроллбары ===== */
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s ease, background 0.3s ease, transform 0.2s ease;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
+    opacity: 1;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+    transform: scaleX(1.2);
+  }
+
+  *::-webkit-scrollbar:horizontal {
+    height: 4px;
+  }
+  *::-webkit-scrollbar:horizontal::-webkit-scrollbar-thumb:hover {
+    transform: scaleY(1.2);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover {
+    scrollbar-color: var(--text-tertiary) transparent;
+  }
+
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-visible) transparent;
+  }
+  .thin-scroll::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-visible);
+    border-radius: 4px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+  }
+
+  .ultra-thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
+  }
+  .ultra-thin-scroll::-webkit-scrollbar {
+    width: 2px;
+    height: 2px;
+  }
+  .ultra-thin-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: 4px;
+  }
+  .ultra-thin-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--border-visible);
+  }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -5px;
+  margin-left: -0.5px;
+  position: relative;
+  z-index: 20;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+input[type="range"]:focus {
+  outline: none;
+}
+
+  /* ===== анимации ===== */
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  @keyframes eqBar {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+  }
+  @keyframes fadeInUpFast {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-in-up-fast { animation: fadeInUpFast 0.12s ease-out forwards; }
+  .animate-fade-in-up { animation: fadeInUp 0.3s ease-out forwards; }
+  .animate-fade-in-scale { animation: fadeInScale 0.25s ease-out forwards; }
+  .animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+
+  /* ===== стекло ===== */
+
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* ===== карточки ===== */
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .card-hover {
+    transition: background-color 0.25s cubic-bezier(0.2, 0.9, 0.4, 1),
+                border-color 0.25s cubic-bezier(0.2, 0.9, 0.4, 1),
+                transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1);
+  }
+  .card-hover:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-visible);
+    transform: translateY(-2px);
+  }
+
+  /* ===== акценты ===== */
+
+  .btn-accent {
+    background: var(--accent-primary);
+    color: var(--text-inverse);
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+  .btn-accent:hover {
+    background: var(--accent-hover);
+    transform: scale(1.02);
+  }
+  .btn-accent:active {
+    background: var(--accent-active);
+    transform: scale(0.98);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-visible);
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .btn-outline:hover {
+    background: var(--accent-muted);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+  }
+  .btn-outline:active {
+    background: var(--border-visible);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .btn-ghost:hover {
+    background: var(--accent-muted);
+    color: var(--text-primary);
+  }
+
+  .accent-text { color: var(--accent-primary); }
+  .accent-text-hover:hover { color: var(--accent-primary); }
+  .accent-border { border-color: var(--accent-primary); }
+  .accent-border-hover:hover { border-color: var(--accent-primary); }
+  .accent-bg { background: var(--accent-muted); }
+  .accent-bg-hover:hover { background: var(--accent-muted); }
+
+  .accent-glow { box-shadow: 0 0 40px rgba(255, 255, 255, 0.03); }
+  .accent-glow-strong { box-shadow: 0 0 60px rgba(255, 255, 255, 0.05); }
+
+  /* ===== кнопки в плеере ===== */
+
+  .player-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .player-btn:hover {
+    color: var(--text-primary);
+    background: var(--accent-muted);
+  }
+  .player-btn.active { color: var(--accent-primary); }
+
+  /* ===== эквалайзер ===== */
+
+  .eq-bar { animation: eqBar 0.8s ease-in-out infinite; }
+  .eq-bar:nth-child(1) { animation-delay: 0s; }
+  .eq-bar:nth-child(2) { animation-delay: 0.15s; }
+  .eq-bar:nth-child(3) { animation-delay: 0.3s; }
+  .eq-bar:nth-child(4) { animation-delay: 0.45s; }
+}

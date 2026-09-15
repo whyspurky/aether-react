@@ -1,0 +1,33 @@
+[package]
+name = "aether-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "aether_desktop_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "aether-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "gzip", "http2", "charset", "macos-system-configuration"] }
+urlencoding = "2"
+rodio = { version = "0.22.2", features = ["symphonia-all"] }
+regex = "1.10"
+futures = "0.3"
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+url = "2"
+
+[profile.release]
+lto = true
