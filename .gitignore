@@ -25,10 +25,19 @@ src-tauri/gen/android/.gradle/
 .idea/
 *.swp
 *.swo
-.DS_Store
 
 # logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# os
+.DS_Store
+
+# docs — private не публикуется
+docs/private/
+
+# временные файлы
+trees/
+*.log
