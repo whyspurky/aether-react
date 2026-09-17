@@ -16,12 +16,17 @@ import PlaylistPage from './pages/PlaylistPage';
 import { useStore } from './store/store';
 import { api } from './lib/api';
 
+
 const appWindow = getCurrentWindow();
 
 function AppContent() {
   const preloadHomePageData = useStore((s) => s.preloadHomePageData);
 
   useTheme();
+
+  useEffect(() => {
+    getCurrentWindow().show();
+  }, []);
 
   useEffect(() => {
     const prevent = (e: MouseEvent) => e.preventDefault();
