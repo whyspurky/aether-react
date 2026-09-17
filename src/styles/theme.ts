@@ -31,7 +31,6 @@ export interface ThemeColors {
   };
 }
 
-// пока только амолед
 // todo добавить больше тем
 export const amoledTheme: ThemeColors = {
   background: {

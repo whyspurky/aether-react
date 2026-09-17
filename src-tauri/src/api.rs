@@ -176,7 +176,6 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
                 continue;
             }
         };
-        // ск иногда подсовывает m3u8 через progressive
         if let Some(su) = s.get("url").and_then(|u| u.as_str()) {
             if !su.contains(".m3u8") {
                 return Ok(su.to_string());
@@ -282,7 +281,6 @@ async fn fetch_segment(url: &str, idx: usize) -> Result<bytes::Bytes, ApiError> 
             return Err(ApiError::Other(format!("сегмент {} http {}", idx, status)));
         }
 
-        // пустой content-type тоже норм - некоторые cdn не ставят
         let ct = resp.headers().get("content-type")
             .and_then(|h| h.to_str().ok())
             .unwrap_or("");
@@ -305,7 +303,6 @@ async fn fetch_segment(url: &str, idx: usize) -> Result<bytes::Bytes, ApiError> 
 }
 
 async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
-    // итерируем master до тех пор пока не найдем media
     let mut url = playlist_url.to_string();
     let mut depth = 0;
     let playlist = loop {
@@ -327,7 +324,6 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
         let text = resp.text().await
             .map_err(|e| ApiError::Network(e.to_string()))?;
 
-        // hls плейлист обязан начинаться с #EXTM3U
         if !text.starts_with("#EXTM3U") && !text.trim_start().starts_with("#EXTM3U") {
             let preview = truncate(&text, 100);
             return Err(ApiError::Other(format!("не hls плейлист: {}", preview)));
@@ -343,7 +339,6 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
         break text;
     };
 
-    // дальше без изменений — base, segments, download
     let base = url.rsplit_once('/').map(|(b, _)| b).unwrap_or("");
     let segments = parse_segments(&playlist, base);
 
@@ -371,7 +366,6 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
     Ok(buf)
 }
 
-// --- команды ---
 
 #[tauri::command]
 pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Value, String> {
@@ -457,7 +451,6 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
     let mut cursor = offset % n;
     let mut round = 0;
 
-    // каждый раунд сдвигаем внутренний offset, чтобы артист отдавал другие треки
     while tracks.len() < limit && round < 3 {
         let remaining = limit - tracks.len();
         let inner_offset = (offset / n + round) * 5;
@@ -483,7 +476,6 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
                 None => continue,
             };
 
-            // из пачки берем тот трек который еще не видели
             for t in collection {
                 let id = match t["id"].as_u64() {
                     Some(i) => i,
@@ -492,7 +484,7 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
                 let dur = t["duration"].as_u64().unwrap_or(0);
                 if (MIN_TRACK_MS..MAX_TRACK_MS).contains(&dur) && seen.insert(id) {
                     tracks.push(t.clone());
-                    break; // один трек с артиста за раунд
+                    break;
                 }
             }
 
@@ -527,7 +519,6 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
         .collect()
         .await;
 
-    // корзины треков по артистам
     let mut buckets: Vec<VecDeque<Value>> = results.into_iter()
         .filter_map(|r| match r {
             Ok(v) => Some(v),
@@ -540,7 +531,6 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
         .map(|v| v.into_iter().collect())
         .collect();
 
-    // чередуем по одному треку с каждой корзины
     let mut tracks = Vec::with_capacity(TARGET);
     'outer: loop {
         let mut progressed = false;

@@ -38,7 +38,6 @@ export default function HomePage() {
       setPopularOffset(20);
       setHasMorePopular(tracks.length === 20);
     } catch {
-      // не критично
     } finally {
       setHomePageLoadingPopular(false);
     }
@@ -55,7 +54,6 @@ export default function HomePage() {
       setHomePageMyWave(tracks);
       setHomePageMyWaveLoaded(true);
     } catch {
-      // не критично
     } finally {
       setHomePageLoadingWave(false);
     }
@@ -74,7 +72,6 @@ export default function HomePage() {
         setHasMorePopular(false);
       }
     } catch {
-      // не критично
     } finally {
       setIsLoadingMore(false);
     }

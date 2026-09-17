@@ -36,7 +36,6 @@ export default function LibraryPage() {
     setShowSettingsMenu(false);
   }, [selectedView, selectedPlaylist]);
 
-  // ===== хелперы =====
 
   const validatePlaylistName = (name: string): boolean => {
     if (name.length > MAX_PLAYLIST_NAME_LENGTH) {
@@ -79,7 +78,6 @@ export default function LibraryPage() {
     return 'text-text-primary';
   };
 
-  // ===== плейлисты =====
 
   const handleCreatePlaylist = () => {
     if (!newPlaylistName.trim()) {
@@ -132,7 +130,6 @@ export default function LibraryPage() {
     setSelectedView('playlist');
   };
 
-  // ===== очистка =====
 
   const handleClearConfirm = () => {
     if (confirmClear === 'favorites') clearFavorites();
@@ -142,7 +139,6 @@ export default function LibraryPage() {
     showToast('очищено', 'info');
   };
 
-  // ===== рендер =====
 
   return (
     <div className="h-full flex bg-bg-primary rounded-2xl overflow-hidden border border-border-subtle">

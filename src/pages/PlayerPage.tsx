@@ -111,7 +111,6 @@ export default function PlayerPage() {
     ? (displayPosition / effectiveDuration) * 100
     : 0;
 
-  // ===== прогресс =====
 
   const handleProgressMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!effectiveDuration) return;
@@ -188,7 +187,6 @@ export default function PlayerPage() {
     setIsDraggingProgress(false);
   }, [isDraggingProgress, effectiveDuration, setPosition]);
 
-  // ===== громкость =====
 
   const updateVolume = useCallback((percent: number) => {
     const v = Math.max(0, Math.min(1, percent));
@@ -270,7 +268,6 @@ export default function PlayerPage() {
     setVolume(Math.round(dragVolume * 100));
   }, [isDraggingVolume, dragVolume, setVolume]);
 
-  // ===== глобальные обработчики =====
 
   useEffect(() => {
     if (!isDraggingProgress) return;
@@ -308,7 +305,6 @@ export default function PlayerPage() {
     if (!isDraggingVolume) setDragVolume(volume / 100);
   }, [volume, isDraggingVolume]);
 
-  // ===== позиция =====
 
   useEffect(() => {
     if (!currentTrack) return;

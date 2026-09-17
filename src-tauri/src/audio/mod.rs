@@ -6,8 +6,6 @@ mod engine;
 pub use state::AppState;
 use tauri::State;
 
-// ===== команды для фронта =====
-// просто прокидывают вызовы в энжен
 
 #[tauri::command]
 pub async fn play_audio(url: String, state: State<'_, AppState>) -> Result<(), String> {

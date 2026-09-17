@@ -7,10 +7,8 @@ use crate::audio::state::AppState;
 use crate::api::http;
 use rodio::Source;
 
-// ===== воспроизведение =====
 
 pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), String> {
-    // хлс качаем целиком иначе играется только первый фрагмент
     let bytes = if url.contains(".m3u8") || url.contains("/hls/") {
         println!("[engine] качаем hls полностью");
         Bytes::from(crate::api::download_hls_track(&url).await?)
@@ -30,7 +28,6 @@ pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), S
     let source = rodio::Decoder::new(cursor)
         .map_err(|e| format!("decoding error {}", e))?;
 
-    // порядок локов: playback -> player
     let vol = {
         let pb = state.playback.lock().unwrap();
         if pb.is_muted { 0.0 } else { pb.volume }
@@ -45,13 +42,11 @@ pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), S
         player.play();
     }
 
-    // состояние обновляем после успешного старта плеера
     state.playback.lock().unwrap().start(bytes);
 
     Ok(())
 }
 
-// ===== пауза продолжение стоп =====
 
 pub fn pause(state: State<AppState>) -> Result<(), String> {
     let player = state.player.lock().unwrap();
@@ -84,17 +79,14 @@ pub fn stop(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
-// ===== позиция =====
 
 pub fn get_position(state: State<AppState>) -> Result<f64, String> {
     let pb = state.playback.lock().unwrap();
     Ok(pb.position().as_secs_f64())
 }
 
-// ===== громкость =====
 
 pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
-    // сначала playback, потом player
     let effective = state.playback.lock().unwrap().set_volume(volume);
     state.player.lock().unwrap().set_volume(effective);
     Ok(())
@@ -123,10 +115,8 @@ pub fn set_track_duration(duration_ms: u32, state: State<AppState>) -> Result<()
     Ok(())
 }
 
-// ===== сик =====
 
 pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
-    // забираем байты и duration одним локом
     let (bytes, max_sec) = {
         let pb = state.playback.lock().unwrap();
         let b = pb.bytes.clone().ok_or("no track loaded cannot seek")?;
@@ -144,7 +134,6 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
     let mut decoder = rodio::Decoder::new(cursor)
         .map_err(|e| format!("decoder error {}", e))?;
 
-    // если try_seek провалится начнем с нуля и запишем 0 в состояние
     let mut actual = Duration::ZERO;
     if target > 0.05 {
         let d = Duration::from_secs_f64(target);
@@ -174,7 +163,6 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
         }
     }
 
-    // записываем реально примененную позицию
     state.playback.lock().unwrap().seek(actual);
 
     Ok(())

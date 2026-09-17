@@ -7,7 +7,6 @@ let cache: { tracks: Track[]; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
 
 export const api = {
-  // ===== поиск =====
 
   searchTracks: async (query: string, limit = 20, offset = 0): Promise<Track[]> => {
     if (!query || !query.trim()) return [];
@@ -130,7 +129,6 @@ export const api = {
     }
   },
 
-  // ===== плеер =====
 
   getStreamUrl: async (trackId: number): Promise<string> => {
     if (!trackId) throw new Error('trackId не указан');

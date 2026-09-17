@@ -8,7 +8,6 @@ import type { Track, Playlist} from './types';
 let positionInterval: ReturnType<typeof setInterval> | null = null;
 let isTrackEnding = false;
 
-// ===== типы =====
 
 interface AppState {
   search: {
@@ -52,7 +51,6 @@ interface AppState {
   };
 }
 
-// ===== начальное состояние =====
 
 const initialState: AppState = {
   search: {
@@ -96,7 +94,6 @@ const initialState: AppState = {
   },
 };
 
-// ===== хелперы =====
 
 const clearPositionInterval = () => {
   if (positionInterval) {
@@ -107,7 +104,6 @@ const clearPositionInterval = () => {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// ===== стор =====
 
 export const useStore = create<AppState & {
   setSearchQuery: (query: string) => void;
@@ -156,12 +152,10 @@ export const useStore = create<AppState & {
     (set, get) => ({
       ...initialState,
 
-      // ===== навигация =====
 
       setSearchQuery: (query) => set((s) => ({ search: { ...s.search, query } })),
       setSearchFilter: (filter) => set((s) => ({ search: { ...s.search, filter } })),
 
-      // ===== главная =====
 
       setHomePagePopular: (tracks) => set((s) => ({ homePage: { ...s.homePage, popularTracks: tracks } })),
       setHomePageMyWave: (tracks) => set((s) => ({ homePage: { ...s.homePage, myWaveTracks: tracks } })),
@@ -200,11 +194,9 @@ export const useStore = create<AppState & {
       addHomePagePopularTracks: (tracks) =>
         set((s) => ({ homePage: { ...s.homePage, popularTracks: [...s.homePage.popularTracks, ...tracks] } })),
 
-      // ===== очередь =====
 
       addToQueue: (track) => set((s) => ({ queue: { ...s.queue, tracks: [...s.queue.tracks, track] } })),
 
-      // ===== плеер =====
 
       playTrack: async (track, tracks, index, source = 'queue') => {
         clearPositionInterval();
@@ -396,7 +388,6 @@ togglePlay: async () => {
       setShuffle: (shuffle) => set((s) => ({ player: { ...s.player, shuffle } })),
       setRepeat: (repeat) => set((s) => ({ player: { ...s.player, repeat } })),
 
-      // ===== библиотека =====
 
       addToFavorites: (track) =>
         set((s) => ({
@@ -466,12 +457,10 @@ togglePlay: async () => {
 
       setCurrentPlaylist: (playlist) => set((s) => ({ library: { ...s.library, currentPlaylist: playlist } })),
 
-      // ===== тосты =====
 
       showToast: (message, type) => set({ toast: { message, type } }),
       hideToast: () => set({ toast: null }),
 
-      // ===== подбор треков =====
 
       getUserTopArtists: (limit = 5) => {
         const { library } = get();
@@ -560,7 +549,6 @@ togglePlay: async () => {
             });
           }
         } catch {
-          // очередь не догрузилась, не критично
         } finally {
           set((s) => ({ preload: { ...s.preload, isPreloading: false } }));
         }
@@ -599,7 +587,6 @@ togglePlay: async () => {
   )
 );
 
-// ===== интервал позиции =====
 
 function startPositionLoop(isValid: () => boolean) {
   clearPositionInterval();
@@ -623,7 +610,6 @@ function startPositionLoop(isValid: () => boolean) {
 
       useStore.setState((s) => ({ player: { ...s.player, position: pos } }));
     } catch {
-      // позиция не пришла, не критично
     }
   }, 250);
 }

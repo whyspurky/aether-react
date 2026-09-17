@@ -37,7 +37,6 @@ impl Playback {
         if max.is_zero() { pos } else { pos.min(max) }
     }
 
-    // duration придет позже через set_track_duration
     pub fn start(&mut self, bytes: Bytes) {
         self.bytes = Some(bytes);
         self.base_offset = Duration::ZERO;
@@ -63,7 +62,6 @@ impl Playback {
         }
     }
 
-    // возвращает реально примененную позицию
     pub fn seek(&mut self, target: Duration) -> Duration {
         let max = Duration::from_millis(self.duration_ms as u64);
         let actual = if max.is_zero() { target } else { target.min(max) };
@@ -96,8 +94,6 @@ impl Playback {
     }
 }
 
-// порядок локов всегда: playback -> player
-// не бери player раньше playback
 pub struct AppState {
     pub player: Arc<Mutex<rodio::Player>>,
     pub playback: Arc<Mutex<Playback>>,
