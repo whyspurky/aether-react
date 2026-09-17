@@ -46,7 +46,6 @@ export function ArtistPage() {
   const handlePlayAll = () => {
     if (!tracks.length) return;
     playTrack(tracks[0], tracks, 0);
-    navigate('/player');
   };
 
   if (isLoading) {

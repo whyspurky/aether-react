@@ -129,6 +129,15 @@
     scrollbar-color: var(--text-tertiary) transparent;
   }
 
+  .playerbar-progress {
+  height: 2px;
+  transition: height 0.15s ease;
+  }
+  .playerbar-progress:hover,
+  .playerbar-progress.dragging {
+    height: 4px;
+  }
+
   .thin-scroll {
     scrollbar-width: thin;
     scrollbar-color: var(--border-visible) transparent;

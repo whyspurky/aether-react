@@ -6,10 +6,11 @@ import type { Track } from '../store/types';
 interface AnimatedTrackInfoProps {
   track: Track | null;
   className?: string;
+  onTitleClick?: () => void;
+  onArtistClick?: () => void;
 }
 
-export function AnimatedTrackInfo({ track, className = '' }: AnimatedTrackInfoProps) {
-  const [displayTrack, setDisplayTrack] = useState<Track | null>(track);
+export function AnimatedTrackInfo({ track, className = '', onTitleClick, onArtistClick }: AnimatedTrackInfoProps) {  const [displayTrack, setDisplayTrack] = useState<Track | null>(track);
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
@@ -50,10 +51,28 @@ export function AnimatedTrackInfo({ track, className = '' }: AnimatedTrackInfoPr
         }`}
       >
         <h4 className="text-sm font-medium text-text-primary truncate">
-          {displayTrack.title || 'без названия'}
+          {onTitleClick ? (
+            <span
+              onClick={onTitleClick}
+              className="cursor-pointer hover:text-text-secondary transition-colors"
+            >
+              {displayTrack.title || 'без названия'}
+            </span>
+          ) : (
+            displayTrack.title || 'без названия'
+          )}
         </h4>
         <p className="text-xs text-text-tertiary truncate">
-          {displayTrack.user?.username || ''}
+          {onArtistClick && displayTrack.user?.id ? (
+            <span
+              onClick={onArtistClick}
+              className="cursor-pointer hover:text-text-secondary transition-colors"
+            >
+              {displayTrack.user.username}
+            </span>
+          ) : (
+            displayTrack.user?.username || ''
+          )}
         </p>
       </div>
     </div>

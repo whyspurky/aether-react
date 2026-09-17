@@ -1,34 +1,42 @@
+import { useNavigate } from 'react-router-dom';
 import { Icon } from './Icon';
 import { useStore } from '../store/store';
 import type { Track } from '../store/types';
 import { formatMs } from '../lib/format';
-import { useNavigate } from 'react-router-dom';
-
 
 interface TrackCardProps {
   track: Track;
   index?: number;
+  tracks?: Track[];
 }
 
-export function TrackCard({ track, index = 0 }: TrackCardProps) {
+export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
+  const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
   const showToast = useStore((s) => s.showToast);
-  const navigate = useNavigate();
+
   const coverUrl =
     track.artwork_url?.replace('-large', '-t500x500') ||
     track.user?.avatar_url?.replace('-large', '-t500x500') ||
     null;
 
   const handlePlay = async () => {
-    await playTrack(track, [track], 0, 'trackcard');
-    navigate('/player');
+    const list = tracks ?? [track];
+    const i = tracks ? index : 0;
+    await playTrack(track, list.slice(i), 0, 'trackcard');
   };
 
   const handleAddToQueue = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToQueue(track);
     showToast('добавлено в очередь', 'success');
+  };
+
+  const handleArtistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();  
+    const id = track.user?.id;
+    if (id) navigate(`/artist/${id}`);
   };
 
   return (
@@ -55,7 +63,18 @@ export function TrackCard({ track, index = 0 }: TrackCardProps) {
         <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-text-secondary transition-colors duration-200">
           {track.title || 'без названия'}
         </h4>
-        <p className="text-xs text-text-tertiary truncate">{track.user?.username || ''}</p>
+        <p className="text-xs text-text-tertiary truncate">
+          {track.user?.id ? (
+            <span
+              onClick={handleArtistClick}
+              className="cursor-pointer hover:text-text-secondary transition-colors"
+            >
+              {track.user.username}
+            </span>
+          ) : (
+            track.user?.username || ''
+          )}
+        </p>
         <div className="flex items-center justify-between mt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
           <span className="text-xs text-text-tertiary">{formatMs(track.duration || 0)}</span>
           <button

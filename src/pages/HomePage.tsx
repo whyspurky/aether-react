@@ -5,6 +5,7 @@ import { HorizontalScroll } from '../components/HorizontalScroll';
 import { api } from '../lib/api';
 import { useStore } from '../store/store';
 import { formatMs } from '../lib/format';
+import { useNavigate } from 'react-router-dom';
 import type { Track } from '../store/types';
 
 export default function HomePage() {
@@ -147,7 +148,7 @@ export default function HomePage() {
         ) : myWaveTracks.length ? (
           <div className="space-y-1">
             {myWaveTracks.map((track) => (
-              <MyWaveTrackItem key={track.id} track={track} />
+              <MyWaveTrackItem key={track.id} track={track} tracks={myWaveTracks} />
             ))}
           </div>
         ) : (
@@ -187,7 +188,7 @@ export default function HomePage() {
               <HorizontalScroll ref={scrollRef} gap={12} style={{ minHeight: '280px' }}>
                 {popularTracks.map((track, i) => (
                   <div key={`${track.id}-${i}`} className="animate-fade-in-scale">
-                    <TrackCard track={track} index={i} />
+                    <TrackCard track={track} index={i} tracks={popularTracks} />
                   </div>
                 ))}
                 {isLoadingMore && (
@@ -216,17 +217,27 @@ export default function HomePage() {
   );
 }
 
-function MyWaveTrackItem({ track }: { track: Track }) {
+function MyWaveTrackItem({ track, tracks }: { track: Track; tracks: Track[] }) {
+  const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
+
+  const index = tracks.findIndex((t) => t.id === track.id);
+  const queue = tracks.slice(index >= 0 ? index : 0);
 
   const coverUrl =
     track.artwork_url?.replace('-large', '-t300x300') ||
     track.user?.avatar_url?.replace('-large', '-t300x300') ||
     null;
 
+  const handleArtistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = track.user?.id;
+    if (id) navigate(`/artist/${id}`);
+  };
+
   return (
     <div
-      onClick={() => playTrack(track, [track], 0, 'Моя Волна')}
+      onClick={() => playTrack(track, queue, 0, 'Моя Волна')}
       className="group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-bg-secondary active:scale-[0.98]"
     >
       {coverUrl ? (
@@ -245,7 +256,18 @@ function MyWaveTrackItem({ track }: { track: Track }) {
         <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-text-secondary transition-colors duration-200">
           {track.title || 'без названия'}
         </h4>
-        <p className="text-xs text-text-tertiary truncate">{track.user?.username || ''}</p>
+        <p className="text-xs text-text-tertiary truncate">
+          {track.user?.id ? (
+            <span
+              onClick={handleArtistClick}
+              className="cursor-pointer hover:text-text-secondary transition-colors"
+            >
+              {track.user.username}
+            </span>
+          ) : (
+            track.user?.username || ''
+          )}
+        </p>
       </div>
 
       <span className="text-xs text-text-tertiary tabular-nums opacity-0 group-hover:opacity-100 transition-opacity duration-200">

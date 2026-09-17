@@ -140,13 +140,11 @@ export default function SearchPage() {
       return;
     }
     await playTrack(track, queue, 0, ` ${debouncedQuery}`);
-    navigate('/player');
   }, [tracks, playTrack, navigate, showToast, debouncedQuery]);
 
   const handlePlayAll = useCallback(async () => {
     if (!tracks.length) return;
     await playTrack(tracks[0], tracks, 0, ` ${debouncedQuery} (все)`);
-    navigate('/player');
   }, [tracks, playTrack, navigate, debouncedQuery]);
 
   const handleAddToQueue = useCallback((track: Track, e: React.MouseEvent) => {

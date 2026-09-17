@@ -4,6 +4,7 @@ import { useStore } from '../store/store';
 import { api } from '../lib/api';
 import { formatSec } from '../lib/format';
 import { TrackList } from '../components/TrackList';
+import { useNavigate } from 'react-router-dom';
 
 function throttle<T extends (...args: any[]) => void>(fn: T, delay: number): T {
   let last = 0;
@@ -26,6 +27,7 @@ export default function PlayerPage() {
   const setRepeat = useStore((s) => s.setRepeat);
   const setVolume = useStore((s) => s.setVolume);
   const setPosition = useStore((s) => s.setPosition);
+  const navigate = useNavigate();
 
   const { currentTrack, isPlaying, volume, shuffle, repeat, position, duration, isLoading, isAudioReady } = player;
 
@@ -410,7 +412,16 @@ export default function PlayerPage() {
                 }`}
                 style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.2rem)', wordBreak: 'break-word' }}
               >
-                {displayTrack?.user?.username || currentTrack.user?.username || ''}
+                {currentTrack?.user?.id ? (
+                  <span
+                    onClick={() => navigate(`/artist/${currentTrack.user!.id}`)}
+                    className="cursor-pointer hover:text-text-primary transition-colors"
+                  >
+                    {displayTrack?.user?.username || currentTrack.user.username || ''}
+                  </span>
+                ) : (
+                  displayTrack?.user?.username || currentTrack.user?.username || ''
+                )}
               </p>
             </div>
 
