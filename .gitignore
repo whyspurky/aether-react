@@ -1,43 +1,34 @@
-# dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# build
 dist/
 dist-ssr/
 *.local
 
-# rust / tauri
 src-tauri/target/
 src-tauri/gen/android/app/build/
 src-tauri/gen/android/build/
 src-tauri/gen/android/.gradle/
 
-# env
 .env
 .env.local
 .env.*.local
 
-# ide
 .vscode/*
 !.vscode/extensions.json
 .idea/
 *.swp
 *.swo
 
-# logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# os
 .DS_Store
 
-# docs — private не публикуется
 docs/private/
 
-# временные файлы
 trees/
 *.log
