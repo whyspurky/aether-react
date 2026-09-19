@@ -12,9 +12,9 @@
 
 ### стек
 
-**frontend** — react 18 + typescript + tailwind css + zustand
-**backend** — tauri 2 (rust) + rodio + reqwest
-**сборка** — vite 5 
+**frontend** - react 18 + typescript + tailwind css + zustand
+**backend** - tauri 2 (rust) + rodio + reqwest
+**сборка** - vite 5 
 
 ---
 
@@ -26,13 +26,13 @@
 
 ### сообщество
 
-телеграм-канал с обновлениями и поддержкой — [**t.me/aether_player**](https://t.me/aether_player)
+телеграм-канал с обновлениями и поддержкой - [**t.me/aether_player**](https://t.me/aether_player)
 
 ---
 
 ## документация
 
-подробнее — в [docs/public/](./docs/public/).
+подробнее - в [docs/public/](./docs/public/).
 
 ---
 

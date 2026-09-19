@@ -548,7 +548,7 @@ export default function PlayerPage() {
           <div className="mt-3 flex-1 min-h-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-text-tertiary uppercase tracking-wider">
-                ОЧЕРЕДЬ — {queue.tracks.length} ТРЕКОВ
+                ОЧЕРЕДЬ - {queue.tracks.length} ТРЕКОВ
               </h3>
             </div>
             <div ref={queueScrollRef} className="h-full max-h-[calc(50vh-41.6px)] overflow-y-auto scrollbar-thin">

@@ -94,7 +94,7 @@ pub fn http() -> reqwest::Client {
 pub fn apply_proxy(proxy: Option<ProxyConfig>) -> Result<(), String> {
     if let Some(p) = &proxy {
         if p.host.contains(':') {
-            return Err("хост не должен содержать ':' — введи порт отдельно".into());
+            return Err("хост не должен содержать ':' - введи порт отдельно".into());
         }
         if p.host.is_empty() {
             return Err("хост пустой".into());

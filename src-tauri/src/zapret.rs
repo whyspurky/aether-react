@@ -148,7 +148,7 @@ pub async fn zapret_start() -> Result<(), String> {
         return run_as_admin("net", &["start", &name]);
     }
 
-    Err("служба zapret не найдена — запусти bat-файл или установи через service.bat".into())
+    Err("служба zapret не найдена - запусти bat-файл или установи через service.bat".into())
 }
 
 #[tauri::command]

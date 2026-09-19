@@ -188,7 +188,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3 mt-1">
                     <div className="w-2 h-2 rounded-full bg-text-secondary" />
                     <p className="text-sm text-text-secondary">
-                      AMOLED — максимально черный фон, серый акцент
+                      AMOLED - максимально черный фон, серый акцент
                     </p>
                   </div>
                 </div>
