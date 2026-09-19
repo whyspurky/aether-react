@@ -1,6 +1,6 @@
 // api.rs
 use std::time::Duration;
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
 use std::collections::HashSet;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use serde_json::{json, Value};
@@ -41,16 +41,103 @@ impl std::fmt::Display for ApiError {
     }
 }
 
-pub fn http() -> &'static reqwest::Client {
-    static C: OnceLock<reqwest::Client> = OnceLock::new();
-    C.get_or_init(|| reqwest::Client::builder()
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ProxyConfig {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+}
+
+static CLIENT: OnceLock<RwLock<reqwest::Client>> = OnceLock::new();
+static PROXY: OnceLock<RwLock<Option<ProxyConfig>>> = OnceLock::new();
+
+fn build_client(proxy: Option<&ProxyConfig>) -> reqwest::Client {
+    let mut builder = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(10))
         .gzip(true)
-        .pool_max_idle_per_host(20)
-        .build()
-        .unwrap())
+        .pool_max_idle_per_host(20);
+
+    if let Some(p) = proxy {
+        if !p.host.is_empty() && p.port > 0 {
+            let scheme = match p.kind.as_str() {
+                "socks5" => "socks5h",
+                "http" => "http",
+                "https" => "https",
+                _ => "socks5h",
+            };
+            let url = if p.username.is_empty() {
+                format!("{}://{}:{}", scheme, p.host, p.port)
+            } else {
+                format!("{}://{}:{}@{}:{}", scheme, p.username, p.password, p.host, p.port)
+            };
+            if let Ok(proxy) = reqwest::Proxy::all(&url) {
+                println!("[proxy] применяю {}", url);
+                builder = builder.proxy(proxy);
+            }
+        }
+    }
+
+    builder.build().unwrap()
 }
+
+pub fn http() -> reqwest::Client {
+    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None)));
+    lock.read().unwrap().clone()
+}
+
+pub fn apply_proxy(proxy: Option<ProxyConfig>) -> Result<(), String> {
+    if let Some(p) = &proxy {
+        if p.host.contains(':') {
+            return Err("хост не должен содержать ':' — введи порт отдельно".into());
+        }
+        if p.host.is_empty() {
+            return Err("хост пустой".into());
+        }
+        if p.port == 0 {
+            return Err("порт не указан".into());
+        }
+        if !matches!(p.kind.as_str(), "socks5" | "http" | "https") {
+            return Err(format!("неизвестный тип прокси: {}", p.kind));
+        }
+    }
+
+    let client = build_client(proxy.as_ref());
+    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None)));
+    *lock.write().unwrap() = client;
+
+    let proxy_lock = PROXY.get_or_init(|| RwLock::new(None));
+    *proxy_lock.write().unwrap() = proxy;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn proxy_set_custom(
+    kind: String,
+    host: String,
+    port: u16,
+    username: String,
+    password: String,
+) -> Result<(), String> {
+    apply_proxy(Some(ProxyConfig { kind, host, port, username, password }))
+}
+
+#[tauri::command]
+pub async fn proxy_clear() -> Result<(), String> {
+    apply_proxy(None)
+}
+
+#[tauri::command]
+pub async fn proxy_get_status() -> Result<Option<ProxyConfig>, String> {
+    let lock = PROXY.get_or_init(|| RwLock::new(None));
+    Ok(lock.read().unwrap().clone())
+}
+
 
 fn truncate(s: &str, max: usize) -> &str {
     if s.len() <= max { return s; }
@@ -72,6 +159,7 @@ fn with_auth(url: &str, auth: &str) -> String {
     }
     u
 }
+
 
 async fn fetch_json_inner(url: &str, validate_ct: bool) -> Result<Value, ApiError> {
     let resp = http().get(url)
@@ -162,20 +250,21 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
         }
     }
 
-    println!("[api] форматов progressive={} hls={}", progressive.len(), hls.len());
-
     for t in progressive {
         let u = match t.get("url").and_then(|u| u.as_str()) {
             Some(u) => u,
             None => continue,
         };
-        let s = match fetch_json_retry(&with_auth(u, auth)).await {
-            Ok(s) => s,
-            Err(e) => {
-                println!("[api] progressive не сработал: {}", e);
-                continue;
-            }
+        let url_with_auth = with_auth(u, auth);
+        let s = match tokio::time::timeout(
+            Duration::from_secs(8),
+            fetch_json_retry(&url_with_auth),
+        ).await {
+            Ok(Ok(s)) => s,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
         };
+
         if let Some(su) = s.get("url").and_then(|u| u.as_str()) {
             if !su.contains(".m3u8") {
                 return Ok(su.to_string());
@@ -188,12 +277,14 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
             Some(u) => u,
             None => continue,
         };
-        let info = match fetch_json_retry(&with_auth(u, auth)).await {
-            Ok(i) => i,
-            Err(e) => {
-                println!("[api] hls не сработал: {}", e);
-                continue;
-            }
+        let url_with_auth = with_auth(u, auth);
+        let info = match tokio::time::timeout(
+            Duration::from_secs(8),
+            fetch_json_retry(&url_with_auth),
+        ).await {
+            Ok(Ok(i)) => i,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
         };
 
         let pl = info.get("url")
@@ -208,6 +299,7 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
 
     Err(ApiError::Other("нет форматов для трека".into()))
 }
+
 
 fn is_master_playlist(text: &str) -> bool {
     text.contains("#EXT-X-STREAM-INF")
@@ -258,15 +350,24 @@ async fn fetch_segment(url: &str, idx: usize) -> Result<bytes::Bytes, ApiError> 
     let mut delay = Duration::from_millis(300);
 
     for attempt in 0..3 {
-        let resp = match http().get(url).send().await {
-            Ok(r) => r,
-            Err(e) => {
+        let req_fut = http().get(url).send();
+        let resp = match tokio::time::timeout(Duration::from_secs(15), req_fut).await {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => {
                 if attempt < 2 {
                     tokio::time::sleep(delay).await;
                     delay *= 2;
                     continue;
                 }
                 return Err(ApiError::Network(format!("сегмент {} {}", idx, e)));
+            }
+            Err(_) => {
+                if attempt < 2 {
+                    tokio::time::sleep(delay).await;
+                    delay *= 2;
+                    continue;
+                }
+                return Err(ApiError::Network(format!("сегмент {} timeout", idx)));
             }
         };
 
@@ -295,8 +396,12 @@ async fn fetch_segment(url: &str, idx: usize) -> Result<bytes::Bytes, ApiError> 
             return Err(ApiError::Other(format!("сегмент {} не аудио: {}", idx, ct)));
         }
 
-        return resp.bytes().await
-            .map_err(|e| ApiError::Network(format!("сегмент {} {}", idx, e)));
+        let bytes_fut = resp.bytes();
+        return match tokio::time::timeout(Duration::from_secs(15), bytes_fut).await {
+            Ok(Ok(b)) => Ok(b),
+            Ok(Err(e)) => Err(ApiError::Network(format!("сегмент {} {}", idx, e))),
+            Err(_) => Err(ApiError::Network(format!("сегмент {} read timeout", idx))),
+        };
     }
 
     Err(ApiError::Other(format!("сегмент {} не скачался", idx)))
@@ -346,8 +451,6 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
         return Err(ApiError::Other("нет сегментов в hls".into()));
     }
 
-    println!("[api] hls {} сегментов", segments.len());
-
     let estimate = (segments.len() * 32 * 1024).min(MAX_HLS_BYTES);
     let mut buf = Vec::with_capacity(estimate);
 
@@ -362,7 +465,6 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
         buf.extend_from_slice(&chunk);
     }
 
-    println!("[api] hls готово {} байт", buf.len());
     Ok(buf)
 }
 
@@ -415,11 +517,9 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
 
     while let Some(url) = next.take() {
         if !seen_urls.insert(url.clone()) {
-            println!("[api] next_href зациклился, стоп");
             break;
         }
         if seen_urls.len() > 100 {
-            println!("[api] слишком много страниц плейлиста, стоп");
             break;
         }
 
@@ -520,13 +620,7 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
         .await;
 
     let mut buckets: Vec<VecDeque<Value>> = results.into_iter()
-        .filter_map(|r| match r {
-            Ok(v) => Some(v),
-            Err(e) => {
-                eprintln!("[wave] артист упал: {}", e);
-                None
-            }
-        })
+        .filter_map(|r| r.ok())
         .filter_map(|data| data["collection"].as_array().cloned())
         .map(|v| v.into_iter().collect())
         .collect();
@@ -582,8 +676,6 @@ pub async fn download_hls_track(playlist_url: &str) -> Result<Vec<u8>, String> {
 
 #[tauri::command]
 pub async fn get_stream_url(track_id: String) -> Result<String, String> {
-    println!("[api] стрим для {}", track_id);
-
     let data = get_track(&track_id).await.map_err(|e| e.to_string())?;
 
     if let Some(first) = data.get("errors").and_then(|e| e.as_array()).and_then(|a| a.first()) {
@@ -595,4 +687,73 @@ pub async fn get_stream_url(track_id: String) -> Result<String, String> {
     }
 
     resolve_stream(&data).await.map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+pub struct ApiTestResult {
+    pub ok: bool,
+    pub status: u16,
+    pub time_ms: u64,
+    pub error: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct CdnTestResult {
+    pub ok: bool,
+    pub status: u16,
+    pub time_ms: u64,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn proxy_test_api() -> Result<ApiTestResult, String> {
+    let start = std::time::Instant::now();
+
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        http().get("https://api-v2.soundcloud.com").send(),
+    ).await;
+
+    let (ok, status, error) = match result {
+        Ok(Ok(r)) => {
+            let st = r.status().as_u16();
+            (true, st, None)
+        }
+        Ok(Err(e)) => (false, 0, Some(e.to_string())),
+        Err(_) => (false, 0, Some("timeout".into())),
+    };
+
+    Ok(ApiTestResult {
+        ok,
+        status,
+        time_ms: start.elapsed().as_millis() as u64,
+        error,
+    })
+}
+
+#[tauri::command]
+pub async fn proxy_test_cdn() -> Result<CdnTestResult, String> {
+    let start = std::time::Instant::now();
+
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        http().head("https://cf-media.sndcdn.com").send(),
+    ).await;
+
+    let (ok, status, error) = match result {
+        Ok(Ok(r)) => {
+            let st = r.status().as_u16();
+            let ok = st == 403 || st == 200 || st == 404;
+            (ok, st, None)
+        }
+        Ok(Err(e)) => (false, 0, Some(e.to_string())),
+        Err(_) => (false, 0, Some("timeout".into())),
+    };
+
+    Ok(CdnTestResult {
+        ok,
+        status,
+        time_ms: start.elapsed().as_millis() as u64,
+        error,
+    })
 }

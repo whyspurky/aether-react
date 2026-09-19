@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '../lib/api';
-import type { Track, Playlist} from './types';
+import type { Track, Playlist, ProxyMode, CustomProxyConfig } from './types';
 
 let positionInterval: ReturnType<typeof setInterval> | null = null;
 let isTrackEnding = false;
@@ -19,6 +19,15 @@ interface AppState {
     currentIndex: number;
     source: string;
   };
+  proxy: {
+  mode: ProxyMode;
+  custom: CustomProxyConfig;
+zapret: {
+  status: 'unknown' | 'running' | 'stopped' | 'not_installed';
+  batPath: string; 
+  folder: string; 
+},
+};
   homePage: {
     popularTracks: Track[];
     myWaveTracks: Track[];
@@ -62,6 +71,21 @@ const initialState: AppState = {
     currentIndex: -1,
     source: '',
   },
+  proxy: {
+  mode: 'off',
+  custom: {
+    type: 'socks5',
+    host: '127.0.0.1',
+    port: 1080,
+    username: '',
+    password: '',
+  },
+zapret: {
+  status: 'unknown',
+  batPath: '',
+  folder: '',
+},
+},
   homePage: {
     popularTracks: [],
     myWaveTracks: [],
@@ -108,7 +132,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export const useStore = create<AppState & {
   setSearchQuery: (query: string) => void;
   setSearchFilter: (filter: 'tracks' | 'playlists' | 'artists') => void;
-
+  setZapretFolder: (folder: string) => void;
   setHomePagePopular: (tracks: Track[]) => void;
   setHomePageMyWave: (tracks: Track[]) => void;
   setHomePageLoadingPopular: (loading: boolean) => void;
@@ -117,6 +141,10 @@ export const useStore = create<AppState & {
   setHomePageMyWaveLoaded: (loaded: boolean) => void;
   addHomePagePopularTracks: (tracks: Track[]) => void;
 
+setProxyMode: (mode: ProxyMode) => void;
+setCustomProxy: (config: Partial<CustomProxyConfig>) => void;
+setZapretStatus: (status: 'unknown' | 'running' | 'stopped' | 'not_installed') => void;
+setZapretBatPath: (path: string) => void;
   addToQueue: (track: Track) => void;
   playTrack: (track: Track, tracks: Track[], index: number, source?: string) => Promise<void>;
   nextTrack: () => Promise<void>;
@@ -157,6 +185,19 @@ export const useStore = create<AppState & {
       setSearchFilter: (filter) => set((s) => ({ search: { ...s.search, filter } })),
 
 
+setProxyMode: (mode) => set((s) => ({ proxy: { ...s.proxy, mode } })),
+
+setCustomProxy: (config) =>
+  set((s) => ({ proxy: { ...s.proxy, custom: { ...s.proxy.custom, ...config } } })),
+
+setZapretFolder: (folder) =>
+  set((s) => ({ proxy: { ...s.proxy, zapret: { ...s.proxy.zapret, folder } } })),
+
+setZapretStatus: (status) =>
+  set((s) => ({ proxy: { ...s.proxy, zapret: { ...s.proxy.zapret, status } } })),
+
+setZapretBatPath: (path) =>
+  set((s) => ({ proxy: { ...s.proxy, zapret: { ...s.proxy.zapret, batPath: path } } })),
       setHomePagePopular: (tracks) => set((s) => ({ homePage: { ...s.homePage, popularTracks: tracks } })),
       setHomePageMyWave: (tracks) => set((s) => ({ homePage: { ...s.homePage, myWaveTracks: tracks } })),
       setHomePageLoadingPopular: (loading) => set((s) => ({ homePage: { ...s.homePage, isLoadingPopular: loading } })),
@@ -555,8 +596,34 @@ togglePlay: async () => {
       },
     }),
 
-    {
-      name: 'aether-storage',
+{
+  name: 'aether-storage',
+  version: 2,
+  migrate: (persisted: any, version) => {
+    if (version < 2) {
+      if (!persisted.proxy) {
+        persisted.proxy = {
+          mode: 'off',
+          custom: { type: 'socks5', host: '127.0.0.1', port: 1080, username: '', password: '' },
+          zapret: { status: 'unknown', batPath: '' },
+        };
+      } else {
+        if (!persisted.proxy.zapret || 'path' in (persisted.proxy.zapret || {})) {
+          persisted.proxy.zapret = {
+            status: 'unknown',
+            batPath: persisted.proxy.zapret?.path || '',
+          };
+        }
+        if (!persisted.proxy.custom) {
+          persisted.proxy.custom = { type: 'socks5', host: '127.0.0.1', port: 1080, username: '', password: '' };
+        }
+        if (!persisted.proxy.mode) {
+          persisted.proxy.mode = 'off';
+        }
+      }
+    }
+    return persisted;
+  },
       partialize: (s) => ({
         library: {
           favorites: s.library.favorites,
@@ -570,6 +637,14 @@ togglePlay: async () => {
           currentTrack: s.player.currentTrack,
           position: s.player.position,
         },
+proxy: {
+  mode: s.proxy.mode,
+  custom: s.proxy.custom,
+zapret: {
+  batPath: s.proxy.zapret.batPath,
+  folder: s.proxy.zapret.folder,
+},
+},
         queue: {
           tracks: s.queue.tracks.map((t) => ({
             id: t.id,

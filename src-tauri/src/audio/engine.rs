@@ -9,21 +9,41 @@ use rodio::Source;
 
 
 pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), String> {
+    println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
+
     let bytes = if url.contains(".m3u8") || url.contains("/hls/") {
         println!("[engine] качаем hls полностью");
-        Bytes::from(crate::api::download_hls_track(&url).await?)
+        let start = std::time::Instant::now();
+        let r = Bytes::from(crate::api::download_hls_track(&url).await?);
+        println!("[engine] hls готово {} байт за {:?}", r.len(), start.elapsed());
+        r
     } else {
+        println!("[engine] качаем progressive");
+        let start = std::time::Instant::now();
+
         let resp = http().get(&url).send().await
-            .map_err(|e| format!("http error {}", e))?;
+            .map_err(|e| {
+                println!("[engine] http error: {} ({:?})", e, start.elapsed());
+                format!("http error {}", e)
+            })?;
+
+        println!("[engine] status={} ({:?})", resp.status(), start.elapsed());
 
         if !resp.status().is_success() {
             return Err(format!("http {}", resp.status()));
         }
 
-        resp.bytes().await
-            .map_err(|e| format!("failed to get bytes {}", e))?
+        let bytes = resp.bytes().await
+            .map_err(|e| {
+                println!("[engine] bytes error: {} ({:?})", e, start.elapsed());
+                format!("failed to get bytes {}", e)
+            })?;
+
+        println!("[engine] получено {} байт за {:?}", bytes.len(), start.elapsed());
+        bytes
     };
 
+    println!("[engine] создаём decoder");
     let cursor = std::io::Cursor::new(bytes.clone());
     let source = rodio::Decoder::new(cursor)
         .map_err(|e| format!("decoding error {}", e))?;
@@ -43,6 +63,7 @@ pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), S
     }
 
     state.playback.lock().unwrap().start(bytes);
+    println!("[engine] play_async OK");
 
     Ok(())
 }

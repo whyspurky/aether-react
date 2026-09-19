@@ -11,7 +11,7 @@ export interface Track {
   id: number;
   title: string;
   permalink_url: string;
-  duration: number; // мс
+  duration: number;
   artwork_url?: string;
   user?: User;
   streamable?: boolean;
@@ -25,4 +25,16 @@ export interface Playlist {
   tracks: Track[];
   artwork_url?: string;
   createdAt?: number;
+}
+
+export type ProxyMode = 'off' | 'builtin' | 'custom' | 'zapret';
+
+export type CustomProxyType = 'socks5' | 'http' | 'https';
+
+export interface CustomProxyConfig {
+  type: CustomProxyType;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
 }

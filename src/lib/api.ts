@@ -8,6 +8,36 @@ const CACHE_TTL = 5 * 60 * 1000;
 
 export const api = {
 
+proxySetCustom: async (config: {
+  kind: 'socks5' | 'http' | 'https';
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+}): Promise<void> => {
+  await invoke('proxy_set_custom', {
+    kind: config.kind,
+    host: config.host,
+    port: config.port,
+    username: config.username,
+    password: config.password,
+  });
+},
+
+proxyClear: async (): Promise<void> => {
+  await invoke('proxy_clear');
+},
+
+proxyGetStatus: async (): Promise<null | {
+  kind: string;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+}> => {
+  return await invoke('proxy_get_status');
+},
+
   searchTracks: async (query: string, limit = 20, offset = 0): Promise<Track[]> => {
     if (!query || !query.trim()) return [];
     try {
@@ -17,6 +47,74 @@ export const api = {
       return [];
     }
   },
+
+zapretStatus: async (): Promise<'running' | 'stopped' | 'not_installed'> => {
+  return await invoke('zapret_status');
+},
+
+zapretStart: async (): Promise<void> => {
+  await invoke('zapret_start');
+},
+
+zapretStop: async (): Promise<void> => {
+  await invoke('zapret_stop');
+},
+
+zapretRunBat: async (batPath: string): Promise<void> => {
+  await invoke('zapret_run_bat', { batPath });
+},
+
+zapretProcessRunning: async (): Promise<boolean> => {
+  return await invoke('zapret_process_running');
+},
+
+proxyTestApi: async (): Promise<{
+  ok: boolean;
+  status: number;
+  time_ms: number;
+  error: string | null;
+}> => {
+  return await invoke('proxy_test_api');
+},
+
+proxyTestCdn: async (): Promise<{
+  ok: boolean;
+  status: number;
+  time_ms: number;
+  error: string | null;
+}> => {
+  return await invoke('proxy_test_cdn');
+},
+
+zapretDownload: async (): Promise<string> => {
+  return await invoke('zapret_download');
+},
+
+zapretOpenFolder: async (path: string): Promise<void> => {
+  await invoke('zapret_open_folder', { path });
+},
+
+zapretOpenFile: async (path: string): Promise<void> => {
+  await invoke('zapret_open_file', { path });
+},
+
+zapretScanStrategies: async (folder: string): Promise<{ filename: string; path: string }[]> => {
+  return await invoke('zapret_scan_strategies', { folder });
+},
+
+zapretCheckLists: async (folder: string): Promise<{
+  file: string;
+  exists: boolean;
+  has_sndcdn: boolean;
+  has_soundcloud: boolean;
+  sndcdn_lines: string[];
+}[]> => {
+  return await invoke('zapret_check_lists', { folder });
+},
+
+zapretAddSoundcloudDomains: async (folder: string): Promise<void> => {
+  await invoke('zapret_add_soundcloud_domains', { folder });
+},
 
   searchUsers: async (query: string, offset = 0, limit = 50): Promise<User[]> => {
     try {

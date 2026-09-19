@@ -3,14 +3,18 @@
 mod api;
 mod audio;
 mod shortcuts;
+mod zapret;
 
 use audio::AppState;
 use tauri::Manager;
+
+
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(AppState::new());
 
@@ -24,11 +28,24 @@ pub fn run() {
             api::search_tracks, api::search_playlists, api::get_user_tracks,
             api::get_playlist_tracks, api::get_popular, api::get_my_wave,
             api::fetch_url, api::get_stream_url, api::download_hls_track,
+            api::proxy_set_custom, api::proxy_clear, api::proxy_get_status, api::proxy_test_api, api::proxy_test_cdn,
             audio::play_audio, audio::pause_audio, audio::resume_audio,
             audio::stop_audio, audio::mute_audio, audio::unmute_audio,
             audio::set_volume, audio::set_track_duration, audio::get_position,
             audio::seek_audio,
-        ])
+            zapret::zapret_status,
+            zapret::zapret_start,
+            zapret::zapret_stop,
+            zapret::zapret_run_bat,
+            zapret::zapret_process_running,
+            zapret::zapret_open_folder,
+            zapret::zapret_open_file,
+            zapret::zapret_scan_strategies,
+            zapret::zapret_check_lists,
+            zapret::zapret_add_soundcloud_domains,
+            zapret::zapret_download,
+
+            ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
