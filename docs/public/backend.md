@@ -6,15 +6,15 @@ rust-сторона приложения: http-запросы, воспроиз�
 
 ```
 src-tauri/src/
-├── main.rs        # точка входа
-├── lib.rs         # регистрация команд и плагинов
-├── api.rs         # soundcloud api + hls
-├── zapret.rs      # управление zapret
-├── shortcuts.rs   # медиа-клавиши
-└── audio/
-    ├── mod.rs     # tauri-команды для плеера
-    ├── engine.rs  # воспроизведение
-    └── state.rs   # состояние плеера
+- main.rs        # точка входа
+- lib.rs         # регистрация команд и плагинов
+- api.rs         # soundcloud api + hls
+- zapret.rs      # управление zapret
+- shortcuts.rs   # медиа-клавиши
+- audio/
+    - mod.rs     # tauri-команды для плеера
+    - engine.rs  # воспроизведение
+    - state.rs   # состояние плеера
 ```
 
 ## main.rs
@@ -112,7 +112,7 @@ soundcloud отдаёт треки **двумя** способами:
 - api - `true` если запрос прошёл (любой статус, даже 404 - сервер ответил)
 - cdn - `true` если `403`, `404` или `200` - соединение установлено
 
-**`✕` только если** - `timeout` или `connect error`.
+**`X` только если** - `timeout` или `connect error`.
 
 ### прокси
 
@@ -178,14 +178,14 @@ soundcloud отдаёт треки **двумя** способами:
 
 **`AppState`** - контейнер с **лок-обёртками**: `player` (rodio) + `playback`. создаётся **один раз** при старте приложения.
 
-**правило локов:** всегда **`playback` → `player`**, не наоборот. нарушение → **дедлок**.
+**правило локов:** всегда **`playback` - `player`**, не наоборот. нарушение - **дедлок**.
 
 ### engine.rs
 
 **`play_async`** - загрузка + старт:
 - если url hls - качает **целиком** через `download_hls_track`
 - если progressive - **прямой GET**
-- `rodio::Decoder` → `player.append` → `player.play`
+- `rodio::Decoder` - `player.append` - `player.play`
 - обновляет `Playback` (`start`)
 
 **`pause` / `resume` / `stop`** - прокси к `player` + `playback`.
@@ -237,6 +237,6 @@ get_position, seek_audio, set_track_duration
 
 - `identifier` - `com.aether.desktop`
 - `productName` - `aether`
-- окно 1200×800, `decorations: false` (свой titlebar), `dragDropEnabled: false`
+- окно 1200*800, `decorations: false` (свой titlebar), `dragDropEnabled: false`
 - CSP разрешает `tauri:`, `asset:`, `https:`, `unsafe-inline`, `unsafe-eval`
 - `bundle.icon` - `32x32.png`, `128x128.png`, `icon.ico`

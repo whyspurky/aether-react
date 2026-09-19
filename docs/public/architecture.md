@@ -4,25 +4,25 @@
 
 ## что такое tauri
 
-tauri - фреймворк для десктопных приложений. в отличие от electron, **системный webview**
+tauri - фреймворк для десктопных приложений
 
 **структура tauri-приложения:**
 
 ```
-┌─────────────────────────────────────────┐
+-------------------------------------------
 │             aether.exe                  │
 │                                         │
-│  ┌──────────────┐    ┌───────────────┐  │
-│  │   webview    │◄──►│    rust       │  │
+│  ________________    _________________  |
+│  │   webview    │----│    rust       │  │
 │  │  (react/ui)  │    │  (backend)    │  │
-│  └──────────────┘    └───────────────┘  │
-│         ▲                    ▲          │
+│  │==============|----|===============|  |
+│         W                    W          │
 │         │                    │          │
 │         │  invoke()          │ http()   │
 │         │                    │          │
-└─────────┼────────────────────┼──────────┘
+-------------------------------------------
           │                    │
-          │                    ▼
+          │                    |
        юзер              soundcloud api
 ```
 
@@ -45,37 +45,37 @@ tauri - фреймворк для десктопных приложений. в 
 ```
 1. юзер кликает трек в SearchPage
        │
-       ▼
-2. SearchPage → playTrack(track, tracks, index)
+       |
+2. SearchPage - playTrack(track, tracks, index)
        │
-       ▼
-3. store.ts → playTrack
+       |
+3. store.ts - playTrack
        │
-       ├──► api.getStreamUrl(track.id)
+       - api.getStreamUrl(track.id)
        │         │
-       │         ▼
-       │    rust → soundcloud
+       │         |
+       │    rust - soundcloud
        │    получает metadata + media.transcodings
        │    выбирает формат (progressive или hls)
        │    возвращает финальный url
        │         │
-       │         ▼
+       │         |
        │    url приходит в store
        │
-       ├──► api.playAudio(url)
+       - api.playAudio(url)
        │         │
-       │         ▼
-       │    rust → download (mp3 напрямую или hls целиком)
+       │         |
+       │    rust - download (mp3 напрямую или hls целиком)
        │    rodio::Decoder::new(bytes)
        │    player.play()
        │         │
-       │         ▼
+       │         |
        │    звук идёт
        │
-       ├──► api.setTrackDuration(track.duration)
+       - api.setTrackDuration(track.duration)
        │    rust знает длительность для позиции и seek
        │
-       └──► startPositionLoop()
+       - startPositionLoop()
             каждые 250ms - getPosition() из rust
             обновление position в сторе
 ```
@@ -87,21 +87,22 @@ tauri - фреймворк для десктопных приложений. в 
 ```
 1. persist восстанавливает состояние из localStorage
        │
-       ▼
-2. App.tsx → AppContent
+       |
+2. App.tsx - AppContent
        │
-       ├──► useTheme() - применяет цвета в CSS-переменные
+       - useTheme() - применяет цвета в CSS-переменные
        │
-       ├──► applyProxy() - если выбран прокси, применяет через rust
+       - applyProxy() - если выбран прокси, применяет через rust
        │
-       ├──► preloadHomePageData() - прогревает популярное и мою волну
+       - preloadHomePageData() - прогревает популярное и мою волну
        │
-       └──► api.setVolume(volume) - синхронизирует громкость с rust
+       - api.setVolume(volume) - синхронизирует громкость с rust
 ```
 
 ## обход блокировок
 
-aether работает в регионах где soundcloud заблокирован. **два механизма:**
+aether работает в регионах где soundcloud заблокирован
+**два механизма:**
 
 **1. личный прокси**
 
@@ -126,19 +127,19 @@ aether **управляет** ею:
 
 ```
 pages/          - роутер, страницы
-  └── HomePage, SearchPage, PlayerPage, ...
+  - HomePage, SearchPage, PlayerPage, ...
 
 components/     - ui-блоки
-  └── PlayerBar, TrackList, Icon, ProxySettings, ...
+  - PlayerBar, TrackList, Icon, ProxySettings, ...
 
 store/          - zustand, состояние + логика
-  └── store.ts
+  - store.ts
 
 lib/            - утилиты
-  └── api.ts (мост к rust), format.ts
+  - api.ts (мост к rust), format.ts
 
 hooks/          - кастомные хуки
-  └── useTheme.ts, useSmoothScroll.ts, useDragScroll.ts
+  - useTheme.ts, useSmoothScroll.ts, useDragScroll.ts
 ```
 
 **бэк:**
@@ -170,7 +171,7 @@ pub async fn get_popular(limit: u32, offset: u32) -> Result<Value, String> { ...
 **2. hls-стриминг**
 
 soundcloud отдаёт некоторые треки **не одним файлом**, а **плейлистом фрагментов** (hls/m3u8)
-rust **скачивает все сегменты параллельно**, **склеивает в память**, потом **декодирует** через `rodio`.
+rust **скачивает все сегменты параллельно**, **склеивает в память**, потом **декодирует** через `rodio`
 
 **почему так:** soundcloud **не даёт** прямой mp3 для всех треков
 где даёт - играем mp3 напрямую
@@ -178,7 +179,8 @@ rust **скачивает все сегменты параллельно**, **с
 
 **3. zustand persist**
 
-состояние **сохраняется** в `localStorage` под ключом `aether-storage`. при **старте** восстанавливается:
+состояние **сохраняется** в `localStorage` под ключом `aether-storage`
+при **старте** восстанавливается:
 - громкость, shuffle, repeat
 - избранное, история, плейлисты
 - текущий трек + позиция
