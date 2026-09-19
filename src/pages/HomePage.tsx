@@ -7,6 +7,7 @@ import { useStore } from '../store/store';
 import { formatMs } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 import type { Track } from '../store/types';
+import { useSmoothScroll } from '../hooks/useSmoothScroll';
 
 export default function HomePage() {
   const popularTracks = useStore((s) => s.homePage.popularTracks);
@@ -14,7 +15,7 @@ export default function HomePage() {
   const isLoadingPopular = useStore((s) => s.homePage.isLoadingPopular);
   const isLoadingWave = useStore((s) => s.homePage.isLoadingWave);
   const history = useStore((s) => s.library.history);
-
+  const waveScrollRef = useSmoothScroll<HTMLDivElement>();
   const setHomePagePopular = useStore((s) => s.setHomePagePopular);
   const setHomePageMyWave = useStore((s) => s.setHomePageMyWave);
   const setHomePageLoadingPopular = useStore((s) => s.setHomePageLoadingPopular);
@@ -22,7 +23,8 @@ export default function HomePage() {
   const setHomePagePopularLoaded = useStore((s) => s.setHomePagePopularLoaded);
   const setHomePageMyWaveLoaded = useStore((s) => s.setHomePageMyWaveLoaded);
   const addHomePagePopularTracks = useStore((s) => s.addHomePagePopularTracks);
-
+const popularTitleWidths = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-4/5', 'w-3/5', 'w-11/12'];
+const popularArtistWidths = ['w-1/2', 'w-1/3', 'w-2/5', 'w-1/4', 'w-1/2', 'w-1/3', 'w-3/4'];
   const [popularOffset, setPopularOffset] = useState(20);
   const [hasMorePopular, setHasMorePopular] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -104,19 +106,22 @@ export default function HomePage() {
     }
   };
 
-  const renderMyWaveSkeletons = () =>
-    [...Array(6)].map((_, i) => (
-      <div key={i} className="flex items-center gap-4 p-2">
+const renderMyWaveSkeletons = () =>
+  [...Array(6)].map((_, i) => {
+    const titleWidth = 30 + Math.random() * 40;   
+    const artistWidth = 25 + Math.random() * 35;  
+    return (
+      <div key={i} className="flex items-center gap-3 p-2">
         <div className="w-10 h-10 rounded-md bg-bg-secondary flex items-center justify-center">
           <Icon name="music" size={16} className="text-text-tertiary" />
         </div>
-        <div className="flex-1">
-          <div className="h-3 bg-bg-secondary rounded w-3/4 mb-2" />
-          <div className="h-2 bg-bg-secondary rounded w-1/2" />
+        <div className="flex-1 min-w-0">
+          <div className="h-4 bg-bg-secondary rounded mb-1" style={{ width: `${titleWidth}%` }} />
+          <div className="h-3 bg-bg-secondary rounded" style={{ width: `${artistWidth}%` }} />
         </div>
-        <div className="w-8 h-3 bg-bg-secondary rounded" />
       </div>
-    ));
+    );
+  });
 
   return (
     <div className="h-full overflow-auto">
@@ -139,16 +144,16 @@ export default function HomePage() {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden">
+      <div ref={waveScrollRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden">
         {isLoadingWave ? (
-          <div className="space-y-2">{renderMyWaveSkeletons()}</div>
+          <div className="space-y-1">{renderMyWaveSkeletons()}</div>
         ) : myWaveTracks.length ? (
-          <div className="space-y-1">
-            {myWaveTracks.map((track) => (
-              <MyWaveTrackItem key={track.id} track={track} tracks={myWaveTracks} />
-            ))}
-          </div>
-        ) : (
+  <div className="space-y-1 animate-content-fade-in">
+    {myWaveTracks.map((track) => (
+      <MyWaveTrackItem key={track.id} track={track} tracks={myWaveTracks} />
+    ))}
+  </div>
+) : (
           <div className="flex flex-col items-center justify-center py-12 text-center text-text-tertiary">
             <Icon name="music" size={32} className="mb-3 opacity-30" />
             <p className="text-xs">нет рекомендаций</p>
@@ -171,23 +176,30 @@ export default function HomePage() {
               )}
             </div>
 
-            {isLoadingPopular ? (
-              <HorizontalScroll gap={12} style={{ minHeight: '280px' }}>
-                {[...Array(7)].map((_, i) => (
-                  <div key={i} className="w-[160px] flex-shrink-0 animate-pulse">
-                    <div className="aspect-square rounded-xl bg-bg-secondary" />
-                    <div className="mt-2 h-3 bg-bg-secondary rounded w-3/4" />
-                    <div className="mt-1 h-2 bg-bg-secondary rounded w-1/2" />
-                  </div>
-                ))}
-              </HorizontalScroll>
-            ) : (
-              <HorizontalScroll ref={scrollRef} gap={12} style={{ minHeight: '280px' }}>
-                {popularTracks.map((track, i) => (
-                  <div key={`${track.id}-${i}`} className="animate-fade-in-scale">
-                    <TrackCard track={track} index={i} tracks={popularTracks} />
-                  </div>
-                ))}
+
+
+{isLoadingPopular ? (
+  <HorizontalScroll gap={12} style={{ minHeight: '280px' }}>
+    {[...Array(7)].map((_, i) => (
+      <div key={i} className="w-[160px] flex-shrink-0 animate-pulse">
+        <div className="aspect-square rounded-xl bg-bg-secondary" />
+        <div className={`mt-2 h-3 bg-bg-secondary rounded ${popularTitleWidths[i % popularTitleWidths.length]}`} />
+        <div className={`mt-1 h-2 bg-bg-secondary rounded ${popularArtistWidths[i % popularArtistWidths.length]}`} />
+      </div>
+    ))}
+  </HorizontalScroll>
+) : (
+ <HorizontalScroll
+  ref={scrollRef}
+  gap={12}
+  style={{ minHeight: '280px' }}
+  className="animate-content-fade-in"
+>
+{popularTracks.map((track, i) => (
+  <div key={`${track.id}-${i}`}>
+    <TrackCard track={track} index={i} tracks={popularTracks} />
+  </div>
+))}
                 {isLoadingMore && (
                   <>
                     {[...Array(3)].map((_, i) => (

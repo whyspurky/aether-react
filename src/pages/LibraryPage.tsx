@@ -4,6 +4,7 @@ import { TrackList } from '../components/TrackList';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { useStore } from '../store/store';
 import type { Playlist } from '../store/types';
+import { useSmoothScroll } from '../hooks/useSmoothScroll';
 
 type LibraryView = 'favorites' | 'history' | 'playlist';
 
@@ -19,6 +20,9 @@ export default function LibraryPage() {
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
   const showToast = useStore((s) => s.showToast);
+
+  const tracksScrollRef = useSmoothScroll<HTMLDivElement>();
+  const playlistsScrollRef = useSmoothScroll<HTMLDivElement>();
 
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
@@ -185,7 +189,7 @@ export default function LibraryPage() {
 
         <div className="w-full h-px bg-border-subtle my-1" />
 
-        <div className="flex-1 overflow-y-auto space-y-1 w-full overflow-x-hidden scrollbar-thin">
+        <div ref={playlistsScrollRef} className="flex-1 overflow-y-auto space-y-1 w-full overflow-x-hidden scrollbar-thin">
           {playlists.map((playlist) => (
             <div key={playlist.id} className="group relative flex justify-center">
               <button
@@ -315,9 +319,9 @@ export default function LibraryPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <TrackList tracks={getCurrentTracks()} showQueueButton />
-        </div>
+<div ref={tracksScrollRef} className="flex-1 overflow-y-auto p-6">
+  <TrackList tracks={getCurrentTracks()} showQueueButton />
+</div>
       </main>
 
       {showCreateModal && (

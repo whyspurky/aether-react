@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { formatSec } from '../lib/format';
 import { TrackList } from '../components/TrackList';
 import { useNavigate } from 'react-router-dom';
+import { useSmoothScroll } from '../hooks/useSmoothScroll';
 
 function throttle<T extends (...args: any[]) => void>(fn: T, delay: number): T {
   let last = 0;
@@ -28,7 +29,7 @@ export default function PlayerPage() {
   const setVolume = useStore((s) => s.setVolume);
   const setPosition = useStore((s) => s.setPosition);
   const navigate = useNavigate();
-
+  const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const { currentTrack, isPlaying, volume, shuffle, repeat, position, duration, isLoading, isAudioReady } = player;
 
   const isAudioReadyRef = useRef(isAudioReady);
@@ -350,7 +351,7 @@ export default function PlayerPage() {
     );
   }
 
-  const coverSize = 'calc(50vh - 100px)';
+  const coverSize = 'calc(50vh - 120px)';
 
   return (
     <div className="h-full overflow-auto">
@@ -550,7 +551,7 @@ export default function PlayerPage() {
                 ОЧЕРЕДЬ — {queue.tracks.length} ТРЕКОВ
               </h3>
             </div>
-            <div className="h-full max-h-[calc(50vh-70px)] overflow-y-auto scrollbar-thin">
+            <div ref={queueScrollRef} className="h-full max-h-[calc(50vh-41.6px)] overflow-y-auto scrollbar-thin">
               {memoizedTrackList}
             </div>
           </div>

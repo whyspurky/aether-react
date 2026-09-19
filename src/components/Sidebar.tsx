@@ -24,17 +24,24 @@ function NavButton({ item, isActive, onNavigate }: NavButtonProps) {
   return (
     <button
       onClick={() => onNavigate(item.path)}
-      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 relative ${
-        isActive
-          ? 'bg-bg-card text-text-secondary'
-          : 'text-text-tertiary hover:bg-bg-card hover:text-text-secondary'
+      className={`group relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden transition-colors duration-300 ${
+        isActive ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'
       }`}
       title={item.label}
     >
-      <Icon name={item.icon} size={20} />
-      {isActive && (
-        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-5 bg-text-secondary rounded-r" />
-      )}
+      {/* подсветка снизу вверх */}
+      <span
+        className={`absolute inset-0 bg-bg-card origin-bottom transition-transform duration-300 ease-out ${
+          isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
+        }`}
+      />
+
+      {/* иконка поверх подсветки */}
+      <Icon
+        name={item.icon}
+        size={20}
+        className="relative z-10 transition-transform duration-150 group-active:scale-90"
+      />
     </button>
   );
 }

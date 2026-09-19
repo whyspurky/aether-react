@@ -4,8 +4,11 @@ import { useStore } from '../store/store';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { BrokenTracksModal } from '../components/Modals/BrokenTracksModal';
 import { getVersion } from '@tauri-apps/api/app';
+import { useSmoothScroll } from '../hooks/useSmoothScroll';
+import { ProxySettings } from '../components/ProxySettings';
+import { api } from '../lib/api';
 
-type SettingsTab = 'data' | 'appearance' | 'diagnostics' | 'about';
+type SettingsTab = 'data' | 'appearance' | 'proxy' | 'diagnostics' | 'about';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
@@ -13,11 +16,11 @@ export default function SettingsPage() {
   const [showBrokenModal, setShowBrokenModal] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
-
+  const scrollRef = useSmoothScroll<HTMLElement>();
   const clearHistory = useStore((s) => s.clearHistory);
   const clearFavorites = useStore((s) => s.clearFavorites);
   const showToast = useStore((s) => s.showToast);
-
+  const zapretStatus = useStore((s) => s.proxy?.zapret?.status ?? 'unknown');
   const handleClearCache = () => {
     localStorage.removeItem('aether-storage');
 
@@ -46,6 +49,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'data', label: 'данные', icon: 'database' },
     { id: 'appearance', label: 'внешний вид', icon: 'palette' },
+    { id: 'proxy', label: 'прокси', icon: 'shield' },
     { id: 'diagnostics', label: 'диагностика', icon: 'bug' },
     { id: 'about', label: 'о приложении', icon: 'info' },
   ];
@@ -56,35 +60,64 @@ export default function SettingsPage() {
     getVersion().then(setVersion);
   }, []);
 
+  useEffect(() => {
+  const fetch = async () => {
+    try {
+      const s = await api.zapretStatus();
+      useStore.getState().setZapretStatus(s);
+    } catch {}
+  };
+  fetch();
+  const interval = setInterval(fetch, 5000);
+  return () => clearInterval(interval);
+}, []);
 
   return (
     <div className="h-full flex bg-bg-primary rounded-2xl overflow-hidden border border-border-subtle">
       <aside className="w-48 flex-shrink-0 border-r border-border-subtle bg-bg-primary p-4">
         <div className="space-y-1">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as SettingsTab)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-bg-secondary text-text-secondary'
-                    : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
-                }`}
-              >
-                <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
-                  <Icon name={tab.icon} size={16} />
-                </span>
-                <span className="flex-1 text-left truncate leading-normal">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+{tabs.map((tab) => {
+  const isActive = activeTab === tab.id;
+  const isProxyTab = tab.id === 'proxy';
+  const zapretRunning = isProxyTab && zapretStatus === 'running';
+
+  return (
+    <button
+      key={tab.id}
+      onClick={() => setActiveTab(tab.id as SettingsTab)}
+      className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm overflow-hidden transition-colors duration-200 ${
+        isActive ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-primary'
+      }`}
+    >
+      {/* подсветка снизу вверх */}
+      <span
+        className={`absolute inset-0 bg-bg-secondary origin-bottom transition-transform duration-300 ease-out ${
+          isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
+        }`}
+      />
+
+      <span className="relative z-10 w-4 h-4 flex-shrink-0 flex items-center justify-center">
+        <Icon
+          name={tab.icon}
+          size={16}
+          className="transition-transform duration-150 group-active:scale-90"
+        />
+      </span>
+      <span className="relative z-10 flex-1 text-left truncate leading-normal">
+        {tab.label}
+      </span>
+
+      {/* индикатор для вкладки прокси */}
+      {isProxyTab && zapretRunning && (
+        <span className="relative z-10 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+      )}
+    </button>
+  );
+})}        </div>
       </aside>
 
-      <main className="flex-1 overflow-auto p-6">
-        <div className="max-w-2xl mx-auto">
+      <main ref={scrollRef} className="flex-1 overflow-auto p-6 scrollbar-hidden">
+        <div key={activeTab} className="max-w-2xl mx-auto animate-page-in">
           {activeTab === 'data' && (
             <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">
               <div className="divide-y divide-border-subtle">
@@ -186,6 +219,7 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+          {activeTab === 'proxy' && <ProxySettings />}
 
           {activeTab === 'diagnostics' && (
             <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">

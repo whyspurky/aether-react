@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useStore } from '../store/store';
 import { formatMs } from '../lib/format';
 import type { Track, User } from '../store/types';
+import { useSmoothScroll } from '../hooks/useSmoothScroll';
 
 type FilterType = 'tracks' | 'artists';
 
@@ -65,14 +66,19 @@ export default function SearchPage() {
   const [offset, setOffset] = useState(0);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const smoothRef = useSmoothScroll<HTMLDivElement>();
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const setRefs = (node: HTMLDivElement | null) => {
+    smoothRef.current = node;
+    containerRef.current = node;
+  };
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
   const showToast = useStore((s) => s.showToast);
 
-  useEffect(() => {
+useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 500);
     return () => clearTimeout(t);
   }, [query]);
@@ -154,7 +160,7 @@ export default function SearchPage() {
   }, [addToQueue, showToast]);
 
   return (
-    <div ref={containerRef} className="h-full overflow-auto scrollbar-hidden">
+    <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden">
       <div className="sticky top-0 z-10 rounded-2xl border border-border-subtle bg-bg-secondary/80 backdrop-blur-xl overflow-hidden">
         <div className="p-4">
           <div className="relative group">
@@ -210,21 +216,44 @@ export default function SearchPage() {
             <p className="text-base">начните поиск</p>
             <p className="text-sm mt-1">введите название трека или исполнителя</p>
           </div>
-        ) : isLoading && (filter === 'tracks' ? !tracks.length : !artists.length) ? (
-          <div className="space-y-3">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-bg-card animate-pulse">
-                <div className="w-12 h-12 rounded-md bg-bg-secondary" />
-                <div className="flex-1">
-                  <div className="h-4 bg-bg-secondary rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-bg-secondary rounded w-1/2" />
-                </div>
-              </div>
-            ))}
+) : isLoading && (filter === 'tracks' ? tracks.length === 0 : artists.length === 0) ? (
+  filter === 'tracks' ? (
+    <div className="space-y-1">
+      {[...Array(8)].map((_, i) => {
+        const tw = 20 + Math.random() * 30;
+        const aw = 12 + Math.random() * 20;
+        return (
+          <div key={i} className="flex items-center gap-4 p-3 rounded-xl animate-pulse">
+            <div className="w-12 h-12 rounded-md bg-bg-secondary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="h-4 bg-bg-secondary rounded mb-2" style={{ width: `${tw}%` }} />
+              <div className="h-3 bg-bg-secondary rounded" style={{ width: `${aw}%` }} />
+            </div>
           </div>
-        ) : filter === 'tracks' ? (
+        );
+      })}
+    </div>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {[...Array(16)].map((_, i) => {
+        const nameW = 30 + Math.random() * 30;
+        const subsW = 25 + Math.random() * 20;
+        return (
+          <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-bg-card animate-pulse">
+            <div className="w-10 h-10 rounded-full bg-bg-secondary flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="h-4 bg-bg-secondary rounded mb-1.5" style={{ width: `${nameW}%` }} />
+              <div className="h-3 bg-bg-secondary rounded" style={{ width: `${subsW}%` }} />
+            </div>
+            <div className="w-4 h-4 rounded bg-bg-secondary flex-shrink-0" />
+          </div>
+        );
+      })}
+    </div>
+  )
+) : filter === 'tracks' ? (
           <>
-            <div className="space-y-1">
+            <div className="space-y-1 animate-content-fade-in">
               {tracks.map((track) => (
                 <TrackItem
                   key={track.id}
@@ -250,7 +279,7 @@ export default function SearchPage() {
             <div ref={lastElementCallback} className="h-1" />
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-content-fade-in">
             {artists.map((artist) => (
               <div
                 key={artist.id}

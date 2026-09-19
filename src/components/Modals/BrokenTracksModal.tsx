@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '../../components/Icon';
+import { useSmoothScroll } from '../../hooks/useSmoothScroll';
 
 interface BrokenTrack {
   id: number;
@@ -53,6 +54,8 @@ export function BrokenTracksModal({ isOpen, onClose }: BrokenTracksModalProps) {
     setBrokenTracks([]);
   };
 
+  const scrollRef = useSmoothScroll<HTMLDivElement>();
+
   if (!isOpen) return null;
 
   return (
@@ -74,7 +77,7 @@ export function BrokenTracksModal({ isOpen, onClose }: BrokenTracksModalProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
           {brokenTracks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-text-tertiary">
               <Icon name="check-circle" size={32} className="mb-3 opacity-30" />
