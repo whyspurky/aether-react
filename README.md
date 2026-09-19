@@ -13,7 +13,7 @@
 ### стек
 
 **frontend** — react 18 + typescript + tailwind css + zustand
-**backend** — tauri 2 (rust) + rodio + symphonia + reqwest
+**backend** — tauri 2 (rust) + rodio + reqwest
 **сборка** — vite 5 
 
 ---
