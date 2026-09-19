@@ -39,6 +39,8 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  
+
   input,
   textarea,
   [contenteditable="true"] {
@@ -84,6 +86,16 @@
   .scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
+
+  @keyframes contentFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-content-fade-in {
+  animation: contentFadeIn 0.3s ease-out forwards;
+}
+
 
   *::-webkit-scrollbar {
     width: 4px;
@@ -137,6 +149,30 @@
   .playerbar-progress.dragging {
     height: 4px;
   }
+
+  .custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-tertiary) transparent;
+  padding-right: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 1px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
 
   .thin-scroll {
     scrollbar-width: thin;
@@ -222,7 +258,30 @@ input[type="range"]:focus {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  @keyframes fadeInUpPage {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+@keyframes playerbarEnter {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
 
+@keyframes playerbarExit {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+
+.playerbar-enter {
+  animation: playerbarEnter 0.2s ease-out forwards;
+}
+
+.playerbar-exit {
+  animation: playerbarExit 0.15s ease-in forwards;
+}
+  .animate-page-in { animation: fadeInUpPage 0.2s ease-out forwards; }
   .animate-fade-in-up-fast { animation: fadeInUpFast 0.12s ease-out forwards; }
   .animate-fade-in-up { animation: fadeInUp 0.3s ease-out forwards; }
   .animate-fade-in-scale { animation: fadeInScale 0.25s ease-out forwards; }
