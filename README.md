@@ -8,33 +8,23 @@
 
 </div>
 
----
-
 ### стек
 
 **frontend** - react 18 + typescript + tailwind css + zustand
 **backend** - tauri 2 (rust) + rodio + reqwest
 **сборка** - vite 5 
 
----
-
 ### возможности
 
 все базовые функции современных музыкальных плееров и дополнения в будущих обновах
-
----
 
 ### сообщество
 
 телеграм-канал с обновлениями и поддержкой - [**t.me/aether_player**](https://t.me/aether_player)
 
----
-
 ## документация
 
 подробнее - в [docs/public/](./docs/public/).
-
----
 
 <div align="center">
 
