@@ -4,7 +4,7 @@
 
 десктопный музыкальный плеер, стримящий треки с внутреннего апи ск
 
-[![telegram](https://img.shields.io/badge/telegram-iqaether-white?style=flat-square&logo=telegram&logoColor=white&labelColor=0F0F0F)](https://t.me/iqaether)
+[![telegram](https://img.shields.io/badge/telegram-iqaether-white?style=flat-square&logo=telegram&logoColor=white&labelColor=0F0F0F)](https://t.me/aether_player)
 
 </div>
 
@@ -26,7 +26,7 @@
 
 ### сообщество
 
-телеграм-канал с обновлениями и поддержкой — [**t.me/iqaether**](https://t.me/iqaether)
+телеграм-канал с обновлениями и поддержкой — [**t.me/aether_player**](https://t.me/aether_player)
 
 ---
 
