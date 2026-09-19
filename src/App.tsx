@@ -21,6 +21,8 @@ const appWindow = getCurrentWindow();
 
 function AppContent() {
   const preloadHomePageData = useStore((s) => s.preloadHomePageData);
+  const proxyMode = useStore((s) => s.proxy.mode);
+  const customProxy = useStore((s) => s.proxy.custom);
 
   useTheme();
 
@@ -33,6 +35,38 @@ function AppContent() {
     document.addEventListener('contextmenu', prevent);
     return () => document.removeEventListener('contextmenu', prevent);
   }, []);
+
+useEffect(() => {
+  const t = setTimeout(async () => {
+    try {
+      if (proxyMode === 'custom') {
+        if (!customProxy.host.trim() || customProxy.port <= 0) {
+          return;
+        }
+        await api.proxySetCustom({
+          kind: customProxy.type,
+          host: customProxy.host.trim(),
+          port: customProxy.port,
+          username: customProxy.username,
+          password: customProxy.password,
+        });
+      } else {
+        await api.proxyClear();
+      }
+    } catch (e) {
+      useStore.getState().showToast(`прокси: ${e}`, 'error');
+    }
+  }, 500);
+
+  return () => clearTimeout(t);
+}, [
+  proxyMode,
+  customProxy.type,
+  customProxy.host,
+  customProxy.port,
+  customProxy.username,
+  customProxy.password,
+]);
 
   useEffect(() => {
     api.setVolume(useStore.getState().player.volume);
