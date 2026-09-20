@@ -74,7 +74,6 @@ function TrackItem({ track, onPlay, onAddToQueue }: TrackItemProps) {
   );
 }
 
-// ===== карточка артиста =====
 function ArtistCard({ artist }: { artist: User }) {
   const navigate = useNavigate();
 
@@ -109,7 +108,6 @@ function ArtistCard({ artist }: { artist: User }) {
   );
 }
 
-// ===== карточка плейлиста =====
 function PlaylistCard({ playlist }: { playlist: Playlist }) {
   const navigate = useNavigate();
 
@@ -176,10 +174,10 @@ export default function SearchPage() {
   const smoothRef = useSmoothScroll<HTMLDivElement>();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const setRefs = (node: HTMLDivElement | null) => {
-    smoothRef.current = node;
-    containerRef.current = node;
-  };
+const setRefs = useCallback((node: HTMLDivElement | null) => {
+  smoothRef(node);
+  containerRef.current = node;
+}, [smoothRef]);
 
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);

@@ -117,14 +117,12 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
   const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || null;
   const title = playlist.title || playlist.name || 'без названия';
 
-  // тип: альбом / плейлист / ep
   const typeLabel = {
     album: 'альбом',
     ep: 'ep',
     playlist: 'плейлист',
   }[playlist.playlist_type || 'playlist'];
 
-  // форматирование длительности плейлиста
   const formatDuration = (ms: number | undefined) => {
     if (!ms) return '';
     const total = Math.floor(ms / 1000);

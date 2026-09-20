@@ -427,8 +427,6 @@ set((s) => ({
 
   const { queue, player } = get();
 
-  // repeat one - повторяем только если трек кончился сам
-  // при ручном next - переключаем
   if (!manual && player.repeat === 'one') {
     const current = get().player.currentTrack;
     if (current) {
@@ -440,11 +438,9 @@ set((s) => ({
 let nextIndex = queue.currentIndex + 1;
 
 if (nextIndex >= queue.tracks.length) {
-  // repeat all - крутим имеющиеся треки, не дозагружаем
   if (player.repeat === 'all') {
     nextIndex = 0;
   } else {
-    // repeat none - дозагружаем
     await get().preloadMoreTracks();
 
     const q = get().queue;
@@ -533,7 +529,6 @@ togglePlay: async () => {
 setShuffle: (shuffle) => {
   const { queue, player } = get();
 
-  // включаем shuffle
   if (shuffle && !player.shuffle) {
     if (queue.tracks.length < 2) {
       set((s) => ({ player: { ...s.player, shuffle: true } }));
@@ -546,7 +541,6 @@ setShuffle: (shuffle) => {
       return;
     }
 
-    // текущий трек в начало, остальные после него в случайном порядке
     const others = queue.tracks.filter((t) => t.id !== current.id);
     const shuffled = [current, ...others.sort(() => Math.random() - 0.5)];
 
@@ -562,7 +556,6 @@ setShuffle: (shuffle) => {
     return;
   }
 
-  // выключаем shuffle
   if (!shuffle && player.shuffle) {
     const original = queue.originalTracks;
     if (!original) {
@@ -585,7 +578,6 @@ setShuffle: (shuffle) => {
     return;
   }
 
-  // ничего не меняется
   set((s) => ({ player: { ...s.player, shuffle } }));
 },
         setRepeat: (repeat) => set((s) => ({ player: { ...s.player, repeat } })),

@@ -521,7 +521,6 @@ pub async fn get_user_tracks(user_id: String) -> Result<Value, String> {
             all.extend(tracks.iter().cloned());
         }
 
-        // next_href приходит без client_id - добавляем
         next = data.get("next_href").and_then(|h| h.as_str()).map(|s| {
             if s.contains("client_id=") {
                 s.to_string()
@@ -605,7 +604,6 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
         .map(|s| s.split('?').next().unwrap_or(s))
         .unwrap_or(&url_or_id);
 
-    // получаем плейлист - там есть id всех треков
     let pl_url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID);
     let pl_data = fetch_retry(&pl_url).await.map_err(|e| e.to_string())?;
 
@@ -620,7 +618,6 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
         return Ok(json!({ "collection": [] }));
     }
 
-    // батчами по 50 запрашиваем полные метаданные
     let mut all = vec![];
     let mut seen = HashSet::new();
 

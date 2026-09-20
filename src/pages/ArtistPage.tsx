@@ -380,8 +380,6 @@ return (
   );
 }
 
-// ===== карточка похожего артиста =====
-
 function ArtistCard({ artist }: { artist: User }) {
   const navigate = useNavigate();
   const avatarUrl = artist.avatar_url?.replace('-large', '-t300x300') || null;
@@ -418,8 +416,6 @@ function ArtistCard({ artist }: { artist: User }) {
   );
 }
 
-// ===== таб =====
-
 interface TabButtonProps {
   active: boolean;
   onClick: () => void;
@@ -442,8 +438,6 @@ function TabButton({ active, onClick, children }: TabButtonProps) {
   );
 }
 
-// ===== пустое состояние =====
-
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-text-tertiary">
@@ -452,8 +446,6 @@ function EmptyState({ text }: { text: string }) {
     </div>
   );
 }
-
-// ===== секция со скроллом =====
 
 interface ScrollableSectionProps {
   title: string;
@@ -518,8 +510,6 @@ function ScrollableSection({ title, count, children }: ScrollableSectionProps) {
     </section>
   );
 }
-
-// ===== карточка плейлиста =====
 
 function ArtistPlaylistCard({ playlist }: { playlist: Playlist }) {
   const navigate = useNavigate();
