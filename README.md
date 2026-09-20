@@ -26,14 +26,6 @@ tauri 2 · react 18 · rust
 **frontend** - react 18, typescript, tailwind, zustand, vite
 **backend** - tauri 2, rust, rodio, reqwest
 
-## сборка
-
-```bash
-npm install
-npm run tauri dev      # разработка
-npm run tauri build    # релиз
-```
-
 ## сообщество
 
 телеграм-канал с обновлениями - [**t.me/aether_player**](https://t.me/aether_player)
