@@ -4,10 +4,10 @@ import { Icon } from '../components/Icon';
 import { api } from '../lib/api';
 import { useStore } from '../store/store';
 import { formatMs } from '../lib/format';
-import type { Track, User } from '../store/types';
+import type { Track, User, Playlist } from '../store/types';
 import { useSmoothScroll } from '../hooks/useSmoothScroll';
 
-type FilterType = 'tracks' | 'artists';
+type FilterType = 'tracks' | 'artists' | 'playlists';
 
 interface TrackItemProps {
   track: Track;
@@ -20,6 +20,14 @@ function TrackItem({ track, onPlay, onAddToQueue }: TrackItemProps) {
     track.artwork_url?.replace('-large', '-t300x300') ||
     track.user?.avatar_url?.replace('-large', '-t300x300') ||
     null;
+
+  const navigate = useNavigate();
+
+  const handleArtistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = track.user?.id;
+    if (id) navigate(`/artist/${id}`);
+  };
 
   return (
     <div
@@ -37,7 +45,18 @@ function TrackItem({ track, onPlay, onAddToQueue }: TrackItemProps) {
         <h4 className="text-base font-medium text-text-primary truncate">
           {track.title || 'без названия'}
         </h4>
-        <p className="text-sm text-text-tertiary truncate">{track.user?.username || ''}</p>
+        <p className="text-sm text-text-tertiary truncate">
+  {track.user?.id ? (
+    <span
+      onClick={handleArtistClick}
+      className="cursor-pointer hover:text-text-secondary transition-colors"
+    >
+      {track.user.username}
+    </span>
+  ) : (
+    track.user?.username || ''
+  )}
+</p>
       </div>
       <div className="flex items-center gap-3">
         <span className="text-sm text-text-tertiary tabular-nums">
@@ -55,15 +74,103 @@ function TrackItem({ track, onPlay, onAddToQueue }: TrackItemProps) {
   );
 }
 
+// ===== карточка артиста =====
+function ArtistCard({ artist }: { artist: User }) {
+  const navigate = useNavigate();
+
+  return (
+    <div
+      onClick={() => navigate(`/artist/${artist.id}`)}
+      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
+    >
+      {artist.avatar_url ? (
+        <img
+          src={artist.avatar_url.replace('-large', '-t100x100')}
+          alt={artist.username}
+          className="w-10 h-10 rounded-full object-cover"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center">
+          <Icon name="mic" size={16} className="text-text-tertiary" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-medium text-text-primary truncate">{artist.username}</h4>
+        <p className="text-xs text-text-tertiary">
+          {artist.followers_count?.toLocaleString() || 0} слушателей
+        </p>
+      </div>
+      <Icon
+        name="chevron-right"
+        size={16}
+        className="text-text-tertiary group-hover:text-text-secondary transition-colors"
+      />
+    </div>
+  );
+}
+
+// ===== карточка плейлиста =====
+function PlaylistCard({ playlist }: { playlist: Playlist }) {
+  const navigate = useNavigate();
+
+  const coverUrl = playlist.artwork_url?.replace('-large', '-t300x300') || null;
+  const title = playlist.title || playlist.name || 'без названия';
+
+  const typeLabel = {
+    album: 'альбом',
+    ep: 'ep',
+    playlist: 'плейлист',
+  }[playlist.playlist_type || 'playlist'];
+
+  return (
+    <div
+      onClick={() => navigate(`/playlist/${playlist.id}`)}
+      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
+    >
+      {coverUrl ? (
+        <img
+          src={coverUrl}
+          alt={title}
+          className="w-12 h-12 rounded-md object-cover flex-shrink-0"
+        />
+      ) : (
+        <div className="w-12 h-12 rounded-md bg-bg-secondary flex items-center justify-center flex-shrink-0">
+          <Icon name="folder" size={20} className="text-text-tertiary" />
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-medium text-text-primary truncate">{title}</h4>
+        <p className="text-xs text-text-tertiary truncate">
+          {typeLabel}
+          {playlist.user && ` · ${playlist.user.username}`}
+          {playlist.track_count && ` · ${playlist.track_count} треков`}
+        </p>
+      </div>
+
+      <Icon
+        name="chevron-right"
+        size={16}
+        className="text-text-tertiary group-hover:text-text-secondary transition-colors"
+      />
+    </div>
+  );
+}
+
 export default function SearchPage() {
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [filter, setFilter] = useState<FilterType>('tracks');
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [artists, setArtists] = useState<User[]>([]);
+  const sp = useStore((s) => s.searchPage);
+  const setSearchPage = useStore((s) => s.setSearchPage);
+  const resetSearchPage = useStore((s) => s.resetSearchPage);
+
+  const [query, setQuery] = useState(sp.query);
+  const [debouncedQuery, setDebouncedQuery] = useState(sp.query);
+  const [filter, setFilter] = useState<FilterType>(sp.filter);
+  const [tracks, setTracks] = useState<Track[]>(sp.tracks);
+  const [artists, setArtists] = useState<User[]>(sp.artists);
+  const [playlists, setPlaylists] = useState<Playlist[]>(sp.playlists);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(sp.hasMore);
+  const [offset, setOffset] = useState(sp.offset);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const smoothRef = useSmoothScroll<HTMLDivElement>();
@@ -73,12 +180,12 @@ export default function SearchPage() {
     smoothRef.current = node;
     containerRef.current = node;
   };
-  const navigate = useNavigate();
+
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
   const showToast = useStore((s) => s.showToast);
 
-useEffect(() => {
+  useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 500);
     return () => clearTimeout(t);
   }, [query]);
@@ -92,25 +199,39 @@ useEffect(() => {
       if (filter === 'tracks') {
         const results = await api.searchTracks(debouncedQuery, 20, newOffset);
         const fresh = results.filter((t) => t?.id);
-        setTracks((prev) => (reset ? fresh : [...prev, ...fresh]));
+        const next = reset ? fresh : [...tracks, ...fresh];
+        setTracks(next);
         setHasMore(fresh.length === 20);
         setOffset(newOffset + fresh.length);
-      } else {
+        setSearchPage({ query: debouncedQuery, filter, tracks: next, offset: newOffset + fresh.length, hasMore: fresh.length === 20 });
+      } else if (filter === 'artists') {
         const results = await api.searchUsers(debouncedQuery, newOffset, 30);
-        setArtists((prev) => (reset ? results : [...prev, ...results]));
+        const next = reset ? results : [...artists, ...results];
+        setArtists(next);
         setHasMore(results.length === 30);
         setOffset(newOffset + results.length);
+        setSearchPage({ query: debouncedQuery, filter, artists: next, offset: newOffset + results.length, hasMore: results.length === 30 });
+      } else {
+        const data = await api.searchPlaylists(debouncedQuery, 20, newOffset);
+        const items = (data?.collection || []) as Playlist[];
+        const next = reset ? items : [...playlists, ...items];
+        setPlaylists(next);
+        setHasMore(items.length === 20);
+        setOffset(newOffset + items.length);
+        setSearchPage({ query: debouncedQuery, filter, playlists: next, offset: newOffset + items.length, hasMore: items.length === 20 });
       }
     } catch {
       showToast('ошибка поиска', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedQuery, filter, isLoading, hasMore, showToast]);
+  }, [debouncedQuery, filter, isLoading, hasMore, showToast, tracks, artists, playlists, setSearchPage]);
 
   useEffect(() => {
+    resetSearchPage();
     setTracks([]);
     setArtists([]);
+    setPlaylists([]);
     setOffset(0);
     setHasMore(true);
     if (containerRef.current) containerRef.current.scrollTop = 0;
@@ -136,6 +257,7 @@ useEffect(() => {
   const filters: { id: FilterType; label: string; icon: string }[] = [
     { id: 'tracks', label: 'треки', icon: 'music' },
     { id: 'artists', label: 'артисты', icon: 'mic' },
+    { id: 'playlists', label: 'плейлисты', icon: 'folder' },
   ];
 
   const handlePlay = useCallback(async (track: Track) => {
@@ -145,19 +267,27 @@ useEffect(() => {
       showToast('нет треков для воспроизведения', 'error');
       return;
     }
-    await playTrack(track, queue, 0, ` ${debouncedQuery}`);
-  }, [tracks, playTrack, navigate, showToast, debouncedQuery]);
+    await playTrack(track, queue, 0, debouncedQuery);
+  }, [tracks, playTrack, showToast, debouncedQuery]);
 
   const handlePlayAll = useCallback(async () => {
     if (!tracks.length) return;
-    await playTrack(tracks[0], tracks, 0, ` ${debouncedQuery} (все)`);
-  }, [tracks, playTrack, navigate, debouncedQuery]);
+    await playTrack(tracks[0], tracks, 0, `${debouncedQuery} (все)`);
+  }, [tracks, playTrack, debouncedQuery]);
 
   const handleAddToQueue = useCallback((track: Track, e: React.MouseEvent) => {
     e.stopPropagation();
     addToQueue(track);
     showToast('добавлено в очередь', 'success');
   }, [addToQueue, showToast]);
+
+  const showSkeletons =
+    isLoading &&
+    (filter === 'tracks'
+      ? !tracks.length
+      : filter === 'artists'
+      ? !artists.length
+      : !playlists.length);
 
   return (
     <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden">
@@ -172,7 +302,7 @@ useEffect(() => {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setSearchPage({ query: e.target.value }); }}
               placeholder="исполнители, треки"
               className="w-full py-3.5 pl-12 pr-4 bg-bg-card border border-border-subtle rounded-xl text-text-primary text-lg placeholder:text-text-tertiary outline-none focus:border-border-visible focus:bg-bg-secondary transition-all duration-200"
               autoFocus
@@ -184,7 +314,7 @@ useEffect(() => {
               {filters.map((f) => (
                 <button
                   key={f.id}
-                  onClick={() => setFilter(f.id)}
+                  onClick={() => { setFilter(f.id); setSearchPage({ filter: f.id }); }}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                     filter === f.id
                       ? 'bg-bg-secondary text-text-primary'
@@ -216,42 +346,42 @@ useEffect(() => {
             <p className="text-base">начните поиск</p>
             <p className="text-sm mt-1">введите название трека или исполнителя</p>
           </div>
-) : isLoading && (filter === 'tracks' ? tracks.length === 0 : artists.length === 0) ? (
-  filter === 'tracks' ? (
-    <div className="space-y-1">
-      {[...Array(8)].map((_, i) => {
-        const tw = 20 + Math.random() * 30;
-        const aw = 12 + Math.random() * 20;
-        return (
-          <div key={i} className="flex items-center gap-4 p-3 rounded-xl animate-pulse">
-            <div className="w-12 h-12 rounded-md bg-bg-secondary flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="h-4 bg-bg-secondary rounded mb-2" style={{ width: `${tw}%` }} />
-              <div className="h-3 bg-bg-secondary rounded" style={{ width: `${aw}%` }} />
+        ) : showSkeletons ? (
+          filter === 'tracks' ? (
+            <div className="space-y-1">
+              {[...Array(8)].map((_, i) => {
+                const tw = 20 + Math.random() * 30;
+                const aw = 12 + Math.random() * 20;
+                return (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl animate-pulse">
+                    <div className="w-12 h-12 rounded-md bg-bg-secondary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 bg-bg-secondary rounded mb-2" style={{ width: `${tw}%` }} />
+                      <div className="h-3 bg-bg-secondary rounded" style={{ width: `${aw}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        );
-      })}
-    </div>
-  ) : (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {[...Array(16)].map((_, i) => {
-        const nameW = 30 + Math.random() * 30;
-        const subsW = 25 + Math.random() * 20;
-        return (
-          <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-bg-card animate-pulse">
-            <div className="w-10 h-10 rounded-full bg-bg-secondary flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="h-4 bg-bg-secondary rounded mb-1.5" style={{ width: `${nameW}%` }} />
-              <div className="h-3 bg-bg-secondary rounded" style={{ width: `${subsW}%` }} />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[...Array(16)].map((_, i) => {
+                const nameW = 30 + Math.random() * 30;
+                const subsW = 25 + Math.random() * 20;
+                return (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-bg-card animate-pulse">
+                    <div className="w-10 h-10 rounded-full bg-bg-secondary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-4 bg-bg-secondary rounded mb-1.5" style={{ width: `${nameW}%` }} />
+                      <div className="h-3 bg-bg-secondary rounded" style={{ width: `${subsW}%` }} />
+                    </div>
+                    <div className="w-4 h-4 rounded bg-bg-secondary flex-shrink-0" />
+                  </div>
+                );
+              })}
             </div>
-            <div className="w-4 h-4 rounded bg-bg-secondary flex-shrink-0" />
-          </div>
-        );
-      })}
-    </div>
-  )
-) : filter === 'tracks' ? (
+          )
+        ) : filter === 'tracks' ? (
           <>
             <div className="space-y-1 animate-content-fade-in">
               {tracks.map((track) => (
@@ -278,40 +408,21 @@ useEffect(() => {
 
             <div ref={lastElementCallback} className="h-1" />
           </>
-        ) : (
+        ) : filter === 'artists' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-content-fade-in">
             {artists.map((artist) => (
-              <div
-                key={artist.id}
-                onClick={() => navigate(`/artist/${artist.id}`)}
-                className="flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
-              >
-                {artist.avatar_url ? (
-                  <img
-                    src={artist.avatar_url.replace('-large', '-t100x100')}
-                    alt={artist.username}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center">
-                    <Icon name="mic" size={16} className="text-text-tertiary" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-medium text-text-primary truncate">
-                    {artist.username}
-                  </h4>
-                  <p className="text-xs text-text-tertiary">
-                    {artist.followers_count?.toLocaleString() || 0} слушателей
-                  </p>
-                </div>
-                <Icon
-                  name="chevron-right"
-                  size={16}
-                  className="text-text-tertiary group-hover:text-text-secondary transition-colors"
-                />
-              </div>
+              <ArtistCard key={artist.id} artist={artist} />
             ))}
+
+            <div ref={lastElementCallback} className="h-1 col-span-full" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-content-fade-in">
+            {playlists.map((pl) => (
+              <PlaylistCard key={pl.id} playlist={pl} />
+            ))}
+
+            <div ref={lastElementCallback} className="h-1 col-span-full" />
           </div>
         )}
       </div>

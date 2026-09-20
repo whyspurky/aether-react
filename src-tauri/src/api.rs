@@ -501,7 +501,101 @@ pub async fn search_playlists(query: String, limit: u32, offset: u32) -> Result<
 
 #[tauri::command]
 pub async fn get_user_tracks(user_id: String) -> Result<Value, String> {
-    let url = format!("{}/users/{}/tracks?client_id={}&limit=50", BASE_URL, user_id, CLIENT_ID);
+    let mut all = vec![];
+    let mut seen = std::collections::HashSet::new();
+    let mut next = Some(format!(
+        "{}/users/{}/tracks?client_id={}&limit=50&representation=&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID
+    ));
+
+    while let Some(url) = next.take() {
+        if !seen.insert(url.clone()) {
+            break;
+        }
+        if seen.len() > 20 {
+            break;
+        }
+
+        let data = fetch_retry(&url).await.map_err(|e| e.to_string())?;
+        if let Some(tracks) = data["collection"].as_array() {
+            all.extend(tracks.iter().cloned());
+        }
+
+        // next_href приходит без client_id - добавляем
+        next = data.get("next_href").and_then(|h| h.as_str()).map(|s| {
+            if s.contains("client_id=") {
+                s.to_string()
+            } else {
+                let sep = if s.contains('?') { '&' } else { '?' };
+                format!("{}{}client_id={}", s, sep, CLIENT_ID)
+            }
+        });
+    }
+
+    Ok(json!({ "collection": all }))
+}
+#[tauri::command]
+pub async fn get_user_popular_tracks(user_id: String) -> Result<Value, String> {
+    let url = format!(
+        "{}/users/{}/toptracks?client_id={}&limit=20&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID
+    );
+    fetch_retry(&url).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_related_artists(user_id: String) -> Result<Value, String> {
+    let url = format!("{}/users/{}/related-artists?client_id={}&limit=20", BASE_URL, user_id, CLIENT_ID);
+    fetch_retry(&url).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_user(user_id: String) -> Result<Value, String> {
+    let url = format!("{}/users/{}?client_id={}", BASE_URL, user_id, CLIENT_ID);
+    fetch_retry(&url).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_user_reposts(user_id: String) -> Result<Value, String> {
+    let mut all = vec![];
+    let mut seen = HashSet::new();
+    let mut next = Some(format!(
+        "{}/stream/users/{}/reposts?client_id={}&limit=50&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID
+    ));
+
+    while let Some(url) = next.take() {
+        if !seen.insert(url.clone()) {
+            break;
+        }
+        if seen.len() > 20 {
+            break;
+        }
+
+        let data = fetch_retry(&url).await.map_err(|e| e.to_string())?;
+        if let Some(items) = data["collection"].as_array() {
+            all.extend(items.iter().cloned());
+        }
+
+        next = data.get("next_href").and_then(|h| h.as_str()).map(|s| {
+            if s.contains("client_id=") {
+                s.to_string()
+            } else {
+                let sep = if s.contains('?') { '&' } else { '?' };
+                format!("{}{}client_id={}", s, sep, CLIENT_ID)
+            }
+        });
+    }
+
+    Ok(json!({ "collection": all }))
+}
+#[tauri::command]
+pub async fn get_playlist(url_or_id: String) -> Result<Value, String> {
+    let id = url_or_id.split('/').last()
+        .map(|s| s.split('?').next().unwrap_or(s))
+        .unwrap_or(&url_or_id);
+
+    let url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID);
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
 
@@ -511,26 +605,78 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
         .map(|s| s.split('?').next().unwrap_or(s))
         .unwrap_or(&url_or_id);
 
+    // получаем плейлист - там есть id всех треков
+    let pl_url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID);
+    let pl_data = fetch_retry(&pl_url).await.map_err(|e| e.to_string())?;
+
+    let ids: Vec<u64> = pl_data["tracks"]
+        .as_array()
+        .ok_or("нет треков в плейлисте")?
+        .iter()
+        .filter_map(|t| t["id"].as_u64())
+        .collect();
+
+    if ids.is_empty() {
+        return Ok(json!({ "collection": [] }));
+    }
+
+    // батчами по 50 запрашиваем полные метаданные
     let mut all = vec![];
-    let mut seen_urls = HashSet::new();
-    let mut next = Some(format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID));
+    let mut seen = HashSet::new();
+
+    for chunk in ids.chunks(50) {
+        let ids_str = chunk.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
+        let url = format!("{}/tracks?ids={}&client_id={}", BASE_URL, ids_str, CLIENT_ID);
+
+        if let Ok(data) = fetch_retry(&url).await {
+            if let Some(arr) = data.as_array() {
+                for t in arr {
+                    if let Some(tid) = t["id"].as_u64() {
+                        if seen.insert(tid) {
+                            all.push(t.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(json!({ "collection": all }))
+}
+
+#[tauri::command]
+pub async fn get_user_playlists(user_id: String) -> Result<Value, String> {
+    let mut all = vec![];
+    let mut seen = HashSet::new();
+    let mut next = Some(format!(
+        "{}/users/{}/playlists?client_id={}&limit=50&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID
+    ));
 
     while let Some(url) = next.take() {
-        if !seen_urls.insert(url.clone()) {
+        if !seen.insert(url.clone()) {
             break;
         }
-        if seen_urls.len() > 100 {
+        if seen.len() > 20 {
             break;
         }
 
         let data = fetch_retry(&url).await.map_err(|e| e.to_string())?;
-        if let Some(tracks) = data["tracks"].as_array() {
-            all.extend(tracks.iter().cloned());
+        if let Some(items) = data["collection"].as_array() {
+            all.extend(items.iter().cloned());
         }
-        next = data.get("next_href").and_then(|h| h.as_str()).map(|s| s.to_string());
+
+        next = data.get("next_href").and_then(|h| h.as_str()).map(|s| {
+            if s.contains("client_id=") {
+                s.to_string()
+            } else {
+                let sep = if s.contains('?') { '&' } else { '?' };
+                format!("{}{}client_id={}", s, sep, CLIENT_ID)
+            }
+        });
     }
 
-    Ok(json!({ "tracks": all }))
+    Ok(json!({ "collection": all }))
 }
 
 #[tauri::command]

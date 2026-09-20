@@ -7,10 +7,16 @@ import { formatMs } from '../lib/format';
 interface TrackListProps {
   tracks: Track[];
   showQueueButton?: boolean;
+  showNumber?: boolean;
   onTrackClick?: (track: Track, index: number) => void;
 }
 
-export function TrackList({ tracks, showQueueButton = true, onTrackClick }: TrackListProps) {
+export function TrackList({
+  tracks,
+  showQueueButton = true,
+  showNumber = true,
+  onTrackClick,
+}: TrackListProps) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
@@ -64,17 +70,19 @@ export function TrackList({ tracks, showQueueButton = true, onTrackClick }: Trac
               isCurrent ? 'bg-bg-secondary' : ''
             }`}
           >
-            <div className="w-8 text-center text-sm text-text-tertiary">
-              {isCurrent && isPlaying ? (
-                <div className="flex items-center justify-center gap-0.5">
-                  <span className="w-1 h-2 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite]" />
-                  <span className="w-1 h-3 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.15s]" />
-                  <span className="w-1 h-4 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.3s]" />
-                </div>
-              ) : (
-                <span className="tabular-nums">{index + 1}</span>
-              )}
-            </div>
+{showNumber && (
+  <div className="w-8 text-center text-sm text-text-tertiary">
+    {isCurrent && isPlaying ? (
+      <div className="flex items-center justify-center gap-0.5">
+        <span className="w-1 h-2 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite]" />
+        <span className="w-1 h-3 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.15s]" />
+        <span className="w-1 h-4 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.3s]" />
+      </div>
+    ) : (
+      <span className="tabular-nums">{index + 1}</span>
+    )}
+  </div>
+)}
 
             {coverUrl ? (
               <img src={coverUrl} className="w-10 h-10 rounded-md object-cover flex-shrink-0" alt="" />

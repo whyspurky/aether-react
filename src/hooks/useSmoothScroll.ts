@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface Options {
   sensitivity?: number;
@@ -16,6 +16,13 @@ export function useSmoothScroll<T extends HTMLElement>(options: Options = {}) {
   } = options;
   const ref = useRef<T | null>(null);
   const animationRef = useRef<number | null>(null);
+  const [, forceRender] = useState(0);
+
+  const setRef = useCallback((node: T | null) => {
+    if (ref.current === node) return;
+    ref.current = node;
+    forceRender((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
@@ -142,5 +149,5 @@ return () => {
 };
   }, [sensitivity, duration, dragThreshold]);
 
-  return ref;
+  return setRef;
 }

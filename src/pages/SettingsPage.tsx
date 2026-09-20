@@ -2,18 +2,16 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store/store';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
-import { BrokenTracksModal } from '../components/Modals/BrokenTracksModal';
 import { getVersion } from '@tauri-apps/api/app';
 import { useSmoothScroll } from '../hooks/useSmoothScroll';
 import { ProxySettings } from '../components/ProxySettings';
 import { api } from '../lib/api';
 
-type SettingsTab = 'data' | 'appearance' | 'proxy' | 'diagnostics' | 'about';
+type SettingsTab = 'data' | 'appearance' | 'proxy' | 'about';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showBrokenModal, setShowBrokenModal] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
   const scrollRef = useSmoothScroll<HTMLElement>();
@@ -50,7 +48,6 @@ export default function SettingsPage() {
     { id: 'data', label: 'данные', icon: 'database' },
     { id: 'appearance', label: 'внешний вид', icon: 'palette' },
     { id: 'proxy', label: 'прокси', icon: 'shield' },
-    { id: 'diagnostics', label: 'диагностика', icon: 'bug' },
     { id: 'about', label: 'о приложении', icon: 'info' },
   ];
 
@@ -221,28 +218,6 @@ export default function SettingsPage() {
           )}
           {activeTab === 'proxy' && <ProxySettings />}
 
-          {activeTab === 'diagnostics' && (
-            <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">
-              <div className="divide-y divide-border-subtle">
-                <button
-                  onClick={() => setShowBrokenModal(true)}
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-bg-secondary flex items-center justify-center">
-                      <Icon name="alert-circle" size={16} className="text-text-secondary" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm text-text-primary">битые треки</p>
-                      <p className="text-xs text-text-tertiary">список треков, которые не воспроизвелись</p>
-                    </div>
-                  </div>
-                  <Icon name="chevron-right" size={16} className="text-text-tertiary group-hover:text-text-secondary transition-colors" />
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'about' && (
             <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">
               <div className="p-6">
@@ -301,11 +276,6 @@ export default function SettingsPage() {
           handleClearFavorites();
         }}
         onCancel={() => setShowClearFavoritesConfirm(false)}
-      />
-
-      <BrokenTracksModal
-        isOpen={showBrokenModal}
-        onClose={() => setShowBrokenModal(false)}
       />
     </div>
   );

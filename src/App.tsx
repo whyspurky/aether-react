@@ -6,6 +6,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { TitleBar } from './components/TitleBar';
 import { Layout } from './components/Layout';
 import { useTheme } from './hooks/useTheme';
+import { useStore } from './store/store';
+import { api } from './lib/api';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import LibraryPage from './pages/LibraryPage';
@@ -13,9 +15,6 @@ import PlayerPage from './pages/PlayerPage';
 import SettingsPage from './pages/SettingsPage';
 import ArtistPage from './pages/ArtistPage';
 import PlaylistPage from './pages/PlaylistPage';
-import { useStore } from './store/store';
-import { api } from './lib/api';
-
 
 const appWindow = getCurrentWindow();
 

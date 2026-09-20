@@ -3,8 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '../lib/api';
-import type { Track, Playlist, ProxyMode, CustomProxyConfig } from './types';
-
+import type { Track, User, Playlist, ProxyMode, CustomProxyConfig } from './types';
 let positionInterval: ReturnType<typeof setInterval> | null = null;
 let isTrackEnding = false;
 
@@ -14,10 +13,41 @@ interface AppState {
     query: string;
     filter: 'tracks' | 'playlists' | 'artists';
   };
+    searchPage: {
+    query: string;
+    filter: 'tracks' | 'artists' | 'playlists';
+    tracks: Track[];
+    artists: User[];
+    playlists: Playlist[];
+    offset: number;
+    hasMore: boolean;
+    scrollTop: number;
+    isFresh: boolean;
+  };
+    artistPage: {
+    cache: Record<string, {
+      artist: User;
+      popularTracks: Track[];
+      tracks: Track[];
+      reposts: Track[];
+      playlists: Playlist[];
+      relatedArtists: User[];
+      tab: 'all' | 'tracks' | 'playlists' | 'reposts';
+      scrollTop: number;
+    }>;
+  };
+  playlistPage: {
+    cache: Record<string, {
+      playlist: Playlist;
+      tracks: Track[];
+      scrollTop: number;
+    }>;
+  };
   queue: {
     tracks: Track[];
     currentIndex: number;
     source: string;
+    originalTracks: Track[] | null;
   };
   proxy: {
   mode: ProxyMode;
@@ -47,6 +77,8 @@ zapret: {
     position: number;
     duration: number;
     pendingSeek: number | null;
+    shuffleHistory: number[];
+
   };
   library: {
     favorites: Track[];
@@ -66,10 +98,28 @@ const initialState: AppState = {
     query: '',
     filter: 'tracks',
   },
+    searchPage: {
+    query: '',
+    filter: 'tracks',
+    tracks: [],
+    artists: [],
+    playlists: [],
+    offset: 0,
+    hasMore: true,
+    scrollTop: 0,
+    isFresh: false,
+  },
+    artistPage: {
+    cache: {},
+  },
+  playlistPage: {
+    cache: {},
+  },
   queue: {
     tracks: [],
     currentIndex: -1,
     source: '',
+    originalTracks: null,
   },
   proxy: {
   mode: 'off',
@@ -105,6 +155,7 @@ zapret: {
     position: 0,
     duration: 0,
     pendingSeek: null,
+    shuffleHistory: [],
   },
   library: {
     favorites: [],
@@ -131,6 +182,10 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const useStore = create<AppState & {
   setSearchQuery: (query: string) => void;
+  setSearchPage: (patch: Partial<AppState['searchPage']>) => void;
+  resetSearchPage: () => void;
+    setArtistCache: (id: string, data: Partial<AppState['artistPage']['cache'][string]>) => void;
+  setPlaylistCache: (id: string, data: Partial<AppState['playlistPage']['cache'][string]>) => void;
   setSearchFilter: (filter: 'tracks' | 'playlists' | 'artists') => void;
   setZapretFolder: (folder: string) => void;
   setHomePagePopular: (tracks: Track[]) => void;
@@ -147,8 +202,8 @@ setZapretStatus: (status: 'unknown' | 'running' | 'stopped' | 'not_installed') =
 setZapretBatPath: (path: string) => void;
   addToQueue: (track: Track) => void;
   playTrack: (track: Track, tracks: Track[], index: number, source?: string) => Promise<void>;
-  nextTrack: () => Promise<void>;
-  prevTrack: () => Promise<void>;
+nextTrack: (manual?: boolean) => Promise<void>;
+prevTrack: (manual?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   setPosition: (position: number) => void;
@@ -183,8 +238,28 @@ setZapretBatPath: (path: string) => void;
 
       setSearchQuery: (query) => set((s) => ({ search: { ...s.search, query } })),
       setSearchFilter: (filter) => set((s) => ({ search: { ...s.search, filter } })),
+      setSearchPage: (patch) => set((s) => ({ searchPage: { ...s.searchPage, ...patch } })),
 
+      resetSearchPage: () => set((s) => ({
+        searchPage: { ...s.searchPage, tracks: [], artists: [], playlists: [], offset: 0, hasMore: true },
+      })),
+      setArtistCache: (id, data) => set((s) => ({
+        artistPage: {
+          cache: {
+            ...s.artistPage.cache,
+            [id]: { ...s.artistPage.cache[id], ...data } as any,
+          },
+        },
+      })),
 
+      setPlaylistCache: (id, data) => set((s) => ({
+        playlistPage: {
+          cache: {
+            ...s.playlistPage.cache,
+            [id]: { ...s.playlistPage.cache[id], ...data } as any,
+          },
+        },
+      })),
 setProxyMode: (mode) => set((s) => ({ proxy: { ...s.proxy, mode } })),
 
 setCustomProxy: (config) =>
@@ -249,19 +324,24 @@ setZapretBatPath: (path) =>
         const savedSeek = get().player.pendingSeek;
         const startPos = savedSeek && savedSeek > 0 ? savedSeek : 0;
 
-        set((s) => ({
-          queue: { tracks, currentIndex: index, source },
-          player: {
-            ...s.player,
-            currentTrack: track,
-            isLoading: true,
-            isAudioReady: false,
-            isPlaying: false,
-            position: startPos,
-            duration: track.duration ? track.duration / 1000 : 0,
-            pendingSeek: savedSeek && savedSeek > 0 ? savedSeek : null,
-          },
-        }));
+set((s) => ({
+  queue: {
+    tracks,
+    currentIndex: index,
+    source,
+    originalTracks: s.queue.originalTracks,
+  },
+  player: {
+    ...s.player,
+    currentTrack: track,
+    isLoading: true,
+    isAudioReady: false,
+    isPlaying: false,
+    position: startPos,
+    duration: track.duration ? track.duration / 1000 : 0,
+    pendingSeek: savedSeek && savedSeek > 0 ? savedSeek : null,
+  },
+}));
 
         const isValid = () => get().player.currentTrack?.id === track.id;
 
@@ -297,10 +377,11 @@ setZapretBatPath: (path) =>
             get().addToHistory(track);
             startPositionLoop(isValid);
 
-            const remaining = get().queue.tracks.length - index - 1;
-            if (remaining <= 3 && get().player.repeat !== 'one') {
-              get().preloadMoreTracks().catch(() => {});
-            }
+const remaining = get().queue.tracks.length - index - 1;
+if (remaining <= 3 && get().player.repeat === 'none') {
+  get().preloadMoreTracks().catch(() => {});
+}
+
           } catch (err) {
             if (!isValid()) return;
 
@@ -329,61 +410,84 @@ setZapretBatPath: (path) =>
         }
       },
 
-      nextTrack: async () => {
-        clearPositionInterval();
-        isTrackEnding = false;
+nextTrack: async (manual = false) => {
+  clearPositionInterval();
+  isTrackEnding = false;
 
-        try { await api.stopAudio(); } catch {}
+  try { await api.stopAudio(); } catch {}
 
-        set((s) => ({ player: { ...s.player, isPlaying: false, position: 0 } }));
+set((s) => ({
+  player: {
+    ...s.player,
+    isPlaying: false,
+    position: 0,
+    repeat: manual && s.player.repeat === 'one' ? 'none' : s.player.repeat,
+  },
+}));
 
-        const { queue, player } = get();
-        let nextIndex = queue.currentIndex + 1;
+  const { queue, player } = get();
 
-        if (nextIndex >= queue.tracks.length) {
-          await get().preloadMoreTracks();
+  // repeat one - повторяем только если трек кончился сам
+  // при ручном next - переключаем
+  if (!manual && player.repeat === 'one') {
+    const current = get().player.currentTrack;
+    if (current) {
+      await get().playTrack(current, get().queue.tracks, get().queue.currentIndex, get().queue.source);
+    }
+    return;
+  }
 
-          const q = get().queue;
-          if (q.tracks.length > queue.tracks.length) {
-            nextIndex = q.currentIndex + 1;
-          } else if (player.repeat === 'all') {
-            nextIndex = 0;
-          } else if (player.repeat === 'one') {
-            const current = get().player.currentTrack;
-            if (current) {
-              await get().playTrack(current, get().queue.tracks, get().queue.currentIndex, get().queue.source);
-            }
-            return;
-          } else {
-            set((s) => ({
-              player: { ...s.player, currentTrack: null, isPlaying: false, isLoading: false },
-            }));
-            return;
-          }
-        }
+let nextIndex = queue.currentIndex + 1;
 
-        const next = get().queue.tracks[nextIndex];
-        if (next) {
-          await get().playTrack(next, get().queue.tracks, nextIndex, get().queue.source);
-        }
-      },
+if (nextIndex >= queue.tracks.length) {
+  // repeat all - крутим имеющиеся треки, не дозагружаем
+  if (player.repeat === 'all') {
+    nextIndex = 0;
+  } else {
+    // repeat none - дозагружаем
+    await get().preloadMoreTracks();
 
-      prevTrack: async () => {
-        clearPositionInterval();
-        isTrackEnding = false;
+    const q = get().queue;
+    if (q.tracks.length > queue.tracks.length) {
+      nextIndex = q.currentIndex + 1;
+    } else {
+      set((s) => ({
+        player: { ...s.player, currentTrack: null, isPlaying: false, isLoading: false },
+      }));
+      return;
+    }
+  }
+}
 
-        try { await api.stopAudio(); } catch {}
+  const next = get().queue.tracks[nextIndex];
+  if (next) {
+    await get().playTrack(next, get().queue.tracks, nextIndex, get().queue.source);
+  }
+},
 
-        set((s) => ({ player: { ...s.player, isPlaying: false, position: 0 } }));
+prevTrack: async (manual = false) => {
+  clearPositionInterval();
+  isTrackEnding = false;
 
-        const { queue } = get();
-        const prevIndex = Math.max(0, queue.currentIndex - 1);
-        const prev = get().queue.tracks[prevIndex];
+  try { await api.stopAudio(); } catch {}
 
-        if (prev) {
-          await get().playTrack(prev, get().queue.tracks, prevIndex, get().queue.source);
-        }
-      },
+set((s) => ({
+  player: {
+    ...s.player,
+    isPlaying: false,
+    position: 0,
+    repeat: manual && s.player.repeat === 'one' ? 'none' : s.player.repeat,
+  },
+}));
+
+  const { queue } = get();
+  const prevIndex = Math.max(0, queue.currentIndex - 1);
+  const prev = get().queue.tracks[prevIndex];
+
+  if (prev) {
+    await get().playTrack(prev, get().queue.tracks, prevIndex, get().queue.source);
+  }
+},
 
 togglePlay: async () => {
   const { isPlaying, isLoading, isAudioReady, currentTrack, position } = get().player;
@@ -426,8 +530,65 @@ togglePlay: async () => {
   set((s) => ({ player: { ...s.player, position } }));
 },
 
-      setShuffle: (shuffle) => set((s) => ({ player: { ...s.player, shuffle } })),
-      setRepeat: (repeat) => set((s) => ({ player: { ...s.player, repeat } })),
+setShuffle: (shuffle) => {
+  const { queue, player } = get();
+
+  // включаем shuffle
+  if (shuffle && !player.shuffle) {
+    if (queue.tracks.length < 2) {
+      set((s) => ({ player: { ...s.player, shuffle: true } }));
+      return;
+    }
+
+    const current = player.currentTrack;
+    if (!current) {
+      set((s) => ({ player: { ...s.player, shuffle: true } }));
+      return;
+    }
+
+    // текущий трек в начало, остальные после него в случайном порядке
+    const others = queue.tracks.filter((t) => t.id !== current.id);
+    const shuffled = [current, ...others.sort(() => Math.random() - 0.5)];
+
+    set((s) => ({
+      player: { ...s.player, shuffle: true },
+      queue: {
+        ...s.queue,
+        tracks: shuffled,
+        currentIndex: 0,
+        originalTracks: s.queue.tracks,
+      },
+    }));
+    return;
+  }
+
+  // выключаем shuffle
+  if (!shuffle && player.shuffle) {
+    const original = queue.originalTracks;
+    if (!original) {
+      set((s) => ({ player: { ...s.player, shuffle: false } }));
+      return;
+    }
+
+    const current = player.currentTrack;
+    const newIndex = current ? original.findIndex((t) => t.id === current.id) : 0;
+
+    set((s) => ({
+      player: { ...s.player, shuffle: false },
+      queue: {
+        ...s.queue,
+        tracks: original,
+        currentIndex: newIndex >= 0 ? newIndex : 0,
+        originalTracks: null,
+      },
+    }));
+    return;
+  }
+
+  // ничего не меняется
+  set((s) => ({ player: { ...s.player, shuffle } }));
+},
+        setRepeat: (repeat) => set((s) => ({ player: { ...s.player, repeat } })),
 
 
       addToFavorites: (track) =>
@@ -573,21 +734,25 @@ togglePlay: async () => {
           }
 
           if (fresh.length) {
-            set((s) => {
-              const tracks = [...s.queue.tracks, ...fresh];
-              const max = 200;
-              if (tracks.length > max) {
-                const removed = tracks.length - max;
-                return {
-                  queue: {
-                    ...s.queue,
-                    tracks: tracks.slice(removed),
-                    currentIndex: Math.max(0, s.queue.currentIndex - removed),
-                  },
-                };
-              }
-              return { queue: { ...s.queue, tracks } };
-            });
+set((s) => {
+  const tracks = [...s.queue.tracks, ...fresh];
+  const originalTracks = s.queue.originalTracks
+    ? [...s.queue.originalTracks, ...fresh]
+    : null;
+  const max = 200;
+  if (tracks.length > max) {
+    const removed = tracks.length - max;
+    return {
+      queue: {
+        ...s.queue,
+        tracks: tracks.slice(removed),
+        originalTracks: originalTracks ? originalTracks.slice(removed) : null,
+        currentIndex: Math.max(0, s.queue.currentIndex - removed),
+      },
+    };
+  }
+  return { queue: { ...s.queue, tracks, originalTracks } };
+});
           }
         } catch {
         } finally {

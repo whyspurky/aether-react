@@ -117,7 +117,7 @@ export function PlayerBar() {
 
       <div className="flex items-center gap-4 flex-shrink-0">
         <button
-          onClick={prevTrack}
+          onClick={() => prevTrack(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
         >
           <Icon name="skip-back" size={16} />
@@ -131,7 +131,7 @@ export function PlayerBar() {
         </button>
 
         <button
-          onClick={nextTrack}
+          onClick={() => nextTrack(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
         >
           <Icon name="skip-forward" size={16} />

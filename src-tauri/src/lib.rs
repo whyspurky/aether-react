@@ -25,8 +25,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            api::search_tracks, api::search_playlists, api::get_user_tracks,
-            api::get_playlist_tracks, api::get_popular, api::get_my_wave,
+            api::search_tracks, api::search_playlists, api::get_user_tracks, api::get_user,
+            api::get_user_popular_tracks, api::get_related_artists,
+            api::get_user_reposts,
+            api::get_playlist, api::get_user_playlists,
+            api::get_popular, api::get_my_wave,
+            api::get_playlist_tracks,
             api::fetch_url, api::get_stream_url, api::download_hls_track,
             api::proxy_set_custom, api::proxy_clear, api::proxy_get_status, api::proxy_test_api, api::proxy_test_cdn,
             audio::play_audio, audio::pause_audio, audio::resume_audio,

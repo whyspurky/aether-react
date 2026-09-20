@@ -1,7 +1,7 @@
 // src/lib/api.ts
 
 import { invoke } from '@tauri-apps/api/core';
-import type { Track, User } from '../store/types';
+import type { Track, User, Playlist } from '../store/types';
 
 let cache: { tracks: Track[]; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
@@ -26,6 +26,15 @@ proxySetCustom: async (config: {
 
 proxyClear: async (): Promise<void> => {
   await invoke('proxy_clear');
+},
+
+getPlaylistTracks: async (playlistId: string): Promise<Track[]> => {
+  try {
+    const data = await invoke<any>('get_playlist_tracks', { urlOrId: playlistId });
+    return data?.collection || [];
+  } catch {
+    return [];
+  }
 },
 
 proxyGetStatus: async (): Promise<null | {
@@ -138,14 +147,63 @@ zapretAddSoundcloudDomains: async (folder: string): Promise<void> => {
     }
   },
 
-  getPlaylistTracks: async (playlistId: string): Promise<any> => {
-    try {
-      return await invoke('get_playlist_tracks', { urlOrId: playlistId });
-    } catch {
-      return null;
-    }
+getUserPopularTracks: async (userId: number): Promise<Track[]> => {
+  try {
+    const data = await invoke<any>('get_user_popular_tracks', { userId: String(userId) });
+    return data?.collection || [];
+  } catch {
+    return [];
+  }
+},
+
+getRelatedArtists: async (userId: number): Promise<User[]> => {
+  try {
+    const data = await invoke<any>('get_related_artists', { userId: String(userId) });
+    return data?.collection || [];
+  } catch {
+    return [];
+  }
+},
+
+getUserReposts: async (userId: number): Promise<Track[]> => {
+  try {
+    const data = await invoke<any>('get_user_reposts', { userId: String(userId) });
+    const collection = data?.collection || [];
+    
+    return collection
+      .map((item: any) => item.track)
+      .filter((t: any) => t && t.id);
+  } catch {
+    return [];
+  }
+},
+
+  getUser: async (userId: number): Promise<User | null> => {
+  try {
+    const data = await invoke<User>('get_user', { userId: String(userId) });
+    return data || null;
+  } catch {
+    return null;
+  }
   },
 
+getPlaylist: async (playlistId: string): Promise<Playlist | null> => {
+  try {
+    const data = await invoke<Playlist>('get_playlist', { urlOrId: playlistId });
+    return data || null;
+  } catch {
+    return null;
+  }
+},
+
+getUserPlaylists: async (userId: number): Promise<Playlist[]> => {
+  try {
+    const data = await invoke<any>('get_user_playlists', { userId: String(userId) });
+    return data?.collection || [];
+  } catch {
+    return [];
+  }
+},
   searchPlaylists: async (query: string, limit = 10, offset = 0): Promise<any> => {
     try {
       return await invoke('search_playlists', { query, limit, offset });

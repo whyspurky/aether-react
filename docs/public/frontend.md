@@ -27,7 +27,6 @@ src/
 │   - Toast.tsx          # всплывашка
 │   - Modals/
 │       - ConfirmModal.tsx
-│       - BrokenTracksModal.tsx
 │
 - hooks/
 │   - useTheme.ts        # применяет тему в css-переменные
@@ -252,8 +251,6 @@ Layout - **каркас** приложения. TitleBar - **своя полос
 ### Modals
 
 **ConfirmModal** - универсальное подтверждение. **Escape** закрывает.
-
-**BrokenTracksModal** - список треков, которые не смогли воспроизвестись. **фича не подключена** - никто не пишет в `aether_broken_tracks`.
 
 ## состояние (zustand)
 

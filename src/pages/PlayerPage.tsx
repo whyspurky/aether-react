@@ -465,7 +465,7 @@ export default function PlayerPage() {
                 <Icon name="shuffle" size={18} />
               </button>
               <button
-                onClick={() => prevTrack()}
+                onClick={() => prevTrack(true)}
                 className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
               >
                 <Icon name="skip-back" size={22} />
@@ -484,7 +484,7 @@ export default function PlayerPage() {
                 )}
               </button>
               <button
-                onClick={() => nextTrack()}
+                onClick={() => nextTrack(true)}
                 className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
               >
                 <Icon name="skip-forward" size={22} />
