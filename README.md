@@ -9,6 +9,7 @@ tauri 2 · react 18 · rust
 [![telegram](https://img.shields.io/badge/telegram-aether-white?style=flat-square&logo=telegram&logoColor=white&labelColor=0F0F0F)](https://t.me/aether_player)
 
 </div>
+
 ## стек
 
 **frontend** - react 18, typescript, tailwind, zustand, vite
