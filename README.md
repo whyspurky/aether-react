@@ -2,25 +2,22 @@
 
 # aether
 
-десктопный музыкальный плеер, стримящий треки с внутреннего апи ск
+десктопный музыкальный плеер для soundcloud
+
+tauri 2 · react 18 · rust
 
 [![telegram](https://img.shields.io/badge/telegram-aether-white?style=flat-square&logo=telegram&logoColor=white&labelColor=0F0F0F)](https://t.me/aether_player)
 
 </div>
 
-### стек
+## стек
 
-**frontend** - react 18 + typescript + tailwind css + zustand
-**backend** - tauri 2 (rust) + rodio + reqwest
-**сборка** - vite 5 
+**frontend** - react 18, typescript, tailwind, zustand, vite
+**backend** - tauri 2, rust, rodio, reqwest
 
-### возможности
+## сообщество
 
-все базовые функции современных музыкальных плееров и дополнения в будущих обновах
-
-### сообщество
-
-телеграм-канал с обновлениями и поддержкой - [**t.me/aether_player**](https://t.me/aether_player)
+телеграм-канал с обновлениями - [**t.me/aether_player**](https://t.me/aether_player)
 
 ## документация
 
