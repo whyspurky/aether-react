@@ -87,6 +87,9 @@ export function useSmoothScroll<T extends HTMLElement>(options: Options = {}) {
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
 
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-smooth-scroll-off]')) return;
+
       isPressed = true;
       isDragging = false;
       startX = e.clientX;

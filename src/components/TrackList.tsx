@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from './Icon';
 import { useStore } from '../store/store';
+import { useAddToPlaylist } from './AddToPlaylistProvider';
 import type { Track } from '../store/types';
 import { formatMs } from '../lib/format';
 
@@ -9,6 +10,7 @@ interface TrackListProps {
   showQueueButton?: boolean;
   showNumber?: boolean;
   onTrackClick?: (track: Track, index: number) => void;
+  onRemove?: (track: Track) => void;
 }
 
 export function TrackList({
@@ -16,13 +18,13 @@ export function TrackList({
   showQueueButton = true,
   showNumber = true,
   onTrackClick,
+  onRemove,
 }: TrackListProps) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
-  const addToQueue = useStore((s) => s.addToQueue);
-  const showToast = useStore((s) => s.showToast);
   const currentTrack = useStore((s) => s.player.currentTrack);
   const isPlaying = useStore((s) => s.player.isPlaying);
+  const { open: openAddToPlaylist, close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
 
   const handlePlay = async (track: Track, index: number) => {
     if (onTrackClick) {
@@ -30,12 +32,6 @@ export function TrackList({
       return;
     }
     await playTrack(track, tracks, index);
-  };
-
-  const handleAddToQueue = (track: Track, e: React.MouseEvent) => {
-    e.stopPropagation();
-    addToQueue(track);
-    showToast('добавлено в очередь', 'success');
   };
 
   const handleArtistClick = (track: Track, e: React.MouseEvent) => {
@@ -70,19 +66,19 @@ export function TrackList({
               isCurrent ? 'bg-bg-secondary' : ''
             }`}
           >
-{showNumber && (
-  <div className="w-8 text-center text-sm text-text-tertiary">
-    {isCurrent && isPlaying ? (
-      <div className="flex items-center justify-center gap-0.5">
-        <span className="w-1 h-2 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite]" />
-        <span className="w-1 h-3 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.15s]" />
-        <span className="w-1 h-4 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.3s]" />
-      </div>
-    ) : (
-      <span className="tabular-nums">{index + 1}</span>
-    )}
-  </div>
-)}
+            {showNumber && (
+              <div className="w-8 text-center text-sm text-text-tertiary">
+                {isCurrent && isPlaying ? (
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="w-1 h-2 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite]" />
+                    <span className="w-1 h-3 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.15s]" />
+                    <span className="w-1 h-4 bg-text-secondary rounded-full animate-[eqBar_0.8s_ease_infinite_0.3s]" />
+                  </div>
+                ) : (
+                  <span className="tabular-nums">{index + 1}</span>
+                )}
+              </div>
+            )}
 
             {coverUrl ? (
               <img src={coverUrl} className="w-10 h-10 rounded-md object-cover flex-shrink-0" alt="" />
@@ -110,19 +106,47 @@ export function TrackList({
               </p>
             </div>
 
-            <span className="text-xs text-text-tertiary tabular-nums">
-              {formatMs(track.duration || 0)}
-            </span>
+            <div className="flex items-center flex-shrink-0 mr-4">
+              <div className="flex items-center gap-1 w-[60px] justify-end">
+                {showQueueButton && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (openTrackId === track.id) {
+                        closeAddToPlaylist();
+                      } else {
+                        openAddToPlaylist(track, e.currentTarget as HTMLElement);
+                      }
+                    }}
+                    className={`p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200 ${
+                      openTrackId === track.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                    title="добавить в плейлист"
+                  >
+                    <span className={`inline-block transition-transform duration-200 ${openTrackId === track.id ? 'rotate-45' : ''}`}>
+                      <Icon name="plus" size={16} />
+                    </span>
+                  </button>
+                )}
 
-            {showQueueButton && (
-              <button
-                onClick={(e) => handleAddToQueue(track, e)}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
-                title="добавить в очередь"
-              >
-                <Icon name="plus" size={16} />
-              </button>
-            )}
+                {onRemove && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(track);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-text-tertiary hover:text-red-400 hover:bg-glass-bg transition-all duration-200"
+                    title="убрать из плейлиста"
+                  >
+                    <Icon name="minus" size={16} />
+                  </button>
+                )}
+              </div>
+
+              <span className="tabular-nums text-xs text-text-tertiary text-right w-[4.1ch]">
+                {formatMs(track.duration || 0)}
+              </span>
+            </div>
           </div>
         );
       })}

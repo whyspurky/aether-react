@@ -201,6 +201,7 @@ setCustomProxy: (config: Partial<CustomProxyConfig>) => void;
 setZapretStatus: (status: 'unknown' | 'running' | 'stopped' | 'not_installed') => void;
 setZapretBatPath: (path: string) => void;
   addToQueue: (track: Track) => void;
+    removeFromQueue: (trackId: number) => void;
   playTrack: (track: Track, tracks: Track[], index: number, source?: string) => Promise<void>;
 nextTrack: (manual?: boolean) => Promise<void>;
 prevTrack: (manual?: boolean) => Promise<void>;
@@ -219,6 +220,7 @@ prevTrack: (manual?: boolean) => Promise<void>;
   clearFavorites: () => void;
 
   createPlaylist: (name: string) => void;
+  importPlaylist: (name: string, tracks: Track[], artworkUrl?: string) => string;
   updatePlaylist: (id: string, name: string) => void;
   addToPlaylist: (playlistId: string, track: Track) => void;
   removeFromPlaylist: (playlistId: string, trackId: number) => void;
@@ -313,7 +315,43 @@ setZapretBatPath: (path) =>
 
       addToQueue: (track) => set((s) => ({ queue: { ...s.queue, tracks: [...s.queue.tracks, track] } })),
 
+      removeFromQueue: (trackId) => {
+        const s = get();
+        const idx = s.queue.tracks.findIndex((t) => t.id === trackId);
+        if (idx === -1) return;
 
+        const isCurrent = s.queue.currentIndex === idx;
+        const newTracks = s.queue.tracks.filter((t) => t.id !== trackId);
+        const newOriginal = s.queue.originalTracks
+          ? s.queue.originalTracks.filter((t) => t.id !== trackId)
+          : null;
+
+        if (isCurrent) {
+          set({
+            queue: {
+              ...s.queue,
+              tracks: newTracks,
+              originalTracks: newOriginal,
+              currentIndex: -1,
+            },
+          });
+          get().nextTrack();
+          return;
+        }
+
+        const currentIndex = idx < s.queue.currentIndex
+          ? s.queue.currentIndex - 1
+          : s.queue.currentIndex;
+
+        set({
+          queue: {
+            ...s.queue,
+            tracks: newTracks,
+            originalTracks: newOriginal,
+            currentIndex: Math.max(0, currentIndex),
+          },
+        });
+      },
       playTrack: async (track, tracks, index, source = 'queue') => {
         clearPositionInterval();
         isTrackEnding = false;
@@ -613,7 +651,12 @@ setShuffle: (shuffle) => {
         const pl: Playlist = { id: Date.now().toString(), name, tracks: [], createdAt: Date.now() };
         set((s) => ({ library: { ...s.library, playlists: [pl, ...s.library.playlists] } }));
       },
-
+      importPlaylist: (name, tracks, artworkUrl) => {
+        const id = Date.now().toString();
+        const pl: Playlist = { id, name, tracks, createdAt: Date.now(), artwork_url: artworkUrl };
+        set((s) => ({ library: { ...s.library, playlists: [pl, ...s.library.playlists] } }));
+        return id;
+      },
       updatePlaylist: (id, name) =>
         set((s) => ({
           library: {

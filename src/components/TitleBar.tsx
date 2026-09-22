@@ -13,7 +13,7 @@ export function TitleBar({ onMinimize, onMaximize, onClose }: TitleBarProps) {
   return (
     <div
       data-tauri-drag-region
-      className="fixed top-0 left-0 right-0 h-10 flex items-center justify-between px-4 bg-bg-secondary/90 backdrop-blur-xl z-50"
+      className="fixed top-0 left-0 right-0 h-10 flex items-center justify-between px-4 bg-bg-secondary/90 backdrop-blur-xl z-30"
     >
       <div className="flex items-center gap-2.5" data-tauri-drag-region>
         <span className="text-sm font-semibold text-text-primary">aether</span>

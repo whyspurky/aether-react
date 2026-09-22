@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from './Icon';
 import { useStore } from '../store/store';
+import { useAddToPlaylist } from './AddToPlaylistProvider';
 import type { Track } from '../store/types';
 import { formatMs } from '../lib/format';
 
@@ -13,13 +14,14 @@ interface TrackCardProps {
 export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
-  const addToQueue = useStore((s) => s.addToQueue);
-  const showToast = useStore((s) => s.showToast);
+  const { open: openAddToPlaylist, close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
 
   const coverUrl =
     track.artwork_url?.replace('-large', '-t500x500') ||
     track.user?.avatar_url?.replace('-large', '-t500x500') ||
     null;
+
+  const isMenuOpen = openTrackId === track.id;
 
   const handlePlay = async () => {
     const list = tracks ?? [track];
@@ -27,14 +29,17 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
     await playTrack(track, list.slice(i), 0, 'trackcard');
   };
 
-  const handleAddToQueue = (e: React.MouseEvent) => {
+  const handleAddToPlaylist = (e: React.MouseEvent) => {
     e.stopPropagation();
-    addToQueue(track);
-    showToast('добавлено в очередь', 'success');
+    if (isMenuOpen) {
+      closeAddToPlaylist();
+    } else {
+      openAddToPlaylist(track, e.currentTarget as HTMLElement);
+    }
   };
 
   const handleArtistClick = (e: React.MouseEvent) => {
-    e.stopPropagation();  
+    e.stopPropagation();
     const id = track.user?.id;
     if (id) navigate(`/artist/${id}`);
   };
@@ -57,13 +62,25 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
             <Icon name="music" size={32} className="text-text-tertiary" />
           </div>
         )}
+
+        <button
+          onClick={handleAddToPlaylist}
+          className={`absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm grid place-items-center text-white hover:bg-black/80 transition-all duration-200 ${
+            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+          title="добавить в плейлист"
+        >
+          <span className={`block transition-transform duration-200 ${isMenuOpen ? 'rotate-45' : ''}`}>
+            <Icon name="plus" size={12} />
+          </span>
+        </button>
       </div>
 
-      <div className="mt-2">
-        <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-text-secondary transition-colors duration-200">
+      <div className="mt-2 space-y-0.5">
+        <h4 className="text-sm font-medium text-text-primary truncate leading-tight">
           {track.title || 'без названия'}
         </h4>
-        <p className="text-xs text-text-tertiary truncate">
+        <p className="text-xs text-text-tertiary truncate leading-tight">
           {track.user?.id ? (
             <span
               onClick={handleArtistClick}
@@ -75,15 +92,9 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
             track.user?.username || ''
           )}
         </p>
-        <div className="flex items-center justify-between mt-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
-          <span className="text-xs text-text-tertiary">{formatMs(track.duration || 0)}</span>
-          <button
-            onClick={handleAddToQueue}
-            className="p-1 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
-          >
-            <Icon name="plus" size={14} />
-          </button>
-        </div>
+        <p className="text-xs text-text-tertiary tabular-nums leading-tight">
+          {formatMs(track.duration || 0)}
+        </p>
       </div>
     </div>
   );

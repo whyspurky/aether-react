@@ -21,6 +21,8 @@ export function PlaylistPage() {
 
   const playTrack = useStore((s) => s.playTrack);
   const showToast = useStore((s) => s.showToast);
+  const importPlaylist = useStore((s) => s.importPlaylist);
+  const libraryPlaylists = useStore((s) => s.library.playlists);
 
   useEffect(() => {
     if (!id) return;
@@ -114,7 +116,19 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
     );
   }
 
-  const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || null;
+  const handleImport = () => {
+    const name = title;
+    if (libraryPlaylists.some((p) => p.name === name)) {
+      showToast('плейлист уже в библиотеке', 'info');
+      return;
+    }
+    importPlaylist(name, tracks, coverUrl ?? undefined);
+    showToast('плейлист добавлен в библиотеку', 'success');
+  };
+  
+  const coverUrl = playlist.artwork_url
+  ? playlist.artwork_url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge|t50x50|mini)\.(jpg|png|jpeg)$/i, '-t500x500.$2')
+  : null;
   const title = playlist.title || playlist.name || 'без названия';
 
   const typeLabel = {
@@ -137,14 +151,17 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
       ref={setRefs}
       className="h-full overflow-y-auto bg-bg-primary"
     >
-      <div className="p-6">
+      <div className="sticky top-0 z-30 px-6 pt-2 pb-2 pointer-events-none">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 bg-transparent border border-border-subtle text-text-tertiary px-4 py-2 rounded-full text-sm hover:text-text-primary hover:border-border-visible transition-all duration-200 mb-6"
+          className="pointer-events-auto flex items-center gap-2 bg-bg-card/80 backdrop-blur-xl border border-border-subtle text-text-secondary px-3 py-1.5 rounded-full text-xs hover:text-text-primary hover:border-border-visible transition-all duration-200"
         >
-          <Icon name="chevron-left" size={16} />
+          <Icon name="chevron-left" size={14} />
           назад
         </button>
+      </div>
+
+      <div className="p-6 pt-0">
 
         {/* шапка */}
         <div className="flex gap-6 mb-8 items-start">
@@ -174,13 +191,18 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
                 onClick={() => navigate(`/artist/${playlist.user!.id}`)}
                 className="flex items-center gap-2 mt-3 text-text-secondary hover:text-text-primary transition-colors"
               >
-                {playlist.user.avatar_url && (
-                  <img
-                    src={playlist.user.avatar_url.replace('-large', '-t100x100')}
-                    alt={playlist.user.username}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                )}
+{playlist.user.avatar_url ? (
+  <img
+    src={playlist.user.avatar_url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t100x100')}
+    alt={playlist.user.username}
+    className="w-6 h-6 rounded-full object-cover"
+    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+  />
+) : (
+  <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center">
+    <Icon name="mic" size={12} className="text-text-tertiary" />
+  </div>
+)}
                 <span className="text-sm font-medium">{playlist.user.username}</span>
               </button>
             )}
@@ -202,14 +224,25 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
               )}
             </div>
 
-            <button
-              onClick={() => tracks.length && playTrack(tracks[0], tracks, 0)}
-              disabled={!tracks.length}
-              className="mt-5 px-6 py-2 bg-bg-secondary text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-text-secondary hover:text-bg-primary transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-secondary disabled:hover:text-text-primary"
-            >
-              <Icon name="play" size={16} />
-              слушать всё
-            </button>
+            <div className="flex items-center gap-2 mt-5">
+              <button
+                onClick={() => tracks.length && playTrack(tracks[0], tracks, 0)}
+                disabled={!tracks.length}
+                className="px-6 py-2 bg-bg-secondary text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-text-secondary hover:text-bg-primary transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-secondary disabled:hover:text-text-primary"
+              >
+                <Icon name="play" size={16} />
+                слушать всё
+              </button>
+
+              <button
+                onClick={handleImport}
+                disabled={!tracks.length}
+                className="px-6 py-2 bg-transparent border border-border-subtle text-text-secondary rounded-full font-medium flex items-center gap-2 hover:text-text-primary hover:border-border-visible transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <Icon name="plus" size={16} />
+                в библиотеку
+              </button>
+            </div>
           </div>
         </div>
 

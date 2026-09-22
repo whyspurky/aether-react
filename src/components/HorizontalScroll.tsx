@@ -44,6 +44,7 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
       };
 
       const onWheel = (e: WheelEvent) => {
+        if (!e.shiftKey) return;
         if (e.deltaY === 0) return;
         e.preventDefault();
 

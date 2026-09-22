@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../components/Icon';
 import { TrackList } from '../components/TrackList';
+import { useAddToPlaylist } from '../components/AddToPlaylistProvider';
 import { ConfirmModal } from '../components/Modals/ConfirmModal';
 import { useStore } from '../store/store';
 import type { Playlist } from '../store/types';
@@ -17,15 +19,20 @@ export default function LibraryPage() {
   const createPlaylist = useStore((s) => s.createPlaylist);
   const deletePlaylist = useStore((s) => s.deletePlaylist);
   const updatePlaylist = useStore((s) => s.updatePlaylist);
+  const removeFromPlaylist = useStore((s) => s.removeFromPlaylist);
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
   const showToast = useStore((s) => s.showToast);
+  const { close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
 
   const tracksScrollRef = useSmoothScroll<HTMLDivElement>();
   const playlistsScrollRef = useSmoothScroll<HTMLDivElement>();
 
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const selectedPlaylist = useStore((s) =>
+    selectedPlaylistId ? s.library.playlists.find((p) => p.id === selectedPlaylistId) ?? null : null
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
@@ -38,9 +45,14 @@ export default function LibraryPage() {
     setIsEditing(false);
     setShowPlaylistMenu(false);
     setShowSettingsMenu(false);
-  }, [selectedView, selectedPlaylist]);
+  }, [selectedView, selectedPlaylistId]);
 
-
+  useEffect(() => {
+    if (selectedView !== 'playlist' || !selectedPlaylist || !openTrackId) return;
+    const stillThere = selectedPlaylist.tracks.some((t) => t.id === openTrackId);
+    if (!stillThere) closeAddToPlaylist();
+  }, [selectedPlaylist, selectedView, openTrackId, closeAddToPlaylist]);
+  
   const validatePlaylistName = (name: string): boolean => {
     if (name.length > MAX_PLAYLIST_NAME_LENGTH) {
       showToast(`название не может превышать ${MAX_PLAYLIST_NAME_LENGTH} символов`, 'error');
@@ -97,8 +109,8 @@ export default function LibraryPage() {
 
   const handleDeletePlaylist = (id: string) => {
     deletePlaylist(id);
-    if (selectedPlaylist?.id === id) {
-      setSelectedPlaylist(null);
+    if (selectedPlaylistId === id) {
+      setSelectedPlaylistId(null);
       setSelectedView('favorites');
     }
     showToast('плейлист удален', 'info');
@@ -120,7 +132,6 @@ export default function LibraryPage() {
     if (!validatePlaylistName(editingName)) return;
 
     updatePlaylist(selectedPlaylist.id, editingName.trim());
-    setSelectedPlaylist({ ...selectedPlaylist, name: editingName.trim() });
     setIsEditing(false);
     showToast('плейлист переименован', 'success');
   };
@@ -130,7 +141,7 @@ export default function LibraryPage() {
   };
 
   const handleSelectPlaylist = (playlist: Playlist) => {
-    setSelectedPlaylist(playlist);
+    setSelectedPlaylistId(playlist.id);
     setSelectedView('playlist');
   };
 
@@ -145,85 +156,98 @@ export default function LibraryPage() {
 
 
   return (
-    <div className="h-full flex bg-bg-primary rounded-2xl overflow-hidden border border-border-subtle">
-      <aside className="w-16 flex-shrink-0 border-r border-border-subtle bg-bg-primary p-2 flex flex-col items-center gap-2">
+    <div className="h-full flex">
+      <aside className="w-20 flex-shrink-0 flex flex-col items-center gap-2 p-2">
         <button
           onClick={() => setShowCreateModal(true)}
-          className="w-10 h-10 flex items-center justify-center rounded-lg bg-bg-secondary text-text-secondary hover:bg-text-secondary hover:text-bg-primary transition-all duration-200"
+          className="w-14 h-14 flex items-center justify-center rounded-2xl border border-border-subtle bg-bg-secondary/30 text-text-tertiary hover:bg-text-secondary hover:text-bg-primary hover:border-transparent transition-all duration-200 active:scale-95"
           title="создать плейлист"
         >
           <Icon name="plus" size={18} />
         </button>
 
-        <div className="w-full h-px bg-border-subtle my-1" />
+        <div className="w-14 rounded-2xl border border-border-subtle bg-bg-secondary/30 p-1 flex flex-col items-center gap-1">
+          <button
+            onClick={() => {
+              setSelectedView('favorites');
+              setSelectedPlaylistId(null);
+            }}
+            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
+              selectedView === 'favorites'
+                ? 'bg-bg-secondary text-text-secondary'
+                : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
+            }`}
+            title="избранное"
+          >
+            <Icon name="heart" size={18} />
+          </button>
 
-        <button
-          onClick={() => {
-            setSelectedView('favorites');
-            setSelectedPlaylist(null);
-          }}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200 ${
-            selectedView === 'favorites'
-              ? 'bg-bg-secondary text-text-secondary'
-              : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
-          }`}
-          title="избранное"
-        >
-          <Icon name="heart" size={18} />
-        </button>
-
-        <button
-          onClick={() => {
-            setSelectedView('history');
-            setSelectedPlaylist(null);
-          }}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200 ${
-            selectedView === 'history'
-              ? 'bg-bg-secondary text-text-secondary'
-              : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
-          }`}
-          title="история"
-        >
-          <Icon name="history" size={18} />
-        </button>
-
-        <div className="w-full h-px bg-border-subtle my-1" />
-
-        <div ref={playlistsScrollRef} className="flex-1 overflow-y-auto space-y-1 w-full overflow-x-hidden scrollbar-thin">
-          {playlists.map((playlist) => (
-            <div key={playlist.id} className="group relative flex justify-center">
-              <button
-                onClick={() => handleSelectPlaylist(playlist)}
-                className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200 ${
-                  selectedView === 'playlist' && selectedPlaylist?.id === playlist.id
-                    ? 'bg-bg-secondary text-text-secondary'
-                    : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
-                }`}
-                title={playlist.name}
-              >
-                <Icon name="folder" size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedPlaylist(playlist);
-                  setShowPlaylistMenu(true);
-                }}
-                className="absolute -right-1 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-bg-secondary transition-all"
-              >
-                <Icon name="more-vertical" size={12} className="text-text-tertiary" />
-              </button>
-            </div>
-          ))}
+          <button
+            onClick={() => {
+              setSelectedView('history');
+              setSelectedPlaylistId(null);
+            }}
+            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
+              selectedView === 'history'
+                ? 'bg-bg-secondary text-text-secondary'
+                : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
+            }`}
+            title="история"
+          >
+            <Icon name="history" size={18} />
+          </button>
         </div>
+
+        {playlists.length > 0 && (
+          <div
+            ref={playlistsScrollRef}
+            className="w-14 rounded-2xl border border-border-subtle bg-bg-secondary/30 p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
+            style={{ maxHeight: '100%', flex: '0 1 auto' }}
+          >
+            {playlists.map((playlist) => {
+              const cover = playlist.artwork_url || playlist.tracks[0]?.artwork_url || null;
+              const coverUrl = cover?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t200x200');
+
+              return (
+                <div key={playlist.id} className="group relative flex justify-center">
+                  <button
+                    onClick={() => handleSelectPlaylist(playlist)}
+                    className="w-12 h-12 flex items-center justify-center rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
+                    title={playlist.name}
+                  >
+                    {coverUrl ? (
+                      <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Icon name="folder" size={18} className="text-text-tertiary" />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </aside>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-bg-primary">
-        <div className="flex-shrink-0 border-b border-border-subtle bg-bg-primary p-6">
+      <main ref={tracksScrollRef} className="flex-1 h-full overflow-y-auto">
+        <div className="sticky top-0 z-20 mx-3 mt-3 rounded-xl border border-white/[0.06] bg-bg-secondary/60 backdrop-blur-2xl p-5 shadow-lg shadow-black/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-bg-secondary flex items-center justify-center shadow-lg flex-shrink-0">
-                <Icon name={getCurrentIcon()} size={32} className={getIconColor()} />
-              </div>
+              {(() => {
+                const currentCover = selectedView === 'playlist' && selectedPlaylist
+                  ? (selectedPlaylist.artwork_url || selectedPlaylist.tracks[0]?.artwork_url || null)
+                  : null;
+                const coverUrl = currentCover?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t500x500');
+
+                return (
+                  <div className="w-16 h-16 rounded-xl bg-bg-secondary flex items-center justify-center shadow-lg flex-shrink-0 overflow-hidden">
+                    {coverUrl ? (
+                      <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Icon name={getCurrentIcon()} size={32} className={getIconColor()} />
+                    )}
+                  </div>
+                );
+              })()}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-4">
                   {isEditing && selectedView === 'playlist' ? (
@@ -319,18 +343,29 @@ export default function LibraryPage() {
           </div>
         </div>
 
-<div ref={tracksScrollRef} className="flex-1 overflow-y-auto p-6">
-  <TrackList tracks={getCurrentTracks()} showQueueButton />
-</div>
+        <div className="p-5">
+          <TrackList
+            tracks={getCurrentTracks()}
+            showQueueButton
+            onRemove={
+              selectedView === 'playlist' && selectedPlaylistId
+                ? (track) => {
+                    removeFromPlaylist(selectedPlaylistId, track.id);
+                    closeAddToPlaylist();
+                  }
+                : undefined
+            }
+          />
+        </div>
       </main>
 
-      {showCreateModal && (
+      {showCreateModal && createPortal(
         <div
-          className="fixed inset-0 bg-bg-primary/60 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] animate-modal-backdrop"
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-bg-card rounded-xl p-6 w-96 border border-border-subtle shadow-2xl"
+            className="bg-bg-card rounded-xl p-6 w-96 max-w-[90vw] border border-border-subtle shadow-2xl animate-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold mb-4 text-text-primary">новый плейлист</h3>
@@ -359,7 +394,8 @@ export default function LibraryPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <ConfirmModal

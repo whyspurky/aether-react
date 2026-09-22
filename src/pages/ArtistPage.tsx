@@ -147,13 +147,22 @@ setArtistCache(id, {
     return String(n);
   };
 
-return (
-<div
-  ref={setRefs}
-  className={`h-full overflow-y-auto bg-bg-primary ${
-    activeTab === 'all' ? 'custom-scrollbar-hidden' : 'custom-scrollbar'
-  }`}
->
+  return (
+    <div
+      ref={setRefs}
+      className={`h-full overflow-y-auto bg-bg-primary ${
+        activeTab === 'all' ? 'custom-scrollbar-hidden' : 'custom-scrollbar'
+      }`}
+    >
+<div className="sticky top-6 z-30 px-6 pt-2 pt-0 pointer-events-none">        <button
+          onClick={() => navigate(-1)}
+          className="pointer-events-auto flex items-center gap-2 bg-bg-card/80 backdrop-blur-xl border border-border-subtle text-text-secondary px-3 py-1.5 rounded-full text-xs hover:text-text-primary hover:border-border-visible transition-all duration-200"
+        >
+          <Icon name="chevron-left" size={14} />
+          назад
+        </button>
+      </div>
+      
   <div className="relative px-6 pt-8 pb-6">
   <div className="flex gap-6 items-start">
     {/* аватар слева */}
@@ -177,7 +186,7 @@ return (
       <div className="flex items-center gap-2">
         <h1 className="text-4xl font-bold text-text-primary truncate">{artist.username}</h1>
         {artist.verified && (
-          <Icon name="check-circle" size={24} className="text-text-secondary flex-shrink-0" />
+          <Icon name="check-circle" size={24} className="text-blue-400 flex-shrink-0" />
         )}
       </div>
 

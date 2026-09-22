@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../components/Icon';
 
 interface ConfirmModalProps {
@@ -31,13 +32,13 @@ export function ConfirmModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 bg-bg-primary/60 backdrop-blur-sm flex items-center justify-center z-[2100] animate-fade-in"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] animate-modal-backdrop"
       onClick={onCancel}
     >
       <div
-        className="bg-bg-card rounded-xl w-[400px] max-w-[90%] shadow-2xl border border-border-subtle animate-scale-in"
+        className="bg-bg-card rounded-xl w-[400px] max-w-[90%] shadow-2xl border border-border-subtle animate-modal-content"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-border-subtle">
@@ -69,6 +70,7 @@ export function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

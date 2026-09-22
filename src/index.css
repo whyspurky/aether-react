@@ -97,6 +97,8 @@
   -ms-overflow-style: none;
 }
 
+
+
 .custom-scrollbar-hidden::-webkit-scrollbar {
   display: none;
 }
@@ -251,6 +253,43 @@ input[type="range"]:focus {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  @keyframes menuEnter {
+    from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes menuExit {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(6px) scale(0.96); }
+  }
+
+  .animate-menu-enter {
+    animation: menuEnter 0.15s cubic-bezier(0.2, 0.9, 0.4, 1) forwards;
+  }
+
+  .animate-menu-exit {
+    animation: menuExit 0.15s ease-in forwards;
+  }
+
+    @keyframes modalBackdrop {
+    from { opacity: 0; backdrop-filter: blur(0px); }
+    to { opacity: 1; backdrop-filter: blur(12px); }
+  }
+
+  @keyframes modalContent {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .animate-modal-backdrop {
+    animation: modalBackdrop 0.2s ease-out forwards;
+  }
+
+  .animate-modal-content {
+    animation: modalContent 0.2s cubic-bezier(0.2, 0.9, 0.4, 1) forwards;
+  }
+
   @keyframes fadeInScale {
     from { opacity: 0; transform: scale(0.96); }
     to { opacity: 1; transform: scale(1); }

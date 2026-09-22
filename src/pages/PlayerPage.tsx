@@ -30,6 +30,7 @@ export default function PlayerPage() {
   const setPosition = useStore((s) => s.setPosition);
   const navigate = useNavigate();
   const queueScrollRef = useSmoothScroll<HTMLDivElement>();
+  const removeFromQueue = useStore((s) => s.removeFromQueue);
   const { currentTrack, isPlaying, volume, shuffle, repeat, position, duration, isLoading, isAudioReady } = player;
 
   const isAudioReadyRef = useRef(isAudioReady);
@@ -328,8 +329,14 @@ export default function PlayerPage() {
   }, [currentTrack, isDraggingProgress, setPosition, isLoading]);
 
   const memoizedTrackList = useMemo(
-    () => queue.tracks.length ? <TrackList tracks={queue.tracks} showQueueButton /> : null,
-    [queue.tracks]
+    () => queue.tracks.length ? (
+      <TrackList
+        tracks={queue.tracks}
+        showQueueButton
+        onRemove={(track) => removeFromQueue(track.id)}
+      />
+    ) : null,
+    [queue.tracks, removeFromQueue]
   );
 
   if (!currentTrack) {
