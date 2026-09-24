@@ -236,21 +236,33 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
     let auth = data.get("track_authorization").and_then(|t| t.as_str()).unwrap_or("");
 
     let mut progressive: Vec<&Value> = vec![];
-    let mut hls: Vec<&Value> = vec![];
+    let mut hls_aac_160: Vec<&Value> = vec![];
+    let mut hls_aac_other: Vec<&Value> = vec![];
+    let mut hls_mp3: Vec<&Value> = vec![];
 
     for t in transcodings {
         let f = t.get("format");
         let p = f.and_then(|f| f.get("protocol")).and_then(|p| p.as_str()).unwrap_or("");
         let m = f.and_then(|f| f.get("mime_type")).and_then(|m| m.as_str()).unwrap_or("");
+        let preset = t.get("preset").and_then(|v| v.as_str()).unwrap_or("");
 
-        if p == "progressive" && (m == "audio/mpeg" || m == "audio/mp4") {
+        if p == "progressive" && (m.starts_with("audio/mpeg") || m.starts_with("audio/mp4")) {
             progressive.push(t);
-        } else if (p == "hls" || p.contains("encrypted-hls")) && m == "audio/mpeg" {
-            hls.push(t);
+        } else if p == "hls" || p.contains("encrypted-hls") {
+            if m.starts_with("audio/mp4") {
+                if preset == "aac_160k" {
+                    hls_aac_160.push(t);
+                } else {
+                    hls_aac_other.push(t);
+                }
+            } else if m.starts_with("audio/mpeg") {
+                hls_mp3.push(t);
+            }
         }
     }
 
-    for t in progressive {
+    // 0 приоритет: progressive (надёжный fallback)
+    for t in &progressive {
         let u = match t.get("url").and_then(|u| u.as_str()) {
             Some(u) => u,
             None => continue,
@@ -267,12 +279,14 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
 
         if let Some(su) = s.get("url").and_then(|u| u.as_str()) {
             if !su.contains(".m3u8") {
+                println!("[stream] выбран: progressive MP3 (стабильный)");
                 return Ok(su.to_string());
             }
         }
     }
 
-    for t in hls {
+    // 1 приоритет: AAC 160 kbps HLS
+    for t in hls_aac_160 {
         let u = match t.get("url").and_then(|u| u.as_str()) {
             Some(u) => u,
             None => continue,
@@ -293,13 +307,92 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
             .and_then(|u| u.as_str());
 
         if let Some(pl) = pl {
+            println!("[stream] выбран: AAC 160 kbps (HLS)");
             return Ok(pl.to_string());
+        }
+    }
+
+    // 2 приоритет: AAC 96 или другой AAC HLS
+    for t in hls_aac_other {
+        let u = match t.get("url").and_then(|u| u.as_str()) {
+            Some(u) => u,
+            None => continue,
+        };
+        let url_with_auth = with_auth(u, auth);
+        let info = match tokio::time::timeout(
+            Duration::from_secs(8),
+            fetch_json_retry(&url_with_auth),
+        ).await {
+            Ok(Ok(i)) => i,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
+        };
+
+        let pl = info.get("url")
+            .or_else(|| info.get("data").and_then(|d| d.get("url")))
+            .or_else(|| info.get("urls").and_then(|a| a.get(0)).and_then(|u| u.get("url")))
+            .and_then(|u| u.as_str());
+
+        if let Some(pl) = pl {
+            let preset = t.get("preset").and_then(|v| v.as_str()).unwrap_or("?");
+            println!("[stream] выбран: AAC {} (HLS)", preset);
+            return Ok(pl.to_string());
+        }
+    }
+
+    // 3 приоритет: MP3 HLS
+    for t in hls_mp3 {
+        let u = match t.get("url").and_then(|u| u.as_str()) {
+            Some(u) => u,
+            None => continue,
+        };
+        let url_with_auth = with_auth(u, auth);
+        let info = match tokio::time::timeout(
+            Duration::from_secs(8),
+            fetch_json_retry(&url_with_auth),
+        ).await {
+            Ok(Ok(i)) => i,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
+        };
+
+        let pl = info.get("url")
+            .or_else(|| info.get("data").and_then(|d| d.get("url")))
+            .or_else(|| info.get("urls").and_then(|a| a.get(0)).and_then(|u| u.get("url")))
+            .and_then(|u| u.as_str());
+
+        if let Some(pl) = pl {
+            println!("[stream] выбран: MP3 (HLS)");
+            return Ok(pl.to_string());
+        }
+    }
+
+    // 4 приоритет: progressive (fallback)
+    for t in progressive {
+        let u = match t.get("url").and_then(|u| u.as_str()) {
+            Some(u) => u,
+            None => continue,
+        };
+        let url_with_auth = with_auth(u, auth);
+        let s = match tokio::time::timeout(
+            Duration::from_secs(8),
+            fetch_json_retry(&url_with_auth),
+        ).await {
+            Ok(Ok(s)) => s,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
+        };
+
+        if let Some(su) = s.get("url").and_then(|u| u.as_str()) {
+            if !su.contains(".m3u8") {
+                println!("[stream] выбран: progressive (fallback)");
+                return Ok(su.to_string());
+            }
         }
     }
 
     Err(ApiError::Other("нет форматов для трека".into()))
 }
-
 
 fn is_master_playlist(text: &str) -> bool {
     text.contains("#EXT-X-STREAM-INF")
@@ -322,6 +415,7 @@ fn parse_segments(playlist: &str, base: &str) -> Vec<String> {
         .map(|l| join_url(base, l))
         .collect()
 }
+
 
 fn best_variant(playlist: &str, base: &str) -> Option<String> {
     let mut best: Option<(u64, String)> = None;
@@ -451,9 +545,35 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
         return Err(ApiError::Other("нет сегментов в hls".into()));
     }
 
+    // fMP4 init segment (moov box). нужен чтобы symphonia поняла формат
+    let init_url = parse_init_map(&playlist, base);
+    if let Some(ref u) = init_url {
+        println!("[hls] найден init segment: {}", u);
+    } else {
+        println!("[hls] init segment не найден - может быть TS или raw AAC");
+    }
+
     let estimate = (segments.len() * 32 * 1024).min(MAX_HLS_BYTES);
     let mut buf = Vec::with_capacity(estimate);
 
+    // 1 качаем init segment если есть
+    if let Some(u) = init_url {
+        match http().get(&u).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                match resp.bytes().await {
+                    Ok(b) => {
+                        println!("[hls] init получен {} байт", b.len());
+                        buf.extend_from_slice(&b);
+                    }
+                    Err(e) => println!("[hls] init bytes error: {}", e),
+                }
+            }
+            Ok(resp) => println!("[hls] init http {}", resp.status()),
+            Err(e) => println!("[hls] init network error: {}", e),
+        }
+    }
+
+    // 2 качаем media-сегменты параллельно
     let mut stream = stream::iter(segments.into_iter().enumerate())
         .map(|(i, u)| async move { fetch_segment(&u, i).await })
         .buffered(6);
@@ -468,6 +588,23 @@ async fn download_hls(playlist_url: &str) -> Result<Vec<u8>, ApiError> {
     Ok(buf)
 }
 
+
+fn parse_init_map(playlist: &str, base: &str) -> Option<String> {
+    for line in playlist.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("#EXT-X-MAP:") {
+            // ищем URI="..."
+            if let Some(start) = rest.find("URI=\"") {
+                let after = &rest[start + 5..];
+                if let Some(end) = after.find('"') {
+                    let uri = &after[..end];
+                    return Some(join_url(base, uri));
+                }
+            }
+        }
+    }
+    None
+}
 
 #[tauri::command]
 pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Value, String> {

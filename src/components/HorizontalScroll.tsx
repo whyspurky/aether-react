@@ -7,51 +7,13 @@ interface HorizontalScrollProps {
   gap?: number;
 }
 
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
 export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps>(
   ({ children, className = '', style = {}, gap = 16 }, ref) => {
-    const scrollRef = useRef<HTMLDivElement | null>(null);
-    const animationRef = useRef<number | null>(null);
+    const scrollRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
       const el = scrollRef.current;
       if (!el) return;
-
-
-      const stop = () => {
-        if (animationRef.current !== null) {
-          cancelAnimationFrame(animationRef.current);
-          animationRef.current = null;
-        }
-      };
-
-      const scrollTo = (target: number) => {
-        stop();
-        const start = el.scrollLeft;
-        const distance = target - start;
-        if (Math.abs(distance) < 1) return;
-
-        const startTime = performance.now();
-
-        const step = (now: number) => {
-          const progress = Math.min(1, (now - startTime) / 175);
-          el.scrollLeft = start + distance * easeOutCubic(progress);
-          animationRef.current = progress < 1 ? requestAnimationFrame(step) : null;
-        };
-
-        animationRef.current = requestAnimationFrame(step);
-      };
-
-      const onWheel = (e: WheelEvent) => {
-        if (!e.shiftKey) return;
-        if (e.deltaY === 0) return;
-        e.preventDefault();
-
-        const target = el.scrollLeft + e.deltaY * 2.5;
-        const max = el.scrollWidth - el.clientWidth;
-        scrollTo(Math.max(0, Math.min(max, target)));
-      };
 
 
       const dragThreshold = 5;
@@ -83,7 +45,6 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
           isDragging = true;
           el.style.cursor = 'grabbing';
           el.style.userSelect = 'none';
-          stop();
         }
 
         e.preventDefault();
@@ -108,17 +69,14 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
         el.style.userSelect = '';
       };
 
-el.addEventListener('wheel', onWheel, { passive: false });
 el.addEventListener('mousedown', onMouseDown);
 document.addEventListener('mousemove', onMouseMove);
 document.addEventListener('mouseup', onMouseUp);
 
 return () => {
-  el.removeEventListener('wheel', onWheel);
   el.removeEventListener('mousedown', onMouseDown);
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
-  stop();
 };
     }, []);
 

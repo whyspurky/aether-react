@@ -16,6 +16,11 @@ pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), S
         let start = std::time::Instant::now();
         let r = Bytes::from(crate::api::download_hls_track(&url).await?);
         println!("[engine] hls готово {} байт за {:?}", r.len(), start.elapsed());
+        let secs = state.playback.lock().unwrap().duration_ms as f64 / 1000.0;
+        if secs > 0.0 {
+            let kbps = (r.len() as f64 * 8.0) / secs / 1000.0;
+            println!("[engine] >>> HLS bitrate ≈ {:.0} kbps ({} KB за {:.1} сек)", kbps, r.len() / 1024, secs);
+        }
         r
     } else {
         println!("[engine] качаем progressive");
