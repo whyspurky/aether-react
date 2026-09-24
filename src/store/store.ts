@@ -391,7 +391,7 @@ set((s) => ({
             const url = await api.getStreamUrl(track.id);
             if (!isValid()) return;
 
-            await api.playAudio(url);
+            await api.playAudio(url, track.id);
             if (!isValid()) {
               await api.stopAudio();
               return;
@@ -414,6 +414,18 @@ set((s) => ({
             started = true;
             get().addToHistory(track);
             startPositionLoop(isValid);
+
+            // prefetch следующего трека в фоне
+            const nextIdx = index + 1;
+            const nextTrack = tracks[nextIdx];
+            if (nextTrack?.id) {
+              (async () => {
+                try {
+                  const nextUrl = await api.getStreamUrl(nextTrack.id);
+                  await api.prefetchAudio(nextUrl, nextTrack.id);
+                } catch {}
+              })();
+            }
 
 const remaining = get().queue.tracks.length - index - 1;
 if (remaining <= 3 && get().player.repeat === 'none') {

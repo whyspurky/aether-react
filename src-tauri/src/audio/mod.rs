@@ -8,8 +8,8 @@ use tauri::State;
 
 
 #[tauri::command]
-pub async fn play_audio(url: String, state: State<'_, AppState>) -> Result<(), String> {
-    engine::play_async(url, state).await
+pub async fn play_audio(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
+    engine::play_async(url, track_id, state).await
 }
 
 #[tauri::command]
@@ -55,4 +55,9 @@ pub fn get_position(state: State<AppState>) -> Result<f64, String> {
 #[tauri::command]
 pub fn seek_audio(seconds: f64, state: State<AppState>) -> Result<(), String> {
     engine::seek(seconds, state)
+}
+
+#[tauri::command]
+pub async fn prefetch_audio(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
+    engine::prefetch_track(track_id, url, state).await
 }

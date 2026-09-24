@@ -293,9 +293,10 @@ getUserPlaylists: async (userId: number): Promise<Playlist[]> => {
     return url;
   },
 
-  playAudio: async (url: string): Promise<void> => {
+  playAudio: async (url: string, trackId: number): Promise<void> => {
     if (!url) throw new Error('url не указан');
-    await invoke('play_audio', { url });
+    if (!trackId) throw new Error('trackId не указан');
+    await invoke('play_audio', { url, trackId });
   },
 
   pauseAudio: async (): Promise<void> => {
@@ -333,6 +334,10 @@ getUserPlaylists: async (userId: number): Promise<Playlist[]> => {
 
   seekAudio: async (seconds: number): Promise<void> => {
     try { await invoke('seek_audio', { seconds }); } catch {}
+  },
+
+  prefetchAudio: async (url: string, trackId: number): Promise<void> => {
+    try { await invoke('prefetch_audio', { url, trackId }); } catch {}
   },
 
   setTrackDuration: async (durationMs: number): Promise<void> => {

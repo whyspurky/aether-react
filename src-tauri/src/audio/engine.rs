@@ -7,11 +7,30 @@ use crate::audio::state::AppState;
 use crate::api::http;
 use rodio::Source;
 
-
-pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
     println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
 
-    let bytes = if url.contains(".m3u8") || url.contains("/hls/") {
+    // проверяем prefetch слот по track_id
+    let cached = {
+        let mut slot = state.prefetch_slot.lock().unwrap();
+        match slot.as_ref() {
+            Some((cached_id, _)) => {
+                println!("[engine] slot check: cached_id={} incoming_id={}", cached_id, track_id);
+            }
+            None => println!("[engine] slot empty"),
+        }
+        match slot.as_ref() {
+            Some((cached_id, _)) if *cached_id == track_id => {
+                println!("[engine] используем prefetched трек");
+                slot.take().map(|(_, bytes)| bytes)
+            }
+            _ => None,
+        }
+    };
+
+    let bytes = if let Some(bytes) = cached {
+        bytes
+    } else if url.contains(".m3u8") || url.contains("/hls/") {
         println!("[engine] качаем hls полностью");
         let start = std::time::Instant::now();
         let r = Bytes::from(crate::api::download_hls_track(&url).await?);
@@ -50,7 +69,12 @@ pub async fn play_async(url: String, state: State<'_, AppState>) -> Result<(), S
 
     println!("[engine] создаём decoder");
     let cursor = std::io::Cursor::new(bytes.clone());
-    let source = rodio::Decoder::new(cursor)
+    let hint = if url.contains(".m3u8") || url.contains("/hls/") { "aac" } else { "mp3" };
+    let source = rodio::Decoder::builder()
+        .with_data(cursor)
+        .with_hint(hint)
+        .with_gapless(true)
+        .build()
         .map_err(|e| format!("decoding error {}", e))?;
 
     let vol = {
@@ -157,7 +181,11 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
     let target = seconds.clamp(0.0, max_sec);
 
     let cursor = std::io::Cursor::new(bytes);
-    let mut decoder = rodio::Decoder::new(cursor)
+    let mut decoder = rodio::Decoder::builder()
+        .with_data(cursor)
+        .with_hint("aac")
+        .with_gapless(true)
+        .build()
         .map_err(|e| format!("decoder error {}", e))?;
 
     let mut actual = Duration::ZERO;
@@ -191,5 +219,62 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
 
     state.playback.lock().unwrap().seek(actual);
 
+    Ok(())
+}
+
+pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
+    println!("[prefetch] вызван prefetch_track track_id={}", track_id);
+    // отменяем старый
+    if let Some(h) = state.prefetch_task.lock().unwrap().take() {
+        h.abort();
+    }
+
+    // если уже есть в слоте для этого url - не качаем
+    {
+        let slot = state.prefetch_slot.lock().unwrap();
+        if let Some((cached_id, _)) = slot.as_ref() {
+            if *cached_id == track_id {
+                println!("[prefetch] уже в кеше track_id={}", track_id);
+                return Ok(());
+            }
+        }
+    }
+
+    let slot = state.prefetch_slot.clone();
+    let task_slot = state.prefetch_task.clone();
+    let url_clone = url.clone();
+
+    let handle = tokio::spawn(async move {
+        println!("[prefetch] старт {}", &url_clone[..url_clone.len().min(80)]);
+        let start = std::time::Instant::now();
+
+        let result = if url_clone.contains(".m3u8") || url_clone.contains("/hls/") {
+            crate::api::download_hls_track(&url_clone).await.map(Bytes::from)
+        } else {
+            match http().get(&url_clone).send().await {
+                Ok(r) if r.status().is_success() => {
+                    r.bytes().await.map_err(|e| e.to_string())
+                }
+                Ok(r) => Err(format!("http {}", r.status())),
+                Err(e) => Err(e.to_string()),
+            }
+        };
+
+        match result {
+            Ok(bytes) => {
+                println!("[prefetch] готово {} байт за {:?}", bytes.len(), start.elapsed());
+                println!("[prefetch] сохраняю в слот track_id={}", track_id);
+                *slot.lock().unwrap() = Some((track_id, bytes));
+            }
+            Err(e) => {
+                println!("[prefetch] ошибка: {}", e);
+            }
+        }
+
+        // очищаем handle - таск завершён
+        *task_slot.lock().unwrap() = None;
+    });
+
+    *state.prefetch_task.lock().unwrap() = Some(handle);
     Ok(())
 }

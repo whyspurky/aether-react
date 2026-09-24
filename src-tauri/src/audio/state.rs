@@ -3,6 +3,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use bytes::Bytes;
+use tokio::task::JoinHandle;
 
 pub struct Playback {
     pub is_playing: bool,
@@ -98,6 +99,8 @@ pub struct AppState {
     pub player: Arc<Mutex<rodio::Player>>,
     pub playback: Arc<Mutex<Playback>>,
     pub _sink_handle: Arc<Mutex<rodio::MixerDeviceSink>>,
+    pub prefetch_slot: Arc<Mutex<Option<(u64, Bytes)>>>,
+    pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl AppState {
@@ -109,6 +112,8 @@ impl AppState {
             _sink_handle: Arc::new(Mutex::new(sink_handle)),
             player: Arc::new(Mutex::new(player)),
             playback: Arc::new(Mutex::new(Playback::new())),
+            prefetch_slot: Arc::new(Mutex::new(None)),
+            prefetch_task: Arc::new(Mutex::new(None)),
         }
     }
 }
