@@ -246,7 +246,7 @@ input[type="range"]::-moz-range-thumb {
 input[type="range"]:focus {
   outline: none;
 }
-
+ 
   /* ===== анимации ===== */
 
   @keyframes fadeInUp {
