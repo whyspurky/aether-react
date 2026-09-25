@@ -69,6 +69,7 @@ tauri 2 · react 18 · rust
 
 ## сборка
 
+```bash
 npm install
 npm run tauri dev      # разработка
 npm run tauri build    # релиз
