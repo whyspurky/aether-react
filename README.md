@@ -39,12 +39,6 @@ tauri 2 · react 18 · rust
 - библиотека: избранное, история, свои плейлисты
 - импорт плейлистов из soundcloud
 
-<div align="center">
-
-<img src="./docs/screenshots/search.png" width="720" alt="поиск" />
-
-</div>
-
 ### плеер
 
 - очередь с автодогрузкой
