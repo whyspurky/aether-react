@@ -225,7 +225,6 @@ cargo check
 ---
 
 <table>
-<tr>
 <td width="30%" valign="top">
 
 ## стек
@@ -246,7 +245,6 @@ cargo check
 <img src="./docs/screenshots/player.png" alt="плеер" />
 
 </td>
-</tr>
 </table>
 
 ---
