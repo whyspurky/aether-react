@@ -1,7 +1,3 @@
-<p align="center">
-<img src="./docs/screenshots/home.png" width="160" style="border-radius: 50%;" alt="aether" />
-</p>
-
 <h1 align="center">aether</h1>
 
 <p align="center">
