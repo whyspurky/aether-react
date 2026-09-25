@@ -6,10 +6,6 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/whyspurky/aether-react/releases/tag/v0.1.1">
-<a href="https://github.com/whyspurky/aether-react/stargazers">
-<img src="https://img.shields.io/github/stars/whyspurky/aether-react?style=for-the-badge&logo=github&color=FFFFFF&labelColor=0F0F0F&label=STARS" alt="stars"/>
-</a>
 <a href="https://github.com/whyspurky/aether-react/blob/main/LICENSE">
 <img src="https://img.shields.io/badge/LICENSE-MIT-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="license"/>
 </a>
