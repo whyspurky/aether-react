@@ -1,5 +1,3 @@
-// src/lib/format.ts
-
 export const formatMs = (ms: number): string => {
   if (!ms || isNaN(ms)) return '0:00';
   const m = Math.floor(ms / 60000);

@@ -1,29 +1,32 @@
-## документация
-
-- [архитектура](./architecture.md) - общая схема
-- [backend](./backend.md) - rust-сторона
-- [frontend](./frontend.md) - react-сторона
-- [soundcloud](./soundcloud.md) - как работает с soundcloud
-- [build](./build.md) - как собрать
-
 # aether
 
-aether - десктопный музыкальный плеер для прослушивания треков из soundcloud
-написан на tauri 2 (rust) + react 18 + typescript
+десктопный музыкальный плеер для прослушивания треков из soundcloud
+написан на *tauri 2* на *rust* плюс *react 18* на *typescript*
 
-## обход блокировок
-
-встроенный zapret + поддержка юзерских прокси для работы в регионах с ограничениями
+встроенный *zapret* плюс поддержка юзерских прокси для работы в регионах с ограничениями
 
 ## стек
 
-**фронт** - react 18, typescript, tailwind css, zustand, react-router, vite
+*фронт* это react 18, typescript, tailwind css, zustand, react router, vite
 
-**бэк** - tauri 2, rust, rodio, reqwest
+*бэк* это tauri 2, rust, rodio, reqwest
 
+## документация
+
+[архитектура](./architecture.md) общая схема как всё устроено
+
+[backend](./backend.md) rust сторона
+
+[frontend](./frontend.md) react сторона
+
+[soundcloud](./soundcloud.md) как работает с soundcloud
+
+[build](./build.md) как собрать
 
 ## лицензия
 
 неофициальный клиент
+
 не связан с soundcloud
-использование - на свой риск
+
+использование на свой риск

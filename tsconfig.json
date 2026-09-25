@@ -16,7 +16,18 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+"baseUrl": ".",
+"paths": {
+  "@/*": ["src/*"],
+  "@components/*": ["src/components/*"],
+  "@hooks/*": ["src/hooks/*"],
+  "@lib/*": ["src/lib/*"],
+  "@store/*": ["src/store/*"],
+  "@theme/*": ["src/theme/*"],
+  "@tauri-apps/*": ["node_modules/@tauri-apps/*"]
+}
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

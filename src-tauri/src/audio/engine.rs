@@ -1,5 +1,3 @@
-// src-tauri/src/audio/engine.rs
-
 use std::time::Duration;
 use tauri::State;
 use bytes::Bytes;
@@ -10,7 +8,6 @@ use rodio::Source;
 pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
     println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
 
-    // проверяем prefetch слот по track_id
     let cached = {
         let mut slot = state.prefetch_slot.lock().unwrap();
         match slot.as_ref() {
@@ -224,12 +221,10 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
 
 pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
     println!("[prefetch] вызван prefetch_track track_id={}", track_id);
-    // отменяем старый
     if let Some(h) = state.prefetch_task.lock().unwrap().take() {
         h.abort();
     }
 
-    // если уже есть в слоте для этого url - не качаем
     {
         let slot = state.prefetch_slot.lock().unwrap();
         if let Some((cached_id, _)) = slot.as_ref() {
@@ -271,7 +266,6 @@ pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppStat
             }
         }
 
-        // очищаем handle - таск завершён
         *task_slot.lock().unwrap() = None;
     });
 

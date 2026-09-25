@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { TrackList } from '../components/TrackList';
-import { Icon } from '../components/Icon';
-import { api } from '../lib/api';
-import { useStore } from '../store/store';
-import { useSmoothScroll } from '../hooks/useSmoothScroll';
-import type { Playlist, Track } from '../store/types';
+import { TrackList } from '@components/track/TrackList';
+import { Icon } from '@components/ui/Icon';
+import { PlaylistHeader } from '@components/playlist/PlaylistHeader';
+import { api } from '@lib/api';
+import { useStore } from '@store/store';
+import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
+import type { Playlist, Track } from '@store/types';
 
 export function PlaylistPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const scrollRef = useSmoothScroll<HTMLDivElement>();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  const setRefs = useCallback((el: HTMLDivElement | null) => {
+    scrollRef(el);
+    rootRef.current = el;
+  }, [scrollRef]);
 
   const cached = useStore((s) => (id ? s.playlistPage.cache[id] : undefined));
   const setPlaylistCache = useStore((s) => s.setPlaylistCache);
+  const importPlaylist = useStore((s) => s.importPlaylist);
+  const libraryPlaylists = useStore((s) => s.library.playlists);
 
   const [playlist, setPlaylist] = useState<Playlist | null>(cached?.playlist ?? null);
   const [tracks, setTracks] = useState<Track[]>(cached?.tracks ?? []);
@@ -21,8 +30,6 @@ export function PlaylistPage() {
 
   const playTrack = useStore((s) => s.playTrack);
   const showToast = useStore((s) => s.showToast);
-  const importPlaylist = useStore((s) => s.importPlaylist);
-  const libraryPlaylists = useStore((s) => s.library.playlists);
 
   useEffect(() => {
     if (!id) return;
@@ -39,20 +46,20 @@ export function PlaylistPage() {
           return;
         }
 
-const [data, allTracks] = await Promise.all([
-  api.getPlaylist(id),
-  api.getPlaylistTracks(id),
-]);
+        const [data, allTracks] = await Promise.all([
+          api.getPlaylist(id),
+          api.getPlaylistTracks(id),
+        ]);
 
-if (!data) {
-  showToast('плейлист не найден', 'error');
-  navigate('/library');
-  return;
-}
+        if (!data) {
+          showToast('плейлист не найден', 'error');
+          navigate('/library');
+          return;
+        }
 
-setPlaylist(data);
-setTracks(allTracks);
-setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scrollTop ?? 0 });
+        setPlaylist(data);
+        setTracks(allTracks);
+        setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scrollTop ?? 0 });
       } catch {
         showToast('ошибка загрузки плейлиста', 'error');
         navigate('/library');
@@ -65,13 +72,6 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
     else setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate, showToast]);
-
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  const setRefs = useCallback((el: HTMLDivElement | null) => {
-    scrollRef(el);
-    rootRef.current = el;
-  }, [scrollRef]);
 
   useEffect(() => {
     if (!isLoading && cached?.scrollTop && rootRef.current) {
@@ -90,12 +90,21 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const handleImport = () => {
+    if (!playlist) return;
+    const title = playlist.title || playlist.name || 'без названия';
+    if (libraryPlaylists.some((p) => p.name === title)) {
+      showToast('плейлист уже в библиотеке', 'info');
+      return;
+    }
+    const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || undefined;
+    importPlaylist(title, tracks, coverUrl);
+    showToast('плейлист добавлен в библиотеку', 'success');
+  };
+
   if (isLoading || !playlist) {
     return (
-      <div
-        ref={setRefs}
-        className="h-full overflow-y-auto bg-bg-primary"
-      >
+      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
@@ -116,137 +125,24 @@ setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scr
     );
   }
 
-  const handleImport = () => {
-    const name = title;
-    if (libraryPlaylists.some((p) => p.name === name)) {
-      showToast('плейлист уже в библиотеке', 'info');
-      return;
-    }
-    importPlaylist(name, tracks, coverUrl ?? undefined);
-    showToast('плейлист добавлен в библиотеку', 'success');
-  };
-  
-  const coverUrl = playlist.artwork_url
-  ? playlist.artwork_url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge|t50x50|mini)\.(jpg|png|jpeg)$/i, '-t500x500.$2')
-  : null;
-  const title = playlist.title || playlist.name || 'без названия';
-
-  const typeLabel = {
-    album: 'альбом',
-    ep: 'ep',
-    playlist: 'плейлист',
-  }[playlist.playlist_type || 'playlist'];
-
-  const formatDuration = (ms: number | undefined) => {
-    if (!ms) return '';
-    const total = Math.floor(ms / 1000);
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    if (h > 0) return `${h} ч ${m} мин`;
-    return `${m} мин`;
-  };
-
   return (
-    <div
-      ref={setRefs}
-      className="h-full overflow-y-auto bg-bg-primary"
-    >
-      <div className="sticky top-0 z-30 px-6 pt-2 pb-2 pointer-events-none">
+    <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
+      <div className="p-6">
         <button
           onClick={() => navigate(-1)}
-          className="pointer-events-auto flex items-center gap-2 bg-bg-card/80 backdrop-blur-xl border border-border-subtle text-text-secondary px-3 py-1.5 rounded-full text-xs hover:text-text-primary hover:border-border-visible transition-all duration-200"
+          className="sticky top-0 z-30 flex items-center gap-2 bg-transparent border border-border-subtle text-text-tertiary px-4 py-2 rounded-full text-sm hover:text-text-primary hover:border-border-visible transition-all duration-200 mb-6"
         >
-          <Icon name="chevron-left" size={14} />
+          <Icon name="chevron-left" size={16} />
           назад
         </button>
-      </div>
 
-      <div className="p-6 pt-0">
+        <PlaylistHeader
+          playlist={playlist}
+          tracks={tracks}
+          onPlayAll={() => tracks.length && playTrack(tracks[0], tracks, 0)}
+          onImport={handleImport}
+        />
 
-        {/* шапка */}
-        <div className="flex gap-6 mb-8 items-start">
-          {/* обложка слева */}
-          <div className="flex-shrink-0">
-            {coverUrl ? (
-              <img
-                src={coverUrl}
-                alt={title}
-                className="w-48 h-48 rounded-2xl object-cover border border-border-subtle shadow-2xl shadow-white/5"
-              />
-            ) : (
-              <div className="w-48 h-48 rounded-2xl bg-bg-secondary flex items-center justify-center border border-border-subtle">
-                <Icon name="folder" size={64} className="text-text-tertiary opacity-60" />
-              </div>
-            )}
-          </div>
-
-          {/* инфа справа */}
-          <div className="flex-1 min-w-0 pt-2">
-            <p className="text-xs text-text-tertiary uppercase tracking-wider">{typeLabel}</p>
-
-            <h1 className="text-4xl font-bold text-text-primary mt-2 break-words">{title}</h1>
-
-            {playlist.user && (
-              <button
-                onClick={() => navigate(`/artist/${playlist.user!.id}`)}
-                className="flex items-center gap-2 mt-3 text-text-secondary hover:text-text-primary transition-colors"
-              >
-{playlist.user.avatar_url ? (
-  <img
-    src={playlist.user.avatar_url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t100x100')}
-    alt={playlist.user.username}
-    className="w-6 h-6 rounded-full object-cover"
-    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-  />
-) : (
-  <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center">
-    <Icon name="mic" size={12} className="text-text-tertiary" />
-  </div>
-)}
-                <span className="text-sm font-medium">{playlist.user.username}</span>
-              </button>
-            )}
-
-            {playlist.description && (
-              <p className="text-text-tertiary text-sm mt-3 line-clamp-3 leading-relaxed">
-                {playlist.description}
-              </p>
-            )}
-
-            {/* мета: количество треков + длительность */}
-            <div className="flex items-center gap-4 mt-5 text-sm text-text-tertiary">
-              <span>{tracks.length} треков</span>
-              {playlist.duration && (
-                <>
-                  <span>·</span>
-                  <span>{formatDuration(playlist.duration)}</span>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-5">
-              <button
-                onClick={() => tracks.length && playTrack(tracks[0], tracks, 0)}
-                disabled={!tracks.length}
-                className="px-6 py-2 bg-bg-secondary text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-text-secondary hover:text-bg-primary transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-secondary disabled:hover:text-text-primary"
-              >
-                <Icon name="play" size={16} />
-                слушать всё
-              </button>
-
-              <button
-                onClick={handleImport}
-                disabled={!tracks.length}
-                className="px-6 py-2 bg-transparent border border-border-subtle text-text-secondary rounded-full font-medium flex items-center gap-2 hover:text-text-primary hover:border-border-visible transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <Icon name="plus" size={16} />
-                в библиотеку
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* треки */}
         {tracks.length ? (
           <TrackList tracks={tracks} />
         ) : (

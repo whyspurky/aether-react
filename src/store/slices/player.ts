@@ -1,4 +1,4 @@
-import { api } from '../../lib/api';
+import { api } from '@lib/api';
 import type { Track } from '../types';
 
 export interface PlayerSlice {
@@ -36,13 +36,9 @@ export interface PlayerSlice {
   preloadMoreTracks: () => Promise<void>;
 }
 
-interface Helpers {
-  startPositionLoop: (isValid: () => boolean) => void;
-}
-
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export const createPlayerSlice = (set: any, get: any, helpers: Helpers) => ({
+export const createPlayerSlice = (set: any, get: any) => ({
   queue: {
     tracks: [],
     currentIndex: -1,
@@ -105,8 +101,6 @@ export const createPlayerSlice = (set: any, get: any, helpers: Helpers) => ({
   },
 
   playTrack: async (track: Track, tracks: Track[], index: number, source = 'queue') => {
-    helpers.startPositionLoop(() => false); // отменяем старый loop
-    // isTrackEnding управляется через замыкание в startPositionLoop
 
     try { await api.muteAudio(); } catch {}
     try { await api.stopAudio(); } catch {}
@@ -165,7 +159,6 @@ export const createPlayerSlice = (set: any, get: any, helpers: Helpers) => ({
 
         started = true;
         get().addToHistory(track);
-        helpers.startPositionLoop(isValid);
 
         const nextIdx = index + 1;
         const nextTrack = tracks[nextIdx];
@@ -212,8 +205,6 @@ export const createPlayerSlice = (set: any, get: any, helpers: Helpers) => ({
   },
 
   nextTrack: async (manual = false) => {
-    helpers.startPositionLoop(() => false);
-
     try { await api.stopAudio(); } catch {}
 
     set((s: any) => ({
@@ -262,8 +253,6 @@ export const createPlayerSlice = (set: any, get: any, helpers: Helpers) => ({
   },
 
   prevTrack: async (manual = false) => {
-    helpers.startPositionLoop(() => false);
-
     try { await api.stopAudio(); } catch {}
 
     set((s: any) => ({

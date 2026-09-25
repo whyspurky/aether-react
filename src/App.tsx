@@ -1,12 +1,12 @@
 // src/App.tsx
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AddToPlaylistProvider } from './components/AddToPlaylistProvider';
+import { AddToPlaylistProvider } from './components/playlist/AddToPlaylistProvider';
 import { useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { TitleBar } from './components/TitleBar';
-import { Layout } from './components/Layout';
-import { useTheme } from './hooks/useTheme';
+import { TitleBar } from './components/layout/TitleBar';
+import { Layout } from './components/layout/Layout';
+import { useTheme } from './hooks/ui/useTheme';
 import { useStore } from './store/store';
 import { api } from './lib/api';
 import HomePage from './pages/HomePage';

@@ -1,5 +1,3 @@
-// src-tauri/src/lib.rs
-
 mod api;
 mod audio;
 mod shortcuts;

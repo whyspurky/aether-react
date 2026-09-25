@@ -1,4 +1,4 @@
-import { api } from '../../lib/api';
+import { api } from '@lib/api';
 import type { Track, User, Playlist } from '../types';
 
 export interface CacheSlice {

@@ -42,8 +42,6 @@ async fn fetch_paginated(start_url: &str) -> Result<Vec<Value>, String> {
     Ok(all)
 }
 
-// ===== прокси =====
-
 #[tauri::command]
 pub async fn proxy_set_custom(
     kind: String,
@@ -118,8 +116,6 @@ pub async fn proxy_test_cdn() -> Result<CdnTestResult, String> {
 
     Ok(CdnTestResult { ok, status, time_ms: start.elapsed().as_millis() as u64, error })
 }
-
-// ===== soundcloud =====
 
 #[tauri::command]
 pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Value, String> {
