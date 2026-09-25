@@ -226,7 +226,7 @@ cargo check
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td width="30%" valign="top">
 
 ## стек
 
@@ -241,7 +241,7 @@ cargo check
 | анимации | css keyframes |
 
 </td>
-<td width="50%" valign="top">
+<td width="70%" valign="top">
 
 <img src="./docs/screenshots/player.png" alt="плеер" />
 
