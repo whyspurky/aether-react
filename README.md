@@ -52,7 +52,7 @@
 
 ### доступно в россии
 
-soundcloud заблокирован провайдерами — веб версия не открывается
+SoundCloud заблокирован провайдерами — веб версия не открывается
 
 aether работает напрямую благодаря встроенному **zapret** или **своему прокси**
 
@@ -70,16 +70,16 @@ aether работает напрямую благодаря встроенном
 построено на **tauri 2** на rust вместо electron
 
 - размер установщика **3-6 мегабайт**
-- память **200-300 мегабайт**
+- RAM **200-300 мегабайт**
 - мгновенный запуск
-- плавный интерфейс на 60 fps
+- плавный интерфейс на 60 FPS
 
 ### стриминг в лучшем качестве
 
-1. **aac 160**
-2. **aac 96**
-3. **mp3 hls**
-4. **mp3**
+1. **AAC 160**
+2. **AAC 96**
+3. **MP3 HLS**
+4. **MP#**
 
 </td>
 </tr>
@@ -104,12 +104,12 @@ aether работает напрямую благодаря встроенном
 - шафл и репит
 - сохранение позиции и очереди между запусками
 - предзагрузка следующего трека
-- стриминг в aac 160 hls
+- стриминг в aac 160 HLS
 
 ### обход блокировок
 
 - встроенный **zapret** с автоскачиванием
-- личный прокси socks5, http, https
+- личный прокси SOCK5, HTTP, HTTPS
 
 ---
 
@@ -146,7 +146,7 @@ aether работает напрямую благодаря встроенном
 
 встроенный **zapret** скачивается одной кнопкой в настройках
 
-альтернатива свой **socks5** или **http** прокси
+альтернатива свой **SOCK5** или **HTTP** прокси
 
 подробнее в [документации](./docs)
 
@@ -162,14 +162,14 @@ aether работает напрямую благодаря встроенном
 
 ## обратная связь
 
-| сообщество | [telegram канал](https://t.me/aether_player) |
+| сообщество | [Telegram канал](https://t.me/aether_player) |
 | :--- | :--- |
-| баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
-| звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
+| баги | [Github issues](https://github.com/whyspurky/aether-react/issues) |
+| звезда | [Github stars](https://github.com/whyspurky/aether-react/stargazers) |
 
-pull requests приветствуются
+Pull requests приветствуются
 
-для крупных изменений сначала открой issue
+для крупных изменений сначала открой Issue
 
 ---
 
@@ -214,13 +214,13 @@ cargo check
 
 | компонент | технология |
 | :--- | :--- |
-| оболочка | tauri 2 на rust |
-| фронт | react 18, vite 5, tailwind css 3 |
-| стейт | zustand |
-| роутинг | react router 6 |
-| аудио | rodio на rust |
-| иконки | lucide |
-| анимации | css keyframes |
+| оболочка | Tauri 2 на Rust |
+| фронт | React 18, Vite 5, Tailwind CSS 3 |
+| стейт | Zustand |
+| роутинг | React router 6 |
+| аудио | Rodio на Rust |
+| иконки | Lucide |
+| анимации | CSS keyframes |
 
 ---
 
