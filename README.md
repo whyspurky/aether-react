@@ -11,15 +11,6 @@
 <br>
 <br>
 
-<a href="https://github.com/whyspurky/aether-react/releases/latest">
-<img src="https://img.shields.io/github/v/release/whyspurky/aether-react?style=for-the-badge&logo=github&color=FFFFFF&labelColor=0F0F0F&label=VERSION" alt="version"/>
-</a>
-<a href="https://github.com/whyspurky/aether-react/releases">
-<img src="https://img.shields.io/github/downloads/whyspurky/aether-react/total?style=for-the-badge&logo=download&color=FFFFFF&labelColor=0F0F0F&label=DOWNLOADS" alt="downloads"/>
-</a>
-<a href="https://github.com/whyspurky/aether-react/stargazers">
-<img src="https://img.shields.io/github/stars/whyspurky/aether-react?style=for-the-badge&logo=github&color=FFFFFF&labelColor=0F0F0F&label=STARS" alt="stars"/>
-</a>
 <a href="https://github.com/whyspurky/aether-react/blob/main/LICENSE">
 <img src="https://img.shields.io/badge/LICENSE-MIT-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="license"/>
 </a>
@@ -97,12 +88,6 @@ aether работает напрямую благодаря встроенном
 4. **mp3**
 
 максимум без подписки go plus
-
-### полностью на русском
-
-интерфейс переведён на русский язык
-
-медиа клавиши работают
 
 </td>
 </tr>
@@ -204,7 +189,6 @@ aether работает напрямую благодаря встроенном
 ## обратная связь
 
 | | |
-| :--- | :--- |
 | сообщество | [telegram канал](https://t.me/aether_player) |
 | баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
 | звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
