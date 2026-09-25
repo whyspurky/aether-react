@@ -22,6 +22,12 @@
 
 ---
 
+<div align="center">
+
+<img src="./docs/screenshots/home.png" width="900" alt="главная" />
+
+</div>
+
 ---
 
 ## что это
@@ -195,8 +201,8 @@ npm run tauri build
 ### проверки
 
 ```bash
-npx tsc --noEmit        # типы typescript
-cargo check             # компиляция rust
+npx tsc --noEmit        
+cargo check             
 ```
 
 </details>
