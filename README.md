@@ -224,6 +224,10 @@ cargo check
 
 ---
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
 ## стек
 
 | компонент | технология |
@@ -235,6 +239,15 @@ cargo check
 | аудио | rodio на rust |
 | иконки | lucide |
 | анимации | css keyframes |
+
+</td>
+<td width="50%" valign="top">
+
+<img src="./docs/screenshots/player.png" alt="плеер" />
+
+</td>
+</tr>
+</table>
 
 ---
 
