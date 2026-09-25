@@ -150,16 +150,6 @@ aether работает напрямую благодаря встроенном
 
 подробнее в [документации](./docs)
 
----
-
-<div align="center">
-
-<img src="./docs/screenshots/library.png" width="620" alt="библиотека" />
-
-</div>
-
----
-
 ## обратная связь
 
 | сообщество | [Telegram канал](https://t.me/aether_player) |
