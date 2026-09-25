@@ -22,12 +22,6 @@
 
 ---
 
-<div align="center">
-
-<img src="./docs/screenshots/home.png" width="900" alt="главная" />
-
-</div>
-
 ---
 
 ## что это
@@ -99,11 +93,6 @@ aether выжимает максимум из публичного api soundclou
 - библиотека: избранное, история, свои плейлисты
 - импорт плейлистов из soundcloud
 
-<div align="center">
-
-<img src="./docs/screenshots/search.png" width="720" alt="поиск" />
-
-</div>
 
 ### плеер
 
@@ -113,22 +102,11 @@ aether выжимает максимум из публичного api soundclou
 - предзагрузка следующего трека
 - стриминг в aac 160 hls
 
-<div align="center">
-
-<img src="./docs/screenshots/player.png" width="640" alt="плеер" />
-
-</div>
 
 ### обход блокировок
 
 - встроенный **zapret** с автоскачиванием
 - личный прокси socks5, http, https
-
-<div align="center">
-
-<img src="./docs/screenshots/settings.png" width="760" alt="настройки" />
-
-</div>
 
 ---
 
@@ -158,12 +136,6 @@ aether выжимает максимум из публичного api soundclou
 в планах в будущем
 
 ---
-
-<div align="center">
-
-<img src="./docs/screenshots/library.png" width="580" alt="библиотека" />
-
-</div>
 
 ---
 
