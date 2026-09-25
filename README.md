@@ -145,8 +145,7 @@ aether выжимает максимум из публичного api soundclou
 ---
 
 ## обратная связь
-
-|---|---|
+| | |
 | сообщество | [telegram](https://t.me/aether_player) |
 | баги | [issues](https://github.com/whyspurky/aether-react/issues) |
 | звезда | [stars](https://github.com/whyspurky/aether-react/stargazers) |
