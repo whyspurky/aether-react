@@ -31,4 +31,4 @@ pnpm-debug.log*
 docs/context/
 
 trees/
-*.log
+*.log 
