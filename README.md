@@ -16,7 +16,7 @@
 <img src="https://img.shields.io/badge/TELEGRAM-AETHER-FFFFFF?style=for-the-badge&logo=telegram&logoColor=white&labelColor=0F0F0F" alt="telegram"/>
 </a>
 <a href="https://github.com/whyspurky/aether-react/releases/latest">
-<img src="https://img.shields.io/badge/СКАЧАТЬ-ПОСЛЕДНЮЮ_ВЕРСИЮ-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="download"/>
+<img src="https://img.shields.io/badge/DOLWNOLOAD-LAST_VERSION-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="download"/>
 </a>
 </p>
 
@@ -49,7 +49,7 @@ aether работает напрямую благодаря встроенном
 
 ноль рекламных баннеров, ноль промо вставок между треками, ноль всплывающих окон
 
-чистый интерфейс, только музыка
+чистый интерфейс | только музыка
 
 ### без капчи
 
@@ -62,7 +62,7 @@ aether работает напрямую благодаря встроенном
 
 что это даёт
 
-- размер установщика **4-6 мегабайт** а не 200+ как у electron приложений
+- размер установщика **3-6 мегабайт** а не 200+ как у electron приложений
 - потребление памяти **200-300 мегабайт** при воспроизведении
 - мгновенный запуск
 - плавный интерфейс на 60 fps
@@ -71,12 +71,12 @@ aether работает напрямую благодаря встроенном
 
 aether выжимает максимум из публичного api soundcloud
 
-1. **aac 160 килобит** когда доступно
-2. **aac 96** если 160 нет
+1. **aac 160** 
+2. **aac 96** 
 3. **mp3 hls**
-4. **mp3 progressive** как fallback
+4. **mp3** 
 
-это лучший доступный битрейт без подписки go plus
+это лучший доступный битрейт на локальной машине
 
 ### системная интеграция
 
@@ -97,16 +97,15 @@ aether выжимает максимум из публичного api soundclou
 - страницы артистов с табами
 - страницы плейлистов и альбомов
 - библиотека: избранное, история, свои плейлисты
-- импорт плейлистов из soundcloud
+- импорт плейлистов из саундклауда
 
 
 ### плеер
 
 - очередь с автодогрузкой
-- shuffle и repeat
+- шафл и репит
 - сохранение позиции и очереди между запусками
 - предзагрузка следующего трека
-- стриминг в aac 160 hls
 
 
 ### обход блокировок
@@ -126,28 +125,16 @@ aether выжимает максимум из публичного api soundclou
 
 ## скачать
 
-### windows
-
 перейди на [страницу релизов](https://github.com/whyspurky/aether-react/releases/latest) и скачай
 
 - **exe** (nsis установщик) — рекомендуется
 - **msi** — альтернативный установщик
 
-требования: windows 10 версии 1809 или выше, windows 11
-
-### linux и macos
-
-пока не поддерживаются
-
-в планах в будущем
-
----
-
 ---
 
 ## обход блокировок
 
-работает в регионах где soundcloud заблокирован
+работает в регионах где саундклауд заблокирован
 
 встроенный **zapret** скачивается одной кнопкой в настройках
 
@@ -159,11 +146,10 @@ aether выжимает максимум из публичного api soundclou
 
 ## обратная связь
 
-| | |
 |---|---|
-| сообщество | [telegram канал](https://t.me/aether_player) |
-| баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
-| звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) — помогает продвижению |
+| сообщество | [telegram](https://t.me/aether_player) |
+| баги | [issues](https://github.com/whyspurky/aether-react/issues) |
+| звезда | [stars](https://github.com/whyspurky/aether-react/stargazers) |
 
 pull requests приветствуются
 
@@ -225,13 +211,9 @@ cargo check
 
 ## лицензия
 
-MIT
+MIT | подробности в файле [LICENSE](./LICENSE)
 
-подробности в файле [LICENSE](./LICENSE)
-
-soundcloud это торговая марка soundcloud ltd
-
-это приложение не аффилировано с soundcloud
+soundcloud это торговая марка soundcloud ltd | это приложение не аффилировано с soundcloud
 
 ---
 
