@@ -4,7 +4,18 @@
 
 формат основан на [keep a changelog](https://keepachangelog.com/)
 
-## [0.1.2] - ???
+## [unreleased]
+
+### added
+
+
+### changed
+
+
+### fixed
+
+
+## [0.1.2] - 2026-09-26
 
 ### added
 - прогресс бар в миним плеере
