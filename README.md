@@ -177,7 +177,6 @@ aether работает напрямую благодаря встроенном
 ## обратная связь
 
 |  |  |
-| :--- | :--- |
 | сообщество | [telegram канал](https://t.me/aether_player) |
 | баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
 | звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
