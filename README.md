@@ -176,7 +176,7 @@ aether работает напрямую благодаря встроенном
 
 ## обратная связь
 
-| | |
+|---|---|
 | сообщество | [telegram канал](https://t.me/aether_player) |
 | баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
 | звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
@@ -224,6 +224,9 @@ cargo check
 
 ---
 
+<table>
+<td width="30%" valign="top">
+
 ## стек
 
 | компонент | технология |
@@ -235,6 +238,14 @@ cargo check
 | аудио | rodio на rust |
 | иконки | lucide |
 | анимации | css keyframes |
+
+</td>
+<td width="70%" valign="top">
+
+<img src="./docs/screenshots/player.png" alt="плеер" />
+
+</td>
+</table>
 
 ---
 
