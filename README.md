@@ -62,12 +62,6 @@ aether работает напрямую благодаря встроенном
 
 чистый интерфейс | только музыка
 
-### без капчи
-
-никаких проверок я не робот
-
-открыл — слушаешь
-
 </td>
 <td width="50%" valign="top">
 
@@ -86,8 +80,6 @@ aether работает напрямую благодаря встроенном
 2. **aac 96**
 3. **mp3 hls**
 4. **mp3**
-
-максимум без подписки go plus
 
 </td>
 </tr>
@@ -176,7 +168,7 @@ aether работает напрямую благодаря встроенном
 
 ## обратная связь
 
-|  |  |
+| :--- | :--- |
 | сообщество | [telegram канал](https://t.me/aether_player) |
 | баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
 | звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
