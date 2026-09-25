@@ -1,24 +1,39 @@
-<h1 align="center">aether</h1>
+<div align="center">
 
-<p align="center">
-<b>десктопный музыкальный плеер для SoundCloud</b><br>
-без рекламы · без капчи · без цензуры · доступно в россии
-</p>
+<img src="./docs/screenshots/logo.png" width="140" style="border-radius: 50%;" alt="aether logo" />
 
-<p align="center">
+<h1>aether</h1>
+
+<b>десктопный музыкальный плеер для SoundCloud</b>
+
+<sub>без рекламы · без капчи · без цензуры · доступно в россии</sub>
+
+<br>
+<br>
+
+<a href="https://github.com/whyspurky/aether-react/releases/latest">
+<img src="https://img.shields.io/github/v/release/whyspurky/aether-react?style=for-the-badge&logo=github&color=FFFFFF&labelColor=0F0F0F&label=VERSION" alt="version"/>
+</a>
+<a href="https://github.com/whyspurky/aether-react/releases">
+<img src="https://img.shields.io/github/downloads/whyspurky/aether-react/total?style=for-the-badge&logo=download&color=FFFFFF&labelColor=0F0F0F&label=DOWNLOADS" alt="downloads"/>
+</a>
+<a href="https://github.com/whyspurky/aether-react/stargazers">
+<img src="https://img.shields.io/github/stars/whyspurky/aether-react?style=for-the-badge&logo=github&color=FFFFFF&labelColor=0F0F0F&label=STARS" alt="stars"/>
+</a>
 <a href="https://github.com/whyspurky/aether-react/blob/main/LICENSE">
 <img src="https://img.shields.io/badge/LICENSE-MIT-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="license"/>
 </a>
-</p>
 
-<p align="center">
+<br>
+
 <a href="https://t.me/aether_player">
 <img src="https://img.shields.io/badge/TELEGRAM-AETHER-FFFFFF?style=for-the-badge&logo=telegram&logoColor=white&labelColor=0F0F0F" alt="telegram"/>
 </a>
 <a href="https://github.com/whyspurky/aether-react/releases/latest">
-<img src="https://img.shields.io/badge/DOLWNOLOAD-LAST_VERSION-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="download"/>
+<img src="https://img.shields.io/badge/СКАЧАТЬ-ПОСЛЕДНЮЮ_ВЕРСИЮ-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="download"/>
 </a>
-</p>
+
+</div>
 
 ---
 
@@ -40,55 +55,68 @@
 
 ## почему aether
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
 ### доступно в россии
 
 soundcloud заблокирован провайдерами — веб версия не открывается
+
 aether работает напрямую благодаря встроенному **zapret** или **своему прокси**
 
 ### никакой рекламы
 
-ноль рекламных баннеров, ноль промо вставок между треками, ноль всплывающих окон
+ноль баннеров, ноль промо вставок между треками, ноль всплывающих окон
 
 чистый интерфейс | только музыка
 
 ### без капчи
 
 никаких проверок я не робот
+
 открыл — слушаешь
+
+</td>
+<td width="50%" valign="top">
 
 ### нативное и лёгкое
 
 построено на **tauri 2** на rust вместо electron
 
-что это даёт
-
-- размер установщика **3-6 мегабайт** а не 200+ как у electron приложений
-- потребление памяти **200-300 мегабайт** при воспроизведении
+- размер установщика **3-6 мегабайт**
+- память **200-300 мегабайт**
 - мгновенный запуск
 - плавный интерфейс на 60 fps
 
 ### стриминг в лучшем качестве
 
-aether выжимает максимум из публичного api soundcloud
-
-1. **aac 160** 
-2. **aac 96** 
+1. **aac 160**
+2. **aac 96**
 3. **mp3 hls**
-4. **mp3** 
+4. **mp3**
 
-это лучший доступный битрейт на локальной машине
-
-### системная интеграция
-
-- **медиа клавиши** на клавиатуре работают
+максимум без подписки go plus
 
 ### полностью на русском
 
 интерфейс переведён на русский язык
 
+медиа клавиши работают
+
+</td>
+</tr>
+</table>
+
 ---
 
 ## возможности
+
+<div align="center">
+
+<img src="./docs/screenshots/search.png" width="820" alt="поиск" />
+
+</div>
 
 ### музыка
 
@@ -99,6 +127,11 @@ aether выжимает максимум из публичного api soundclou
 - библиотека: избранное, история, свои плейлисты
 - импорт плейлистов из саундклауда
 
+<div align="center">
+
+<img src="./docs/screenshots/player.png" width="680" alt="плеер" />
+
+</div>
 
 ### плеер
 
@@ -106,7 +139,13 @@ aether выжимает максимум из публичного api soundclou
 - шафл и репит
 - сохранение позиции и очереди между запусками
 - предзагрузка следующего трека
+- стриминг в aac 160 hls
 
+<div align="center">
+
+<img src="./docs/screenshots/settings.png" width="780" alt="настройки" />
+
+</div>
 
 ### обход блокировок
 
@@ -117,7 +156,7 @@ aether выжимает максимум из публичного api soundclou
 
 <div align="center">
 
-<img src="./docs/screenshots/artist.png" width="820" alt="артист" />
+<img src="./docs/screenshots/artist.png" width="860" alt="артист" />
 
 </div>
 
@@ -125,10 +164,20 @@ aether выжимает максимум из публичного api soundclou
 
 ## скачать
 
+<div align="center">
+
+<a href="https://github.com/whyspurky/aether-react/releases/latest">
+<img src="https://img.shields.io/badge/СКАЧАТЬ_AETHER-FFFFFF?style=for-the-badge&labelColor=0F0F0F" alt="download" height="44"/>
+</a>
+
+</div>
+
 перейди на [страницу релизов](https://github.com/whyspurky/aether-react/releases/latest) и скачай
 
 - **exe** (nsis установщик) — рекомендуется
 - **msi** — альтернативный установщик
+
+**требования** windows 10 версии 1809 или выше, windows 11
 
 ---
 
@@ -144,11 +193,21 @@ aether выжимает максимум из публичного api soundclou
 
 ---
 
+<div align="center">
+
+<img src="./docs/screenshots/library.png" width="620" alt="библиотека" />
+
+</div>
+
+---
+
 ## обратная связь
+
 | | |
-| сообщество | [telegram](https://t.me/aether_player) |
-| баги | [issues](https://github.com/whyspurky/aether-react/issues) |
-| звезда | [stars](https://github.com/whyspurky/aether-react/stargazers) |
+| :--- | :--- |
+| сообщество | [telegram канал](https://t.me/aether_player) |
+| баги | [github issues](https://github.com/whyspurky/aether-react/issues) |
+| звезда | [github stars](https://github.com/whyspurky/aether-react/stargazers) |
 
 pull requests приветствуются
 
@@ -173,7 +232,6 @@ git clone https://github.com/whyspurky/aether-react.git
 cd aether-react
 npm install
 npm run tauri dev
-```
 
 ### production сборка
 
