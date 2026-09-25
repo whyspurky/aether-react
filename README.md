@@ -67,12 +67,6 @@ tauri 2 · react 18 · rust
 
 ---
 
-## сборка
-
-```bash
-npm install
-npm run tauri dev      # разработка
-npm run tauri build    # релиз
 
 обход блокировок
 
@@ -97,4 +91,3 @@ MIT
 не связан с soundcloud
 
 все права на музыку принадлежат исполнителям и правообладателям
-```
