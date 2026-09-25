@@ -33,4 +33,4 @@ function fixAllSvgs() {
   svgFiles.forEach(fixSvgFile);
 }
 
-fixAllSvgs();
+fixAllSvgs(); 
