@@ -64,7 +64,11 @@ export function useProgressDrag({ effectiveDuration, position, onSeek }: Params)
       if (el) {
         const pos = calcFromClientX(e.clientX, el.getBoundingClientRect());
         onSeek(pos);
-        try { await api.seekAudio(pos); } catch {}
+        try {
+          await api.seekAudio(pos);
+          const { saveNow } = await import('@lib/store/tauriStorage');
+          await saveNow();
+        } catch {}
       }
       setIsDragging(false);
     };
@@ -87,7 +91,11 @@ export function useProgressDrag({ effectiveDuration, position, onSeek }: Params)
         const touch = e.changedTouches[0];
         const pos = calcFromClientX(touch.clientX, el.getBoundingClientRect());
         onSeek(pos);
-        try { await api.seekAudio(pos); } catch {}
+        try {
+          await api.seekAudio(pos);
+          const { saveNow } = await import('@lib/store/tauriStorage');
+          await saveNow();
+        } catch {}
       }
       setIsDragging(false);
     };

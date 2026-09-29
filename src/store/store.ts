@@ -59,6 +59,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           shuffle: s.player.shuffle,
           repeat: s.player.repeat,
           currentTrack: s.player.currentTrack,
+          position: s.player.position,
         },
         proxy: {
           mode: s.proxy.mode,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
+import { useStore } from '@store/store';
 
 interface Props {
   volume: number;
@@ -8,7 +9,7 @@ interface Props {
   onVolumeChange: (volume: number) => void;
 }
 
-const STORE_THROTTLE_MS = 80;
+const APPLY_THROTTLE_MS = 30;
 
 export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChange }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -22,50 +23,41 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
   const isAudioReadyRef = useRef(isAudioReady);
   const volumeBeforeMuteRef = useRef(0.8);
 
-  const pendingVolumeRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const lastStoreRef = useRef(0);
+  const lastApplyRef = useRef(0);
+  const lastValueRef = useRef(volume);
   const isDraggingRef = useRef(false);
 
   useEffect(() => { onVolumeChangeRef.current = onVolumeChange; }, [onVolumeChange]);
   useEffect(() => { isAudioReadyRef.current = isAudioReady; }, [isAudioReady]);
-
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    paintVolume(volume / 100);
-  }, [volume]);
 
   const paintVolume = useCallback((v: number) => {
     if (fillRef.current) fillRef.current.style.transform = `scaleX(${v})`;
     if (knobRef.current) knobRef.current.style.left = `${v * 100}%`;
   }, []);
 
-  const flushToStore = useCallback(() => {
-    rafRef.current = null;
-    if (pendingVolumeRef.current === null) return;
-    const v = pendingVolumeRef.current;
-    pendingVolumeRef.current = null;
-
-    const now = performance.now();
-    if (now - lastStoreRef.current < STORE_THROTTLE_MS) {
-      rafRef.current = requestAnimationFrame(flushToStore);
-      return;
-    }
-    lastStoreRef.current = now;
-    if (!isAudioReadyRef.current) return;
-    onVolumeChangeRef.current(Math.round(v * 100));
+  useEffect(() => {
+    paintVolume(volume / 100);
+    lastValueRef.current = volume;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scheduleToStore = useCallback((v: number) => {
-    pendingVolumeRef.current = v;
-    if (rafRef.current !== null) return;
-    rafRef.current = requestAnimationFrame(flushToStore);
-  }, [flushToStore]);
-
   useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
+    if (isDraggingRef.current) return;
+    paintVolume(volume / 100);
+    lastValueRef.current = volume;
+  }, [volume, paintVolume]);
+
+  const apply = useCallback((v: number, force: boolean) => {
+    if (!isAudioReadyRef.current) return;
+    const final = Math.round(Math.max(0, Math.min(100, v)));
+    lastValueRef.current = final;
+
+    const now = performance.now();
+    if (!force && now - lastApplyRef.current < APPLY_THROTTLE_MS) return;
+    lastApplyRef.current = now;
+
+    onVolumeChangeRef.current(final);
+    useStore.getState().setVolumeRust(final);
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -76,15 +68,16 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
     el.setPointerCapture(e.pointerId);
     isDraggingRef.current = true;
     setIsDragging(true);
+    lastApplyRef.current = 0;
 
     const rect = el.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
     paintVolume(percent);
-    scheduleToStore(percent);
+    apply(percent * 100, true);
     if (percent > 0) volumeBeforeMuteRef.current = percent;
     e.preventDefault();
-  }, [paintVolume, scheduleToStore]);
+  }, [paintVolume, apply]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
@@ -94,32 +87,22 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
     paintVolume(percent);
-    scheduleToStore(percent);
+    apply(percent * 100, false);
     if (percent > 0) volumeBeforeMuteRef.current = percent;
-  }, [paintVolume, scheduleToStore]);
+  }, [paintVolume, apply]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     setIsDragging(false);
 
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (pendingVolumeRef.current !== null) {
-      const v = pendingVolumeRef.current;
-      pendingVolumeRef.current = null;
-      lastStoreRef.current = 0;
-      if (isAudioReadyRef.current) {
-        onVolumeChangeRef.current(Math.round(v * 100));
-      }
-    }
+    apply(lastValueRef.current, true);
+    import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
 
     if (trackRef.current) {
       try { trackRef.current.releasePointerCapture(e.pointerId); } catch {}
     }
-  }, []);
+  }, [apply]);
 
   const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!isAudioReadyRef.current || isDraggingRef.current) return;
@@ -129,10 +112,10 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
     paintVolume(percent);
-    lastStoreRef.current = 0;
-    onVolumeChangeRef.current(Math.round(percent * 100));
+    apply(percent * 100, true);
+    import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
     if (percent > 0) volumeBeforeMuteRef.current = percent;
-  }, [paintVolume]);
+  }, [paintVolume, apply]);
 
   const handleMuteToggle = useCallback(() => {
     if (!isAudioReadyRef.current) return;
@@ -140,13 +123,14 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
     if (current === 0) {
       const v = volumeBeforeMuteRef.current || 0.8;
       paintVolume(v);
-      onVolumeChangeRef.current(Math.round(v * 100));
+      apply(v * 100, true);
     } else {
       volumeBeforeMuteRef.current = current / 100;
       paintVolume(0);
-      onVolumeChangeRef.current(0);
+      apply(0, true);
     }
-  }, [volume, paintVolume]);
+    import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+  }, [volume, paintVolume, apply]);
 
   return (
     <div className="w-full mt-2">
@@ -170,26 +154,24 @@ export function PlayerVolumeBar({ volume, isAudioReady, isLoading, onVolumeChang
           onPointerCancel={handlePointerUp}
           onClick={handleTrackClick}
         >
-          {/* трек */}
           <div className="relative h-1 bg-[#333333] rounded-full overflow-hidden">
             <div
               ref={fillRef}
               className="absolute left-0 top-0 h-full w-full bg-white rounded-full origin-left will-change-transform"
               style={{
-                transform: `scaleX(${volume / 100})`,
+                transform: 'scaleX(0)',
                 transition: isDragging ? 'none' : 'transform 0.1s linear',
               }}
             />
           </div>
 
-          {/* knob - absolute, не часть трека */}
           <div
             ref={knobRef}
             className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white rounded-full shadow-lg pointer-events-none will-change-transform ${
               isDragging || showKnob ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
             }`}
             style={{
-              left: `${volume}%`,
+              left: '0%',
               transition: isDragging
                 ? 'opacity 0.15s ease, transform 0.15s ease'
                 : 'opacity 0.15s ease, transform 0.15s ease, left 0.1s linear',

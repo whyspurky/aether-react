@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
+import { useStore } from '@store/store';
 
 interface VolumeSliderProps {
   volume: number;
   onVolumeChange: (volume: number) => void;
 }
 
-const STORE_THROTTLE_MS = 80;
+const APPLY_THROTTLE_MS = 30;
 
 export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
   const [visible, setVisible] = useState(false);
@@ -23,9 +24,38 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
   useEffect(() => { onVolumeChangeRef.current = onVolumeChange; }, [onVolumeChange]);
 
   const isDraggingRef = useRef(false);
-  const rafRef = useRef<number | null>(null);
-  const pendingVolumeRef = useRef<number | null>(null);
-  const lastStoreRef = useRef(0);
+  const lastApplyRef = useRef(0);
+  const lastValueRef = useRef(volume);
+
+  const paintVolume = useCallback((v: number) => {
+    const pct = Math.max(0, Math.min(100, v));
+    if (fillRef.current) fillRef.current.style.height = `${pct}%`;
+    if (knobRef.current) knobRef.current.style.bottom = `${pct}%`;
+  }, []);
+
+  useEffect(() => {
+    paintVolume(volume);
+    lastValueRef.current = volume;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    paintVolume(volume);
+    lastValueRef.current = volume;
+  }, [volume, paintVolume]);
+
+  const apply = useCallback((v: number, force: boolean) => {
+    const final = Math.round(Math.max(0, Math.min(100, v)));
+    lastValueRef.current = final;
+
+    const now = performance.now();
+    if (!force && now - lastApplyRef.current < APPLY_THROTTLE_MS) return;
+    lastApplyRef.current = now;
+
+    onVolumeChangeRef.current(final);
+    useStore.getState().setVolumeRust(final);
+  }, []);
 
   const clearTimers = () => {
     if (hideTimer.current) {
@@ -66,41 +96,8 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
   useEffect(() => {
     return () => {
       clearTimers();
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
   }, []);
-
-  const paintVolume = useCallback((v: number) => {
-    const pct = Math.max(0, Math.min(100, v));
-    if (fillRef.current) fillRef.current.style.height = `${pct}%`;
-    if (knobRef.current) knobRef.current.style.bottom = `${pct}%`;
-  }, []);
-
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    paintVolume(volume);
-  }, [volume, paintVolume]);
-
-  const flushToStore = useCallback(() => {
-    rafRef.current = null;
-    if (pendingVolumeRef.current === null) return;
-    const v = pendingVolumeRef.current;
-    pendingVolumeRef.current = null;
-
-    const now = performance.now();
-    if (now - lastStoreRef.current < STORE_THROTTLE_MS) {
-      rafRef.current = requestAnimationFrame(flushToStore);
-      return;
-    }
-    lastStoreRef.current = now;
-    onVolumeChangeRef.current(Math.round(v));
-  }, []);
-
-  const scheduleToStore = useCallback((v: number) => {
-    pendingVolumeRef.current = v;
-    if (rafRef.current !== null) return;
-    rafRef.current = requestAnimationFrame(flushToStore);
-  }, [flushToStore]);
 
   const calcFromClientY = useCallback((clientY: number): number | null => {
     const el = trackRef.current;
@@ -116,53 +113,46 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
 
     el.setPointerCapture(e.pointerId);
     isDraggingRef.current = true;
+    lastApplyRef.current = 0;
 
     const v = calcFromClientY(e.clientY);
     if (v !== null) {
       paintVolume(v);
-      scheduleToStore(v);
+      apply(v, true);
     }
     e.preventDefault();
-  }, [calcFromClientY, paintVolume, scheduleToStore]);
+  }, [calcFromClientY, paintVolume, apply]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     const v = calcFromClientY(e.clientY);
     if (v !== null) {
       paintVolume(v);
-      scheduleToStore(v);
+      apply(v, false);
     }
-  }, [calcFromClientY, paintVolume, scheduleToStore]);
+  }, [calcFromClientY, paintVolume, apply]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
 
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    if (pendingVolumeRef.current !== null) {
-      const v = pendingVolumeRef.current;
-      pendingVolumeRef.current = null;
-      lastStoreRef.current = 0;
-      onVolumeChangeRef.current(Math.round(v));
-    }
+    apply(lastValueRef.current, true);
+    import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
 
     if (trackRef.current) {
       try { trackRef.current.releasePointerCapture(e.pointerId); } catch {}
     }
-  }, []);
+  }, [apply]);
 
   const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isDraggingRef.current) return;
     const v = calcFromClientY(e.clientY);
     if (v !== null) {
       paintVolume(v);
-      lastStoreRef.current = 0;
-      onVolumeChangeRef.current(Math.round(v));
+      apply(v, true);
+      import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
     }
-  }, [calcFromClientY, paintVolume]);
+  }, [calcFromClientY, paintVolume, apply]);
 
   return (
     <div className="relative inline-block">
@@ -184,11 +174,11 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
         <div
           onMouseEnter={show}
           onMouseLeave={hide}
-className={`absolute bottom-full left-1/2 mb-2 px-4 py-3 bg-bg-card rounded-2xl border border-border-subtle shadow-xl transition-all duration-200 ease-out ${
-  isAnimating
-    ? 'opacity-100 translate-y-0 scale-100 -translate-x-[24px]'
-    : 'opacity-0 translate-y-2 scale-95 -translate-x-[24px]'
-}`}
+          className={`absolute bottom-full left-1/2 mb-2 px-4 py-3 bg-bg-card rounded-2xl border border-border-subtle shadow-xl transition-all duration-200 ease-out ${
+            isAnimating
+              ? 'opacity-100 translate-y-0 scale-100 -translate-x-1/2'
+              : 'opacity-0 translate-y-2 scale-95 -translate-x-1/2'
+          }`}
           style={{ transformOrigin: 'bottom center' }}
         >
           <div className="w-full flex justify-center">
@@ -206,13 +196,13 @@ className={`absolute bottom-full left-1/2 mb-2 px-4 py-3 bg-bg-card rounded-2xl 
               <div
                 ref={fillRef}
                 className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[6px] bg-white rounded-full"
-                style={{ height: `${volume}%`, transition: 'none' }}
+                style={{ height: '0%', transition: 'none' }}
               />
               <div
                 ref={knobRef}
                 className="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none will-change-transform"
                 style={{
-                  bottom: `${volume}%`,
+                  bottom: '0%',
                   transform: 'translate(-50%, 50%)',
                   transition: 'none',
                 }}

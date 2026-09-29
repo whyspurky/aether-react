@@ -28,7 +28,8 @@ export interface PlayerSlice {
   nextTrack: (manual?: boolean) => Promise<void>;
   prevTrack: (manual?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
-  setVolume: (volume: number) => Promise<void>;
+  setVolume: (volume: number) => void;
+  setVolumeRust: (volume: number) => Promise<void>;
   setPosition: (position: number) => void;
   setShuffle: (shuffle: boolean) => void;
   setRepeat: (repeat: 'none' | 'all' | 'one') => void;
@@ -298,8 +299,11 @@ export const createPlayerSlice = (set: any, get: any) => ({
     }
   },
 
-  setVolume: async (volume: number) => {
+  setVolume: (volume: number) => {
     set((s: any) => ({ player: { ...s.player, volume } }));
+  },
+
+  setVolumeRust: async (volume: number) => {
     await api.setVolume(volume);
   },
 

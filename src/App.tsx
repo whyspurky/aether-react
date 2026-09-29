@@ -31,22 +31,6 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const loadSavedPosition = async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const raw = await invoke<string | null>('load_store', { key: 'aether-storage' });
-        if (!raw) return;
-        const data = JSON.parse(raw);
-        const savedPos = data?.state?.player?.position;
-        if (typeof savedPos === 'number' && savedPos > 0) {
-          useStore.setState((s) => ({ player: { ...s.player, position: savedPos } }));
-        }
-      } catch {}
-    };
-    loadSavedPosition();
-  }, []);
-
-  useEffect(() => {
     const prevent = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', prevent);
     return () => document.removeEventListener('contextmenu', prevent);
@@ -111,11 +95,8 @@ function App() {
 
   const handleClose = async () => {
     try {
-      const s = useStore.getState();
-      if (s.player.currentTrack && s.player.position > 0) {
-        const { savePosition } = await import('@lib/store/tauriStorage');
-        await savePosition(s.player.position);
-      }
+      const { flushPending } = await import('@lib/store/tauriStorage');
+      await flushPending();
     } catch {}
     try { await appWindow.close(); } catch {}
   };

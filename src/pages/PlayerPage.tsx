@@ -7,7 +7,7 @@ import { useProgressDrag } from '@hooks/player/useProgressDrag';
 import { PlayerProgressBar } from '@components/player/PlayerProgressBar';
 import { PlayerVolumeBar } from '@components/player/PlayerVolumeBar';
 import { PlayerQueue } from '@components/player/PlayerQueue';
-import { usePositionTick } from '@hooks/player/usePositionTick';
+import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 
  
 
@@ -43,26 +43,23 @@ export default function PlayerPage() {
   const progressDrag = useProgressDrag({
     effectiveDuration,
     position,
-    onSeek: setPosition,
+    onSeek: (pos) => {
+      seekTo(pos);
+      setPosition(pos);
+    },
   });
 
-
-
-  const displayPosition = progressDrag.isDragging ? progressDrag.dragPosition : position;
-
-  const progressPercent = effectiveDuration > 0
-    ? (displayPosition / effectiveDuration) * 100
-    : 0;
-
-  usePositionTick({
+  const { progressRef, seekTo } = usePlayerProgress({
     currentTrackId: currentTrack?.id,
+    isPlaying,
     isLoading,
-    isDragging: progressDrag.isDragging,
-    setPosition,
-    getPendingSeek: () => useStore.getState().player.pendingSeek,
+    isAudioReady,
     duration,
     onTrackEnd: () => {
       useStore.getState().nextTrack();
+    },
+    onSyncPosition: (pos) => {
+      if (!progressDrag.isDragging) setPosition(pos);
     },
   });
 
@@ -159,10 +156,10 @@ export default function PlayerPage() {
             <div className="flex-1" />
 
             <PlayerProgressBar
-              displayPosition={displayPosition}
+              progressRef={progressRef}
               effectiveDuration={effectiveDuration}
-              progressPercent={progressPercent}
               isDragging={progressDrag.isDragging}
+              dragPosition={progressDrag.dragPosition}
               onMouseDown={progressDrag.handleMouseDown}
               onTouchStart={progressDrag.handleTouchStart}
             />
