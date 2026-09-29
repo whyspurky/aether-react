@@ -6,13 +6,38 @@ mod zapret;
 use audio::AppState;
 use tauri::Manager;
 
+use tauri_plugin_store::StoreExt;
 
+#[tauri::command]
+async fn save_store(app: tauri::AppHandle, key: String, value: String) -> Result<(), String> {
+    let store = app.store("aether-storage.json").map_err(|e| e.to_string())?;
+    store.set(key, serde_json::json!(value));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn load_store(app: tauri::AppHandle, key: String) -> Result<Option<String>, String> {
+    let store = app.store("aether-storage.json").map_err(|e| e.to_string())?;
+    Ok(store.get(key).and_then(|v| v.as_str().map(String::from)))
+}
+
+#[tauri::command]
+async fn clear_store(app: tauri::AppHandle) -> Result<(), String> {
+    println!("[store] clear");
+    let store = app.store("aether-storage.json").map_err(|e| e.to_string())?;
+    store.clear();
+    store.save().map_err(|e| e.to_string())?;
+    println!("[store] cleared ok");
+    Ok(())
+}
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+.plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             app.manage(AppState::new());
 
@@ -37,6 +62,9 @@ pub fn run() {
             audio::set_volume, audio::set_track_duration, audio::get_position,
             audio::seek_audio,
             audio::prefetch_audio,
+            save_store,
+            load_store,
+            clear_store,
             zapret::zapret_status,
             zapret::zapret_start,
             zapret::zapret_stop,

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { tauriStorage } from '../lib/store/tauriStorage';
 import { createProxySlice, type ProxySlice } from './slices/proxy';
 import { createUiSlice, type UiSlice } from './slices/ui';
 import { createCacheSlice, type CacheSlice } from './slices/cache';
@@ -21,6 +22,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
     {
       name: 'aether-storage',
       version: 2,
+      storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         if (version < 2) {
           if (!persisted.proxy) {
@@ -57,7 +59,6 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           shuffle: s.player.shuffle,
           repeat: s.player.repeat,
           currentTrack: s.player.currentTrack,
-          position: s.player.position,
         },
         proxy: {
           mode: s.proxy.mode,

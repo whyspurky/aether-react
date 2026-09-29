@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { ConfirmModal } from '../ui/ConfirmModal';
 import { useStore } from '@store/store';
+import { clearTauriStorage } from '@lib/store/tauriStorage';
 
 export function SettingsTabData() {
   const clearHistory = useStore((s) => s.clearHistory);
@@ -12,8 +13,8 @@ export function SettingsTabData() {
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
   const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
 
-  const handleClearCache = () => {
-    localStorage.removeItem('aether-storage');
+  const handleClearCache = async () => {
+    await clearTauriStorage();
 
     useStore.setState({
       library: {
