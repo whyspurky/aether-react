@@ -39,7 +39,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
 .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
-            app.manage(AppState::new());
+            let state = AppState::new();
+            *state.app_handle.lock().unwrap() = Some(app.handle().clone());
+            app.manage(state);
 
             if let Err(e) = shortcuts::setup(app) {
                 eprintln!("shortcuts: {e}");

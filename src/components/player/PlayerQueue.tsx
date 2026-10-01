@@ -11,15 +11,20 @@ export function PlayerQueue({ tracks, scrollRef, onRemove }: Props) {
   if (!tracks.length) return null;
 
   return (
-    <div className="mt-3 flex-1 min-h-0">
+    <div className="mt-3 flex-1 min-h-0 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-text-tertiary uppercase tracking-wider">
           ОЧЕРЕДЬ - {tracks.length} ТРЕКОВ
         </h3>
       </div>
-      <div ref={scrollRef} className="h-full max-h-[calc(50vh-41.6px)] overflow-y-auto scrollbar-thin">
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0"
+        style={{ maxHeight: 'calc(50vh - 41.6px)' }}
+      >
         <TrackList
           tracks={tracks}
+          virtualize
           showQueueButton
           onRemove={(track) => onRemove(track.id)}
         />

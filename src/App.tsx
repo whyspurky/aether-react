@@ -31,9 +31,52 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    // синхронизируем громкость с rust при старте
+    const syncVolume = () => {
+      const s = useStore.getState();
+      if (typeof s.player.volume === 'number') {
+        api.setVolume(s.player.volume);
+      }
+    };
+
+    const t = setTimeout(syncVolume, 300);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
     const prevent = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', prevent);
     return () => document.removeEventListener('contextmenu', prevent);
+  }, []);
+
+  useEffect(() => {
+    let fired = false;
+
+    const check = async () => {
+      if (fired) return;
+
+      const s = useStore.getState();
+      if (!s.player.currentTrack) return;
+      if (s.queue.currentIndex < 0) return;
+      if (s.player.isAudioReady) return;
+
+      fired = true;
+      clearInterval(t);
+
+      try {
+        const url = await api.getStreamUrl(s.player.currentTrack.id);
+        if (!url) return;
+        await api.prefetchAudio(url, s.player.currentTrack.id);
+      } catch {}
+    };
+
+    const t = setInterval(check, 200);
+    const stop = setTimeout(() => clearInterval(t), 10000);
+
+    return () => {
+      clearInterval(t);
+      clearTimeout(stop);
+    };
   }, []);
 
 useEffect(() => {

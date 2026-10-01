@@ -99,6 +99,7 @@ pub struct AppState {
     pub _sink_handle: Arc<Mutex<rodio::MixerDeviceSink>>,
     pub prefetch_slot: Arc<Mutex<Option<(u64, Bytes)>>>,
     pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    pub app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
 }
 
 impl AppState {
@@ -112,6 +113,7 @@ impl AppState {
             playback: Arc::new(Mutex::new(Playback::new())),
             prefetch_slot: Arc::new(Mutex::new(None)),
             prefetch_task: Arc::new(Mutex::new(None)),
+            app_handle: Arc::new(Mutex::new(None)),
         }
     }
 }

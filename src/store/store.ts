@@ -23,6 +23,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
       name: 'aether-storage',
       version: 2,
       storage: createJSONStorage(() => tauriStorage),
+      onRehydrateStorage: () => () => {},
       migrate: (persisted: any, version) => {
         if (version < 2) {
           if (!persisted.proxy) {

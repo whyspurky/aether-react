@@ -7,7 +7,6 @@ import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import { ConfirmModal } from '@components/ui/ConfirmModal';
 import { useStore } from '@store/store';
 import type { Playlist } from '@store/types';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 
 type LibraryView = 'favorites' | 'history' | 'playlist';
 
@@ -25,8 +24,6 @@ export default function LibraryPage() {
   const clearHistory = useStore((s) => s.clearHistory);
   const showToast = useStore((s) => s.showToast);
   const { close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
-
-  const tracksScrollRef = useSmoothScroll<HTMLDivElement>();
  
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
@@ -167,7 +164,7 @@ export default function LibraryPage() {
         onCreateClick={() => setShowCreateModal(true)}
       />
 
-      <main ref={tracksScrollRef} className="flex-1 h-full overflow-y-auto">
+      <main className="flex-1 h-full overflow-y-auto flex flex-col">
                 <LibraryHeader
           selectedView={selectedView}
           selectedPlaylist={selectedPlaylist}
@@ -193,9 +190,10 @@ export default function LibraryPage() {
           }}
         />
 
-        <div className="p-5">
+        <div className="p-5 flex-1 flex flex-col min-h-0">
           <TrackList
             tracks={getCurrentTracks()}
+            virtualize={getCurrentTracks().length > 100}
             showQueueButton
             onRemove={
               selectedView === 'playlist' && selectedPlaylistId

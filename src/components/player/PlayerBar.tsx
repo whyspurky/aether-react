@@ -41,7 +41,6 @@ export function PlayerBar() {
     onTrackEnd: () => {
       useStore.getState().nextTrack();
     },
-    onSyncPosition: () => {},
   });
 
   // рисуем прогресс через rAF

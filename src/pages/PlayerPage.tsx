@@ -58,9 +58,6 @@ export default function PlayerPage() {
     onTrackEnd: () => {
       useStore.getState().nextTrack();
     },
-    onSyncPosition: (pos) => {
-      if (!progressDrag.isDragging) setPosition(pos);
-    },
   });
 
   if (!currentTrack) {
@@ -85,9 +82,9 @@ export default function PlayerPage() {
   const coverSize = 'calc(50vh - 120px)';
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="p-4">
-        <div className="flex gap-8" style={{ minHeight: coverSize }}>
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="p-4 flex-1 flex flex-col min-h-0">
+        <div className="flex gap-8 flex-shrink-0" style={{ minHeight: coverSize }}>
           <div
             className="flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl shadow-white/5 relative"
             style={{ width: coverSize, height: coverSize }}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { api } from '@lib/api';
+import { listen } from '@tauri-apps/api/event';
 import { useStore } from '@store/store';
-
 interface Params {
   currentTrackId: number | null | undefined;
   isPlaying: boolean;
@@ -9,7 +9,6 @@ interface Params {
   isAudioReady: boolean;
   duration: number;
   onTrackEnd: () => void;
-  onSyncPosition: (pos: number) => void;
 }
 
 interface Result {
@@ -20,6 +19,11 @@ interface Result {
 const SYNC_INTERVAL_MS = 3000;
 const END_THRESHOLD = 0.5;
 
+interface PlaybackState {
+  state: 'playing' | 'paused' | 'stopped';
+  position: number;
+}
+
 export function usePlayerProgress({
   currentTrackId,
   isPlaying,
@@ -27,7 +31,6 @@ export function usePlayerProgress({
   isAudioReady,
   duration,
   onTrackEnd,
-  onSyncPosition,
 }: Params): Result {
   const progressRef = useRef(0);
   const rafRef = useRef<number | null>(null);
@@ -60,6 +63,27 @@ export function usePlayerProgress({
     }
   }, [isPlaying]);
 
+  // событие из rust при старте/паузе/seek/stop
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    listen<PlaybackState>('playback:state', (event) => {
+      const { state, position } = event.payload;
+      basePosRef.current = position;
+      baseTimeRef.current = performance.now();
+      progressRef.current = position;
+      endedRef.current = false;
+
+      if (state === 'paused' || state === 'stopped') {
+        playingRef.current = false;
+      }
+    }).then((fn) => { unlisten = fn; });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   useEffect(() => {
     if (!currentTrackId) {
       progressRef.current = 0;
@@ -69,12 +93,13 @@ export function usePlayerProgress({
 
     endedRef.current = false;
 
-    // при первом монтировании берём сохранённую позицию из стора
+    // при монтировании берём сохранённую позицию из стора
     if (progressRef.current === 0 && basePosRef.current === 0) {
       const saved = useStore.getState().player.position;
       if (saved > 0) {
         progressRef.current = saved;
         basePosRef.current = saved;
+        baseTimeRef.current = performance.now();
       }
     }
 
@@ -110,8 +135,6 @@ export function usePlayerProgress({
           baseTimeRef.current = performance.now();
           progressRef.current = rustPos;
         }
-
-        onSyncPosition(rustPos);
       } catch {}
     };
 
@@ -123,9 +146,8 @@ export function usePlayerProgress({
       rafRef.current = null;
       syncRef.current = null;
     };
-  }, [currentTrackId, onTrackEnd, onSyncPosition]);
+  }, [currentTrackId, onTrackEnd]);
 
-  
   const seekTo = (pos: number) => {
     basePosRef.current = pos;
     baseTimeRef.current = performance.now();

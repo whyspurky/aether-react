@@ -4,6 +4,17 @@ use bytes::Bytes;
 use crate::audio::state::AppState;
 use crate::api::http;
 use rodio::Source;
+use tauri::Emitter;
+
+fn emit_state(state: &AppState, name: &str) {
+    let pos = state.playback.lock().unwrap().position().as_secs_f64();
+    if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
+        let _ = app.emit("playback:state", serde_json::json!({
+            "state": name,
+            "position": pos,
+        }));
+    }
+}
 
 pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
     println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
@@ -89,6 +100,7 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
     }
 
     state.playback.lock().unwrap().start(bytes);
+    emit_state(&state, "playing");
     println!("[engine] play_async OK");
 
     Ok(())
@@ -99,6 +111,8 @@ pub fn pause(state: State<AppState>) -> Result<(), String> {
     let player = state.player.lock().unwrap();
     player.pause();
     state.playback.lock().unwrap().pause();
+    drop(player);
+    emit_state(&state, "paused");
     Ok(())
 }
 
@@ -108,11 +122,14 @@ pub fn resume(state: State<AppState>) -> Result<(), String> {
         if pb.is_muted { 0.0 } else { pb.volume }
     };
 
-    let player = state.player.lock().unwrap();
-    player.set_volume(vol);
-    player.play();
+    {
+        let player = state.player.lock().unwrap();
+        player.set_volume(vol);
+        player.play();
+    }
 
     state.playback.lock().unwrap().resume();
+    emit_state(&state, "playing");
     Ok(())
 }
 
@@ -123,6 +140,7 @@ pub fn stop(state: State<AppState>) -> Result<(), String> {
         player.clear();
     }
     state.playback.lock().unwrap().stop();
+    emit_state(&state, "stopped");
     Ok(())
 }
 
@@ -215,7 +233,7 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
     }
 
     state.playback.lock().unwrap().seek(actual);
-
+    emit_state(&state, "playing");
     Ok(())
 }
 
