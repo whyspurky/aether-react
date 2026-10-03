@@ -4,17 +4,13 @@ import { HorizontalScroll } from '../ui/HorizontalScroll';
 import { Icon } from '@components/ui/Icon';
 import { ScrollableSection } from './ScrollableSection';
 import { ArtistCard } from './ArtistCard';
-import type { User, Track} from '@store/types';
+import type { User, Track } from '@store/types';
 
 interface Props {
   popularTracks: Track[];
   tracks: Track[];
   reposts: Track[];
   relatedArtists: User[];
-  visibleTracks: number;
-  visibleReposts: number;
-  onShowMoreTracks: () => void;
-  onShowMoreReposts: () => void;
 }
 
 export function ArtistAllTab({
@@ -22,10 +18,6 @@ export function ArtistAllTab({
   tracks,
   reposts,
   relatedArtists,
-  visibleTracks,
-  visibleReposts,
-  onShowMoreTracks,
-  onShowMoreReposts,
 }: Props) {
   return (
     <div className="space-y-8">
@@ -44,28 +36,26 @@ export function ArtistAllTab({
         <div className={`grid gap-6 ${tracks.length > 0 && reposts.length > 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {tracks.length > 0 && (
             <ScrollableSection title="треки" count={tracks.length}>
-              <TrackList tracks={tracks.slice(0, visibleTracks)} showNumber={false} />
-              {visibleTracks < tracks.length && (
-                <button
-                  onClick={onShowMoreTracks}
-                  className="w-full mt-2 py-2 rounded-lg text-xs text-text-secondary bg-bg-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors"
-                >
-                  показать ещё {Math.min(100, tracks.length - visibleTracks)}
-                </button>
+              {(scrollRef) => (
+                <TrackList
+                  tracks={tracks}
+                  showNumber={false}
+                  virtualize
+                  scrollRef={scrollRef}
+                />
               )}
             </ScrollableSection>
           )}
 
           {reposts.length > 0 && (
             <ScrollableSection title="репосты" count={reposts.length}>
-              <TrackList tracks={reposts.slice(0, visibleReposts)} showNumber={false} />
-              {visibleReposts < reposts.length && (
-                <button
-                  onClick={onShowMoreReposts}
-                  className="w-full mt-2 py-2 rounded-lg text-xs text-text-secondary bg-bg-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors"
-                >
-                  показать ещё {Math.min(100, reposts.length - visibleReposts)}
-                </button>
+              {(scrollRef) => (
+                <TrackList
+                  tracks={reposts}
+                  showNumber={false}
+                  virtualize
+                  scrollRef={scrollRef}
+                />
               )}
             </ScrollableSection>
           )}

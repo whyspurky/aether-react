@@ -24,7 +24,7 @@ export function ArtistPage() {
     scrollRef(el);
     rootRef.current = el;
   }, [scrollRef]);
-  useSmoothScroll<HTMLDivElement>();
+
   const cached = useStore((s) => (id ? s.artistPage.cache[id] : undefined));
   const setArtistCache = useStore((s) => s.setArtistCache);
 
@@ -37,13 +37,6 @@ export function ArtistPage() {
   const [reposts, setReposts] = useState<Track[]>(cached?.reposts ?? []);
   const [activeTab, setActiveTab] = useState<Tab>(cached?.tab ?? 'all');
   const showToast = useStore((s) => s.showToast);
-  const [visibleTracks, setVisibleTracks] = useState(100);
-  const [visibleReposts, setVisibleReposts] = useState(100);
-
-  useEffect(() => {
-    setVisibleTracks(100);
-    setVisibleReposts(100);
-  }, [activeTab]);
 
   useEffect(() => {
     if (!id) return;
@@ -111,8 +104,6 @@ export function ArtistPage() {
     return () => {
       const el = rootRef.current;
       if (id && el) setArtistCache(id, { scrollTop: el.scrollTop });
-      setVisibleTracks(100);
-      setVisibleReposts(100);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -120,7 +111,7 @@ export function ArtistPage() {
   if (isLoading || !artist) {
     return (
       <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
-                {isLoading ? (
+        {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
           </div>
@@ -143,15 +134,17 @@ export function ArtistPage() {
   return (
     <div
       ref={setRefs}
-      className={`h-full overflow-y-auto bg-bg-primary ${
-        activeTab === 'all' ? 'custom-scrollbar-hidden' : 'custom-scrollbar'
+      className={`h-full bg-bg-primary flex flex-col ${
+        activeTab === 'all' ? 'overflow-y-auto custom-scrollbar-hidden' : 'overflow-hidden'
       }`}
     >
-      <ArtistHeader
-        artist={artist}
-        tracksCount={tracks.length}
-        repostsCount={reposts.length}
-      />
+      {activeTab === 'all' && (
+        <ArtistHeader
+          artist={artist}
+          tracksCount={tracks.length}
+          repostsCount={reposts.length}
+        />
+      )}
 
       <ArtistTabs
         activeTab={activeTab}
@@ -161,34 +154,22 @@ export function ArtistPage() {
         }}
       />
 
-      <div className="px-6 py-6">
+      <div className={`px-6 py-6 ${activeTab === 'all' ? '' : 'flex-1 min-h-0 flex flex-col'}`}>
         {activeTab === 'all' && (
           <ArtistAllTab
             popularTracks={popularTracks}
             tracks={tracks}
             reposts={reposts}
             relatedArtists={relatedArtists}
-            visibleTracks={visibleTracks}
-            visibleReposts={visibleReposts}
-            onShowMoreTracks={() => setVisibleTracks((n) => n + 100)}
-            onShowMoreReposts={() => setVisibleReposts((n) => n + 100)}
           />
         )}
 
         {activeTab === 'tracks' && (
-          <ArtistTracksTab
-            tracks={tracks}
-            visibleCount={visibleTracks}
-            onShowMore={() => setVisibleTracks((n) => n + 100)}
-          />
+          <ArtistTracksTab tracks={tracks} />
         )}
 
         {activeTab === 'reposts' && (
-          <ArtistRepostsTab
-            reposts={reposts}
-            visibleCount={visibleReposts}
-            onShowMore={() => setVisibleReposts((n) => n + 100)}
-          />
+          <ArtistRepostsTab reposts={reposts} />
         )}
 
         {activeTab === 'playlists' && (

@@ -11,6 +11,7 @@ import { formatMs } from '@lib/format';
 interface TrackListProps {
   tracks: Track[];
   virtualize?: boolean;
+  scrollRef?: React.RefObject<HTMLElement | null>;
   showQueueButton?: boolean;
   showNumber?: boolean;
   onTrackClick?: (track: Track, index: number) => void;
@@ -25,6 +26,7 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 export function TrackList({
   tracks,
   virtualize = false,
+  scrollRef,
   showQueueButton = true,
   showNumber = true,
   onTrackClick,
@@ -36,18 +38,24 @@ export function TrackList({
   const isPlaying = useStore((s) => s.player.isPlaying);
   const { open: openAddToPlaylist, close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
 
+  const internalRef = useRef<HTMLDivElement | null>(null);
+  const isExternal = !!scrollRef;
+
   const smoothRef = useSmoothScroll<HTMLDivElement>({ sensitivity: 1.5, duration: SMOOTH_DURATION });
-  const parentRef = useRef<HTMLDivElement | null>(null);
+
+  const setRefs = useCallback((node: HTMLDivElement | null) => {
+    if (isExternal) return;
+    smoothRef(node);
+    internalRef.current = node;
+  }, [smoothRef, isExternal]);
+
+  const scrollElementRef: React.RefObject<HTMLElement | null> = isExternal && scrollRef ? scrollRef : internalRef;
+
   const scrollingRef = useRef<number | undefined>(undefined);
   const rafRef = useRef<number | null>(null);
 
-  const setRefs = useCallback((node: HTMLDivElement | null) => {
-    smoothRef(node);
-    parentRef.current = node;
-  }, [smoothRef]);
-
   const scrollToFn = useCallback((offset: number) => {
-    const el = parentRef.current;
+    const el = scrollElementRef.current;
     if (!el) return;
 
     if (rafRef.current !== null) {
@@ -74,14 +82,14 @@ export function TrackList({
       }
     };
     rafRef.current = requestAnimationFrame(run);
-  }, []);
+  }, [scrollElementRef]);
 
   const virtualizer = useVirtualizer({
     count: tracks.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElementRef.current,
     estimateSize: () => ITEM_HEIGHT,
     overscan: 5,
-    scrollToFn: virtualize ? scrollToFn : undefined,
+    scrollToFn,
   });
 
   useEffect(() => {
@@ -213,32 +221,40 @@ export function TrackList({
   };
 
   if (virtualize) {
+    const inner = (
+      <div
+        style={{
+          height: virtualizer.getTotalSize(),
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={tracks[virtualRow.index].id}
+            data-index={virtualRow.index}
+            ref={virtualizer.measureElement}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            {renderItem(tracks[virtualRow.index], virtualRow.index)}
+          </div>
+        ))}
+      </div>
+    );
+
+    if (isExternal) {
+      return inner;
+    }
+
     return (
       <div ref={setRefs} className="h-full overflow-auto scrollbar-thin">
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {virtualizer.getVirtualItems().map((virtualRow) => (
-            <div
-              key={tracks[virtualRow.index].id}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              {renderItem(tracks[virtualRow.index], virtualRow.index)}
-            </div>
-          ))}
-        </div>
+        {inner}
       </div>
     );
   }

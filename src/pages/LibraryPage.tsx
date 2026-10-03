@@ -193,7 +193,7 @@ export default function LibraryPage() {
         <div className="p-5 flex-1 flex flex-col min-h-0">
           <TrackList
             tracks={getCurrentTracks()}
-            virtualize={getCurrentTracks().length > 100}
+            virtualize
             showQueueButton
             onRemove={
               selectedView === 'playlist' && selectedPlaylistId

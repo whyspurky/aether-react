@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Options {
   sensitivity?: number;
@@ -9,22 +9,15 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 export function useSmoothScroll<T extends HTMLElement>(options: Options = {}) {
   const { sensitivity = 1.5, duration = 300 } = options;
-  const ref = useRef<T | null>(null);
+  const [el, setEl] = useState<T | null>(null);
+
   const rafRef = useRef<number | null>(null);
   const targetRef = useRef(0);
   const startRef = useRef(0);
   const startTimeRef = useRef(0);
   const isAnimatingRef = useRef(false);
-  const [, forceRender] = useState(0);
-
-  const setRef = useCallback((node: T | null) => {
-    if (ref.current === node) return;
-    ref.current = node;
-    forceRender((n) => n + 1);
-  }, []);
 
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
 
     const animate = () => {
@@ -46,8 +39,8 @@ export function useSmoothScroll<T extends HTMLElement>(options: Options = {}) {
     const onWheel = (e: WheelEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.closest('[data-smooth-scroll-off]')) return;
-
       if (e.deltaY === 0) return;
+
       e.preventDefault();
 
       const max = el.scrollHeight - el.clientHeight;
@@ -70,7 +63,7 @@ export function useSmoothScroll<T extends HTMLElement>(options: Options = {}) {
       rafRef.current = null;
       isAnimatingRef.current = false;
     };
-  }, [sensitivity, duration]);
+  }, [el, sensitivity, duration]);
 
-  return setRef;
+  return setEl;
 }

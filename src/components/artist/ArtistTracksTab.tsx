@@ -1,27 +1,31 @@
+import { useRef } from 'react';
 import { TrackList } from '../track/TrackList';
 import { ArtistEmpty } from './ArtistEmpty';
+import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import type { Track } from '@store/types';
 
 interface Props {
   tracks: Track[];
-  visibleCount: number;
-  onShowMore: () => void;
 }
 
-export function ArtistTracksTab({ tracks, visibleCount, onShowMore }: Props) {
+export function ArtistTracksTab({ tracks }: Props) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const setSmoothRef = useSmoothScroll<HTMLDivElement>({ sensitivity: 1.5, duration: 300 });
+
+  const setRefs = (node: HTMLDivElement | null) => {
+    setSmoothRef(node);
+    scrollRef.current = node;
+  };
+
   if (!tracks.length) return <ArtistEmpty text="у этого артиста нет треков" />;
 
   return (
-    <>
-      <TrackList tracks={tracks.slice(0, visibleCount)} />
-      {visibleCount < tracks.length && (
-        <button
-          onClick={onShowMore}
-          className="w-full mt-4 py-2 rounded-lg text-sm text-text-secondary bg-bg-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors"
-        >
-          показать ещё {Math.min(100, tracks.length - visibleCount)}
-        </button>
-      )}
-    </>
+    <div ref={setRefs} className="h-[calc(100vh-140px)] overflow-auto scrollbar-thin">
+      <TrackList
+        tracks={tracks}
+        virtualize={tracks.length > 50}
+        scrollRef={scrollRef}
+      />
+    </div>
   );
 }
