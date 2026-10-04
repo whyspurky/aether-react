@@ -29,7 +29,6 @@ export function PlaylistPage() {
   const [isLoading, setIsLoading] = useState(!cached);
 
   const playTrack = useStore((s) => s.playTrack);
-  const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
     if (!id) return;
@@ -52,7 +51,6 @@ export function PlaylistPage() {
         ]);
 
         if (!data) {
-          showToast('плейлист не найден', 'error');
           navigate('/library');
           return;
         }
@@ -61,7 +59,6 @@ export function PlaylistPage() {
         setTracks(allTracks);
         setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scrollTop ?? 0 });
       } catch {
-        showToast('ошибка загрузки плейлиста', 'error');
         navigate('/library');
       } finally {
         setIsLoading(false);
@@ -71,7 +68,7 @@ export function PlaylistPage() {
     if (!cached) load();
     else setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, navigate, showToast]);
+  }, [id, navigate]);
 
   useEffect(() => {
     if (!isLoading && cached?.scrollTop && rootRef.current) {
@@ -94,12 +91,10 @@ export function PlaylistPage() {
     if (!playlist) return;
     const title = playlist.title || playlist.name || 'без названия';
     if (libraryPlaylists.some((p) => p.name === title)) {
-      showToast('плейлист уже в библиотеке', 'info');
       return;
     }
     const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || undefined;
     importPlaylist(title, tracks, coverUrl);
-    showToast('плейлист добавлен в библиотеку', 'success');
   };
 
   if (isLoading || !playlist) {

@@ -22,7 +22,6 @@ export default function LibraryPage() {
   const removeFromPlaylist = useStore((s) => s.removeFromPlaylist);
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
-  const showToast = useStore((s) => s.showToast);
   const { close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
  
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
@@ -51,7 +50,6 @@ export default function LibraryPage() {
   
   const validatePlaylistName = (name: string): boolean => {
     if (name.length > MAX_PLAYLIST_NAME_LENGTH) {
-      showToast(`название не может превышать ${MAX_PLAYLIST_NAME_LENGTH} символов`, 'error');
       return false;
     }
     return true;
@@ -95,7 +93,6 @@ export default function LibraryPage() {
     if (!validatePlaylistName(name)) return;
     createPlaylist(name);
     setShowCreateModal(false);
-    showToast('плейлист создан', 'success');
   };
 
   const handleDeletePlaylist = (id: string) => {
@@ -104,7 +101,6 @@ export default function LibraryPage() {
       setSelectedPlaylistId(null);
       setSelectedView('favorites');
     }
-    showToast('плейлист удален', 'info');
   };
 
   const handleStartEdit = () => {
@@ -124,7 +120,6 @@ export default function LibraryPage() {
 
     updatePlaylist(selectedPlaylist.id, editingName.trim());
     setIsEditing(false);
-    showToast('плейлист переименован', 'success');
   };
 
   const handleCancelEdit = () => {
@@ -142,7 +137,6 @@ export default function LibraryPage() {
     else if (confirmClear === 'history') clearHistory();
     setConfirmClear(null);
     setShowSettingsMenu(false);
-    showToast('очищено', 'info');
   };
 
 

@@ -20,7 +20,6 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
   const playlists = useStore((s) => s.library.playlists);
   const addToPlaylist = useStore((s) => s.addToPlaylist);
   const removeFromPlaylist = useStore((s) => s.removeFromPlaylist);
-  const showToast = useStore((s) => s.showToast);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const lockRef = useRef(false);
@@ -87,7 +86,6 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
       removeFromPlaylist(playlistId, track.id);
     } else {
       addToPlaylist(playlistId, track);
-      showToast('добавлено в плейлист', 'success');
     }
   };
 

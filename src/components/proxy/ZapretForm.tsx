@@ -126,7 +126,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
         setZapretFolder(selected);
       }
     } catch (e) {
-      useStore.getState().showToast(`выбор папки: ${e}`, 'error');
     }
   };
 
@@ -140,7 +139,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
       setZapretFolder(path);
     } catch (e) {
       setDownloadError(String(e));
-      useStore.getState().showToast(`скачивание: ${e}`, 'error');
     } finally {
       setDownloading(false);
       setDownloadProgress(null);
@@ -155,10 +153,8 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
       await api.zapretAddSoundcloudDomains(folder);
       const result = await api.zapretCheckLists(folder);
       setListChecks(result);
-      useStore.getState().showToast('домены soundcloud добавлены', 'success');
     } catch (e) {
       setListError(String(e));
-      useStore.getState().showToast(`zapret: ${e}`, 'error');
     } finally {
       setListLoading(false);
     }
@@ -169,7 +165,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
     try {
       await api.zapretOpenFile(path);
     } catch (e) {
-      useStore.getState().showToast(`открыть: ${e}`, 'error');
     }
   };
 
@@ -191,7 +186,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
         } catch {}
       }, 1500);
     } catch (e) {
-      useStore.getState().showToast(`zapret: ${e}`, 'error');
       onStatusChange('stopped');
       setWarming(false);
     } finally {
@@ -209,7 +203,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
       const s = await api.zapretStatus();
       onStatusChange(s);
     } catch (e) {
-      useStore.getState().showToast(`zapret: ${e}`, 'error');
       onStatusChange('running');
     } finally {
       setLoading(false);

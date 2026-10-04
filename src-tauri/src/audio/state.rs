@@ -11,6 +11,7 @@ pub struct Playback {
     pub play_start: Option<Instant>,
     pub duration_ms: u32,
     pub bytes: Option<Bytes>,
+    pub seek_skip_tick: u32,
 }
 
 impl Playback {
@@ -23,6 +24,7 @@ impl Playback {
             play_start: None,
             duration_ms: 0,
             bytes: None,
+            seek_skip_tick: 0,
         }
     }
 
@@ -67,6 +69,7 @@ impl Playback {
 
         self.base_offset = actual;
         self.play_start = if self.is_playing { Some(Instant::now()) } else { None };
+        self.seek_skip_tick = 3;
         actual
     }
 
@@ -100,6 +103,7 @@ pub struct AppState {
     pub prefetch_slot: Arc<Mutex<Option<(u64, Bytes)>>>,
     pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
+    pub tick_task: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl AppState {
@@ -114,6 +118,7 @@ impl AppState {
             prefetch_slot: Arc::new(Mutex::new(None)),
             prefetch_task: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
+            tick_task: Arc::new(Mutex::new(None)),
         }
     }
 }

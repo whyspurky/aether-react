@@ -37,7 +37,6 @@ export default function SearchPage() {
 
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
-  const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 500);
@@ -89,11 +88,10 @@ export default function SearchPage() {
         setSearchPage({ query: debouncedQuery, filter, playlists: next, offset: newOffset + items.length, hasMore: items.length === 20 });
       }
     } catch {
-      showToast('ошибка поиска', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedQuery, filter, isLoading, hasMore, showToast, tracks, artists, playlists, setSearchPage]);
+  }, [debouncedQuery, filter, isLoading, hasMore, tracks, artists, playlists, setSearchPage]);
 
   useEffect(() => {
     resetSearchPage();
@@ -126,11 +124,10 @@ export default function SearchPage() {
     const index = tracks.findIndex((t) => t.id === track.id);
     const queue = tracks.slice(index >= 0 ? index : 0);
     if (!queue.length) {
-      showToast('нет треков для воспроизведения', 'error');
       return;
     }
     await playTrack(track, queue, 0, debouncedQuery);
-  }, [tracks, playTrack, showToast, debouncedQuery]);
+  }, [tracks, playTrack, debouncedQuery]);
 
   const handlePlayAll = useCallback(async () => {
     if (!tracks.length) return;
@@ -140,8 +137,7 @@ export default function SearchPage() {
   const handleAddToQueue = useCallback((track: Track, e: React.MouseEvent) => {
     e.stopPropagation();
     addToQueue(track);
-    showToast('добавлено в очередь', 'success');
-  }, [addToQueue, showToast]);
+  }, [addToQueue]);
 
   const showSkeletons =
     isLoading &&

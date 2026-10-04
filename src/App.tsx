@@ -97,7 +97,6 @@ useEffect(() => {
         await api.proxyClear();
       }
     } catch (e) {
-      useStore.getState().showToast(`прокси: ${e}`, 'error');
     }
   }, 500);
 

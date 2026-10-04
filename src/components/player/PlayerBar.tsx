@@ -1,11 +1,11 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { VolumeSlider } from '../track/VolumeSlider';
 import { AnimatedTrackInfo } from '../track/AnimatedTrackInfo';
 import { useStore } from '@store/store';
-import { api } from '@lib/api';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
+import { useSeekDrag } from '@hooks/player/useSeekDrag';
 
 export function PlayerBar() {
   const navigate = useNavigate();
@@ -20,9 +20,8 @@ export function PlayerBar() {
   const prevTrack = useStore((s) => s.prevTrack);
   const setVolume = useStore((s) => s.setVolume);
 
-  const barRef = useRef<HTMLDivElement>(null);
-  const fillRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveDuration = duration > 0
     ? duration
@@ -31,90 +30,44 @@ export function PlayerBar() {
   const durationRef = useRef(effectiveDuration);
   durationRef.current = effectiveDuration;
 
-  // легкий прогресс: без ререндера, только ref
   const { progressRef, seekTo } = usePlayerProgress({
     currentTrackId: currentTrack?.id,
     isPlaying,
     isLoading,
     isAudioReady,
     duration,
+    isDragging: false,
     onTrackEnd: () => {
       useStore.getState().nextTrack();
     },
   });
 
-  // рисуем прогресс через rAF
-  const isDraggingRef = useRef(false);
-  const dragPosRef = useRef(0);
+  const { isDragging, dragPosRef, handleMouseDown } = useSeekDrag({
+    trackRef: barRef,
+    effectiveDuration,
+    onSeek: (pos) => {
+      seekTo(pos);
+      useStore.getState().setPosition(pos);
+    },
+  });
 
-  const paint = () => {
-    const d = durationRef.current;
-    const pos = isDraggingRef.current ? dragPosRef.current : progressRef.current;
-    const pct = d > 0 ? (pos / d) * 100 : 0;
-    if (fillRef.current) fillRef.current.style.width = `${pct}%`;
-  };
-
-  // запуск paint цикла
-  if (typeof window !== 'undefined') {
-    // один раз при монтировании
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useRef(
-      requestAnimationFrame(function loop() {
-        paint();
-        requestAnimationFrame(loop);
-      })
-    );
-  }
-
-  const posFromClientX = (clientX: number): number | null => {
-    const el = barRef.current;
-    if (!el || !effectiveDuration) return null;
-    const rect = el.getBoundingClientRect();
-    let percent = (clientX - rect.left) / rect.width;
-    percent = Math.max(0, Math.min(1, percent));
-    return percent * effectiveDuration;
-  };
+  useEffect(() => {
+    let raf: number;
+    const tick = () => {
+      const d = durationRef.current;
+      const pos = isDragging ? dragPosRef.current : progressRef.current;
+      const pct = d > 0 ? (pos / d) * 100 : 0;
+      if (fillRef.current) fillRef.current.style.width = `${pct}%`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [progressRef, isDragging, dragPosRef]);
 
   const handleOpenPlayer = () => navigate('/player');
   const handleOpenArtist = () => {
     const id = currentTrack?.user?.id;
     if (id) navigate(`/artist/${id}`);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!effectiveDuration) return;
-    const pos = posFromClientX(e.clientX);
-    if (pos === null) return;
-
-    draggingRef.current = true;
-    isDraggingRef.current = true;
-    dragPosRef.current = pos;
-    e.preventDefault();
-
-    const onMove = (ev: MouseEvent) => {
-      if (!draggingRef.current) return;
-      const p = posFromClientX(ev.clientX);
-      if (p !== null) dragPosRef.current = p;
-    };
-
-    const onUp = (ev: MouseEvent) => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-
-      const p = posFromClientX(ev.clientX);
-      isDraggingRef.current = false;
-      if (p !== null) {
-        seekTo(p);
-        useStore.getState().setPosition(p);
-        api.seekAudio(p).catch(() => {});
-        import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
-      }
-    };
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
   };
 
   const coverUrl = currentTrack?.artwork_url?.replace('-large', '-t300x300') || null;
@@ -153,9 +106,18 @@ export function PlayerBar() {
 
         <button
           onClick={togglePlay}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-bg-secondary text-text-primary hover:bg-text-secondary hover:text-bg-primary hover:scale-105 transition-all duration-200"
+          disabled={isLoading}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+            isLoading
+              ? 'bg-bg-secondary cursor-wait'
+              : 'bg-bg-secondary text-text-primary hover:bg-text-secondary hover:text-bg-primary hover:scale-105'
+          }`}
         >
-          <Icon name={isPlaying ? 'pause' : 'play'} size={18} />
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Icon name={isPlaying ? 'pause' : 'play'} size={18} />
+          )}
         </button>
 
         <button
@@ -177,7 +139,7 @@ export function PlayerBar() {
       >
         <div
           className={`absolute bottom-0 left-0 right-0 bg-[#333333] will-change-[height] transition-[height] duration-2 ease-out ${
-            draggingRef.current ? 'h-[4px]' : 'h-[2px] group-hover:h-[4px]'
+            isDragging ? 'h-[4px]' : 'h-[2px] group-hover:h-[4px]'
           }`}
         >
           <div

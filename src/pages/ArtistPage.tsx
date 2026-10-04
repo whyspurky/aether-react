@@ -36,7 +36,6 @@ export function ArtistPage() {
   const [isLoading, setIsLoading] = useState(!cached);
   const [reposts, setReposts] = useState<Track[]>(cached?.reposts ?? []);
   const [activeTab, setActiveTab] = useState<Tab>(cached?.tab ?? 'all');
-  const showToast = useStore((s) => s.showToast);
 
   useEffect(() => {
     if (!id) return;
@@ -48,7 +47,6 @@ export function ArtistPage() {
 
         const user = await api.getUser(uid);
         if (!user) {
-          showToast('артист не найден', 'error');
           navigate('/search');
           return;
         }
@@ -79,7 +77,6 @@ export function ArtistPage() {
           scrollTop: cached?.scrollTop ?? 0,
         });
       } catch {
-        showToast('ошибка загрузки артиста', 'error');
         navigate('/search');
       } finally {
         setIsLoading(false);
@@ -89,7 +86,7 @@ export function ArtistPage() {
     if (!cached) load();
     else setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, navigate, showToast]);
+  }, [id, navigate]);
 
   useEffect(() => {
     if (!isLoading && cached?.scrollTop && rootRef.current) {

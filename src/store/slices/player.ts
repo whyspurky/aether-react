@@ -24,7 +24,7 @@ export interface PlayerSlice {
 
   addToQueue: (track: Track) => void;
   removeFromQueue: (trackId: number) => void;
-  playTrack: (track: Track, tracks: Track[], index: number, source?: string) => Promise<void>;
+  playTrack: (track: Track, tracks: Track[], index: number, source?: string, _errorDepth?: number) => Promise<void>;
   nextTrack: (manual?: boolean) => Promise<void>;
   prevTrack: (manual?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
@@ -101,7 +101,7 @@ export const createPlayerSlice = (set: any, get: any) => ({
     });
   },
 
-  playTrack: async (track: Track, tracks: Track[], index: number, source = 'queue') => {
+  playTrack: async (track: Track, tracks: Track[], index: number, source = 'queue', _errorDepth = 0) => {
 
     try { await api.muteAudio(); } catch {}
     try { await api.stopAudio(); } catch {}
@@ -138,7 +138,15 @@ export const createPlayerSlice = (set: any, get: any) => ({
         const url = await api.getStreamUrl(track.id);
         if (!isValid()) return;
 
-        await api.playAudio(url, track.id);
+        const sync = await api.playAudio(url, track.id);
+        if (sync) {
+          set((s: any) => ({
+            player: {
+              ...s.player,
+              position: sync.position_sec,
+            },
+          }));
+        }
         if (!isValid()) {
           await api.stopAudio();
           return;
@@ -191,11 +199,10 @@ export const createPlayerSlice = (set: any, get: any) => ({
         }
 
         set((s: any) => ({ player: { ...s.player, isLoading: false, isAudioReady: false, isPlaying: false } }));
-        get().showToast(`ошибка: ${track.title}`, 'error');
 
         const next = index + 1;
-        if (next < tracks.length && isValid()) {
-          await get().playTrack(tracks[next], tracks, next, source);
+        if (next < tracks.length && isValid() && _errorDepth < 3) {
+          await get().playTrack(tracks[next], tracks, next, source, _errorDepth + 1);
         } else {
           set((s: any) => ({
             player: { ...s.player, currentTrack: null, isAudioReady: false, isPlaying: false, isLoading: false },
@@ -295,7 +302,10 @@ export const createPlayerSlice = (set: any, get: any) => ({
       await api.pauseAudio();
     } else {
       set((s: any) => ({ player: { ...s.player, isPlaying: true } }));
-      await api.resumeAudio();
+      const sync = await api.resumeAudio();
+      if (sync) {
+        set((s: any) => ({ player: { ...s.player, position: sync.position_sec } }));
+      }
     }
   },
 

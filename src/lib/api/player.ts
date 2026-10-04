@@ -1,6 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { invokeCmd } from './client';
 
+interface PlaybackSync {
+  position_sec: number;
+  real_offset_ms: number;
+}
+
 export const playerApi = {
   getStreamUrl: async (trackId: number): Promise<string> => {
     if (!trackId) throw new Error('trackId не указан');
@@ -9,14 +14,16 @@ export const playerApi = {
     return url;
   },
 
-  playAudio: async (url: string, trackId: number): Promise<void> => {
+  playAudio: async (url: string, trackId: number): Promise<PlaybackSync> => {
     if (!url) throw new Error('url не указан');
     if (!trackId) throw new Error('trackId не указан');
-    await invoke('play_audio', { url, trackId });
+    return await invoke<PlaybackSync>('play_audio', { url, trackId });
   },
 
   pauseAudio: async (): Promise<void> => { await invokeCmd('pause_audio'); },
-  resumeAudio: async (): Promise<void> => { await invokeCmd('resume_audio'); },
+  resumeAudio: async (): Promise<PlaybackSync | null> => {
+    return await invokeCmd<PlaybackSync>('resume_audio');
+  },
   stopAudio: async (): Promise<void> => { await invokeCmd('stop_audio'); },
   muteAudio: async (): Promise<void> => { await invokeCmd('mute_audio'); },
   unmuteAudio: async (): Promise<void> => { await invokeCmd('unmute_audio'); },
@@ -30,8 +37,8 @@ export const playerApi = {
     return typeof pos === 'number' ? pos : 0;
   },
 
-  seekAudio: async (seconds: number): Promise<void> => {
-    await invokeCmd('seek_audio', { seconds });
+  seekAudio: async (seconds: number): Promise<PlaybackSync | null> => {
+    return await invokeCmd<PlaybackSync>('seek_audio', { seconds });
   },
 
   setTrackDuration: async (durationMs: number): Promise<void> => {

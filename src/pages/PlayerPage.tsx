@@ -1,15 +1,14 @@
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useNavigate } from 'react-router-dom';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { useTrackAnimation } from '@hooks/player/useTrackAnimation';
-import { useProgressDrag } from '@hooks/player/useProgressDrag';
 import { PlayerProgressBar } from '@components/player/PlayerProgressBar';
 import { PlayerVolumeBar } from '@components/player/PlayerVolumeBar';
 import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
-
- 
+import { api } from '@lib/api';
+import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 
 export default function PlayerPage() {
   const player = useStore((s) => s.player);
@@ -18,19 +17,22 @@ export default function PlayerPage() {
   const nextTrack = useStore((s) => s.nextTrack);
   const prevTrack = useStore((s) => s.prevTrack);
   const setShuffle = useStore((s) => s.setShuffle);
+    const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const setRepeat = useStore((s) => s.setRepeat);
   const setVolume = useStore((s) => s.setVolume);
-  const setPosition = useStore((s) => s.setPosition);
   const navigate = useNavigate();
-  const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const removeFromQueue = useStore((s) => s.removeFromQueue);
-  const { currentTrack, isPlaying, volume, shuffle, repeat, position, duration, isLoading, isAudioReady } = player;
+  const { currentTrack, isPlaying, volume, shuffle, repeat, duration, isLoading, isAudioReady } = player;
 
- 
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const knobRef = useRef<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const draggingRef = useRef(false);
+  const dragPosRef = useRef(0);
+
   const { displayTrack, displayCover, isTrackChanging } = useTrackAnimation(currentTrack);
 
- 
- 
   const coverUrl =
     currentTrack?.artwork_url?.replace('-large', '-t500x500') ||
     currentTrack?.user?.avatar_url?.replace('-large', '-t500x500') ||
@@ -40,14 +42,8 @@ export default function PlayerPage() {
     ? duration
     : (currentTrack?.duration ? currentTrack.duration / 1000 : 0);
 
-  const progressDrag = useProgressDrag({
-    effectiveDuration,
-    position,
-    onSeek: (pos) => {
-      seekTo(pos);
-      setPosition(pos);
-    },
-  });
+  const durationRef = useRef(effectiveDuration);
+  durationRef.current = effectiveDuration;
 
   const { progressRef, seekTo } = usePlayerProgress({
     currentTrackId: currentTrack?.id,
@@ -55,10 +51,70 @@ export default function PlayerPage() {
     isLoading,
     isAudioReady,
     duration,
+    isDragging,
     onTrackEnd: () => {
       useStore.getState().nextTrack();
     },
   });
+
+  useEffect(() => {
+    let raf: number;
+    const tick = () => {
+      const d = durationRef.current;
+      const pos = draggingRef.current ? dragPosRef.current : progressRef.current;
+      const pct = d > 0 ? (pos / d) * 100 : 0;
+      if (fillRef.current) fillRef.current.style.width = `${pct}%`;
+      if (knobRef.current) knobRef.current.style.left = `${pct}%`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [progressRef]);
+
+  const posFromClientX = (clientX: number): number | null => {
+    const el = trackRef.current;
+    if (!el || !effectiveDuration) return null;
+    const rect = el.getBoundingClientRect();
+    let percent = (clientX - rect.left) / rect.width;
+    percent = Math.max(0, Math.min(1, percent));
+    return percent * effectiveDuration;
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!effectiveDuration) return;
+    const pos = posFromClientX(e.clientX);
+    if (pos === null) return;
+
+    draggingRef.current = true;
+    setIsDragging(true);
+    dragPosRef.current = pos;
+    e.preventDefault();
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const p = posFromClientX(ev.clientX);
+      if (p !== null) dragPosRef.current = p;
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+
+      const p = posFromClientX(ev.clientX);
+      setIsDragging(false);
+      if (p !== null) {
+        seekTo(p);
+        useStore.getState().setPosition(p);
+        api.seekAudio(p).catch(() => {});
+        import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+      }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
 
   if (!currentTrack) {
     return (
@@ -153,12 +209,12 @@ export default function PlayerPage() {
             <div className="flex-1" />
 
             <PlayerProgressBar
-              progressRef={progressRef}
+              trackRef={trackRef}
+              fillRef={fillRef}
+              knobRef={knobRef}
               effectiveDuration={effectiveDuration}
-              isDragging={progressDrag.isDragging}
-              dragPosition={progressDrag.dragPosition}
-              onMouseDown={progressDrag.handleMouseDown}
-              onTouchStart={progressDrag.handleTouchStart}
+              isDragging={isDragging}
+              onMouseDown={handleMouseDown}
             />
 
             <div className="flex items-center justify-center gap-2 mt-2">

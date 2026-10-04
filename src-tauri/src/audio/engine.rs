@@ -5,18 +5,67 @@ use crate::audio::state::AppState;
 use crate::api::http;
 use rodio::Source;
 use tauri::Emitter;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tokio::task::JoinHandle;
 
-fn emit_state(state: &AppState, name: &str) {
+fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
     let pos = state.playback.lock().unwrap().position().as_secs_f64();
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
         let _ = app.emit("playback:state", serde_json::json!({
             "state": name,
             "position": pos,
+            "real_offset_ms": real_offset_ms,
         }));
     }
 }
 
-pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
+#[derive(serde::Serialize)]
+pub struct PlaybackSync {
+    pub position_sec: f64,
+    pub real_offset_ms: u64,
+}
+
+fn ensure_tick_running(state: &AppState) {
+    let mut tick = state.tick_task.lock().unwrap();
+    if tick.is_some() {
+        return;
+    }
+
+    let playback = state.playback.clone();
+    let app_handle = state.app_handle.clone();
+
+    let handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            interval.tick().await;
+
+            let (is_playing, pos, skip) = {
+                let mut pb = playback.lock().unwrap();
+                let skip = pb.seek_skip_tick;
+                if skip > 0 {
+                    pb.seek_skip_tick = skip - 1;
+                }
+                (pb.is_playing, pb.position().as_secs_f64(), skip > 0)
+            };
+
+            if !is_playing || skip {
+                continue;
+            }
+
+            let guard = app_handle.lock().unwrap();
+            if let Some(app) = guard.as_ref() {
+                let _ = app.emit("position-tick", pos);
+            }
+        }
+    });
+
+    *tick = Some(handle);
+}
+
+pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<PlaybackSync, String> {
     println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
 
     let cached = {
@@ -90,6 +139,7 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
         if pb.is_muted { 0.0 } else { pb.volume }
     };
 
+    let started = std::time::Instant::now();
     {
         let player = state.player.lock().unwrap();
         player.stop();
@@ -100,10 +150,15 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
     }
 
     state.playback.lock().unwrap().start(bytes);
-    emit_state(&state, "playing");
-    println!("[engine] play_async OK");
 
-    Ok(())
+    let real_offset_ms = started.elapsed().as_millis() as u64;
+    let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
+
+    ensure_tick_running(&state);
+    emit_state(&state, "playing", real_offset_ms);
+    println!("[engine] play_async OK offset={}ms", real_offset_ms);
+
+    Ok(PlaybackSync { position_sec, real_offset_ms })
 }
 
 
@@ -112,16 +167,17 @@ pub fn pause(state: State<AppState>) -> Result<(), String> {
     player.pause();
     state.playback.lock().unwrap().pause();
     drop(player);
-    emit_state(&state, "paused");
+    emit_state(&state, "paused", 0);
     Ok(())
 }
 
-pub fn resume(state: State<AppState>) -> Result<(), String> {
+pub fn resume(state: State<AppState>) -> Result<PlaybackSync, String> {
     let vol = {
         let pb = state.playback.lock().unwrap();
         if pb.is_muted { 0.0 } else { pb.volume }
     };
 
+    let started = std::time::Instant::now();
     {
         let player = state.player.lock().unwrap();
         player.set_volume(vol);
@@ -129,8 +185,12 @@ pub fn resume(state: State<AppState>) -> Result<(), String> {
     }
 
     state.playback.lock().unwrap().resume();
-    emit_state(&state, "playing");
-    Ok(())
+    let real_offset_ms = started.elapsed().as_millis() as u64;
+    let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
+
+    ensure_tick_running(&state);
+    emit_state(&state, "playing", real_offset_ms);
+    Ok(PlaybackSync { position_sec, real_offset_ms })
 }
 
 pub fn stop(state: State<AppState>) -> Result<(), String> {
@@ -140,7 +200,7 @@ pub fn stop(state: State<AppState>) -> Result<(), String> {
         player.clear();
     }
     state.playback.lock().unwrap().stop();
-    emit_state(&state, "stopped");
+    emit_state(&state, "stopped", 0);
     Ok(())
 }
 
@@ -181,7 +241,7 @@ pub fn set_track_duration(duration_ms: u32, state: State<AppState>) -> Result<()
 }
 
 
-pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
+pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String> {
     let (bytes, max_sec) = {
         let pb = state.playback.lock().unwrap();
         let b = pb.bytes.clone().ok_or("no track loaded cannot seek")?;
@@ -219,6 +279,7 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
     };
     let was_playing = state.playback.lock().unwrap().is_playing;
 
+    let started = std::time::Instant::now();
     {
         let player = state.player.lock().unwrap();
         player.stop();
@@ -233,8 +294,19 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<(), String> {
     }
 
     state.playback.lock().unwrap().seek(actual);
-    emit_state(&state, "playing");
-    Ok(())
+    let real_offset_ms = started.elapsed().as_millis() as u64;
+
+    ensure_tick_running(&state);
+    if was_playing {
+        emit_state(&state, "playing", real_offset_ms);
+    } else {
+        emit_state(&state, "paused", 0);
+    }
+
+    Ok(PlaybackSync {
+        position_sec: actual.as_secs_f64(),
+        real_offset_ms,
+    })
 }
 
 pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {

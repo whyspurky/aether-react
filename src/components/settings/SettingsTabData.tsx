@@ -7,7 +7,6 @@ import { clearTauriStorage } from '@lib/store/tauriStorage';
 export function SettingsTabData() {
   const clearHistory = useStore((s) => s.clearHistory);
   const clearFavorites = useStore((s) => s.clearFavorites);
-  const showToast = useStore((s) => s.showToast);
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
@@ -25,17 +24,14 @@ export function SettingsTabData() {
       },
     });
 
-    showToast('кеш очищен', 'success');
   };
 
   const handleClearHistory = () => {
     clearHistory();
-    showToast('история очищена', 'success');
   };
 
   const handleClearFavorites = () => {
     clearFavorites();
-    showToast('избранное очищено', 'success');
   };
 
   return (

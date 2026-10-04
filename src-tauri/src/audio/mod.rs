@@ -6,7 +6,7 @@ use tauri::State;
 
 
 #[tauri::command]
-pub async fn play_audio(url: String, track_id: u64, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn play_audio(url: String, track_id: u64, state: State<'_, AppState>) -> Result<engine::PlaybackSync, String> {
     engine::play_async(url, track_id, state).await
 }
 
@@ -16,7 +16,7 @@ pub fn pause_audio(state: State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn resume_audio(state: State<AppState>) -> Result<(), String> {
+pub fn resume_audio(state: State<AppState>) -> Result<engine::PlaybackSync, String> {
     engine::resume(state)
 }
 
@@ -51,7 +51,7 @@ pub fn get_position(state: State<AppState>) -> Result<f64, String> {
 }
 
 #[tauri::command]
-pub fn seek_audio(seconds: f64, state: State<AppState>) -> Result<(), String> {
+pub fn seek_audio(seconds: f64, state: State<AppState>) -> Result<engine::PlaybackSync, String> {
     engine::seek(seconds, state)
 }
 
