@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
-import { useStore } from '@store/store'
-import { useAddToPlaylist } from '../playlist/AddToPlaylistProvider';
+import { useStore } from '@store/store';
+import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import type { Track } from '@store/types';
 import { formatMs } from '@lib/format';
 
@@ -14,28 +14,17 @@ interface TrackCardProps {
 export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
-  const { open: openAddToPlaylist, close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
+  const { openTrackMenu } = useTrackContextMenu();
 
   const coverUrl =
     track.artwork_url?.replace('-large', '-t500x500') ||
     track.user?.avatar_url?.replace('-large', '-t500x500') ||
     null;
 
-  const isMenuOpen = openTrackId === track.id;
-
   const handlePlay = async () => {
     const list = tracks ?? [track];
     const i = tracks ? index : 0;
     await playTrack(track, list.slice(i), 0, 'trackcard');
-  };
-
-  const handleAddToPlaylist = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isMenuOpen) {
-      closeAddToPlaylist();
-    } else {
-      openAddToPlaylist(track, e.currentTarget as HTMLElement);
-    }
   };
 
   const handleArtistClick = (e: React.MouseEvent) => {
@@ -49,6 +38,10 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
       className="group relative w-[160px] flex-shrink-0 cursor-pointer"
       style={{ animationDelay: `${index * 0.05}s` }}
       onClick={handlePlay}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openTrackMenu(track, e);
+      }}
     >
       <div className="relative aspect-square rounded-xl overflow-hidden bg-bg-secondary border border-border-subtle group-hover:border-border-visible transition-all duration-300 group-hover:shadow-xl group-hover:shadow-white/5">
         {coverUrl ? (
@@ -64,15 +57,14 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
         )}
 
         <button
-          onClick={handleAddToPlaylist}
-          className={`absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm grid place-items-center text-white hover:bg-black/80 transition-all duration-200 ${
-            isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-          title="добавить в плейлист"
+          onClick={(e) => {
+            e.stopPropagation();
+            openTrackMenu(track, e, { below: true });
+          }}
+          className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm grid place-items-center text-white hover:bg-black/80 transition-all duration-200 opacity-0 group-hover:opacity-100"
+          title="меню трека"
         >
-          <span className={`block transition-transform duration-200 ${isMenuOpen ? 'rotate-45' : ''}`}>
-            <Icon name="plus" size={12} />
-          </span>
+          <Icon name="plus" size={12} />
         </button>
       </div>
 

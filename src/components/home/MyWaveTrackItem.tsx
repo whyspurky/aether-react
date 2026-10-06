@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
+import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import { formatMs } from '@lib/format';
 import type { Track } from '@store/types';
-
+import { useContextMenu } from '@components/ui/ContextMenuProvider';
 interface Props {
   track: Track;
   tracks: Track[];
@@ -12,10 +13,11 @@ interface Props {
 export function MyWaveTrackItem({ track, tracks }: Props) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
+  const { openTrackMenu } = useTrackContextMenu();
 
   const index = tracks.findIndex((t) => t.id === track.id);
   const queue = tracks.slice(index >= 0 ? index : 0);
-
+  const contextMenu = useContextMenu();
   const coverUrl =
     track.artwork_url?.replace('-large', '-t300x300') ||
     track.user?.avatar_url?.replace('-large', '-t300x300') ||
@@ -30,6 +32,10 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
   return (
     <div
       onClick={() => playTrack(track, queue, 0, 'Моя Волна')}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openTrackMenu(track, e);
+      }}
       className="group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-bg-secondary active:scale-[0.98]"
     >
       {coverUrl ? (

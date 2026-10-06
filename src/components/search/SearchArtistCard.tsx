@@ -9,6 +9,14 @@ interface Props {
 export function SearchArtistCard({ artist }: Props) {
   const navigate = useNavigate();
 
+  console.log('[SearchArtistCard]', {
+    id: artist.id,
+    username: artist.username,
+    avatar_url: artist.avatar_url,
+    hasAvatar: !!artist.avatar_url,
+    keys: Object.keys(artist).slice(0, 20),
+  });
+
   return (
     <div
       onClick={() => navigate(`/artist/${artist.id}`)}
@@ -16,7 +24,7 @@ export function SearchArtistCard({ artist }: Props) {
     >
       {artist.avatar_url ? (
         <img
-          src={artist.avatar_url.replace('-large', '-t100x100')}
+          src={artist.avatar_url}
           alt={artist.username}
           className="w-10 h-10 rounded-full object-cover"
         />

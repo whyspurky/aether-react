@@ -44,6 +44,27 @@ export function usePlayerProgress({
   useEffect(() => { isReadyRef.current = isAudioReady; }, [isAudioReady]);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
 
+  // сброс при старте трека (в том числе repeat: one)
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    listen<{ state: string; position: number }>('playback:state', (event) => {
+      const { state, position } = event.payload;
+
+      if (state === 'playing') {
+        endedRef.current = false;
+        if (position < 1.0) {
+          progressRef.current = 0;
+          seekLockUntilRef.current = performance.now() + 300;
+        }
+      }
+    }).then((fn) => { unlisten = fn; });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   useEffect(() => {
     let unlisten: (() => void) | null = null;
 

@@ -118,6 +118,37 @@ pub async fn proxy_test_cdn() -> Result<CdnTestResult, String> {
 }
 
 #[tauri::command]
+pub async fn search_users(query: String, limit: u32, offset: u32) -> Result<Value, String> {
+    let url = format!(
+        "{}/search/users?client_id={}&q={}&limit={}&offset={}&linked_partitioning=1",
+        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit, offset
+    );
+
+    let data = fetch_retry(&url).await.map_err(|e| {
+        println!("[search_users] error: {}", e);
+        e.to_string()
+    })?;
+
+    let count = data.get("collection")
+        .and_then(|c| c.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+
+    println!("[search_users] query={:?} count={}", query, count);
+
+    if let Some(arr) = data.get("collection").and_then(|c| c.as_array()) {
+        for (i, u) in arr.iter().take(3).enumerate() {
+            let id = u.get("id").and_then(|v| v.as_u64());
+            let username = u.get("username").and_then(|v| v.as_str()).unwrap_or("?");
+            let avatar = u.get("avatar_url").and_then(|v| v.as_str());
+            println!("[search_users]   {}: id={:?} username={} avatar={:?}", i, id, username, avatar);
+        }
+    }
+
+    Ok(data)
+}
+
+#[tauri::command]
 pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Value, String> {
     let url = format!(
         "{}/search/tracks?client_id={}&q={}&limit={}&offset={}",

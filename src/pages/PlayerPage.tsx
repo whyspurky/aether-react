@@ -142,7 +142,11 @@ export default function PlayerPage() {
       <div className="p-4 flex-1 flex flex-col min-h-0">
         <div className="flex gap-8 flex-shrink-0" style={{ minHeight: coverSize }}>
           <div
-            className="flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl shadow-white/5 relative"
+            className={`flex-shrink-0 rounded-2xl overflow-hidden relative transition-shadow duration-300 ${
+              !isTrackChanging && displayCover
+                ? 'shadow-2xl shadow-white/5'
+                : 'shadow-none'
+            }`}
             style={{ width: coverSize, height: coverSize }}
           >
             <div

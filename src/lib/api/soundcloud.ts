@@ -17,13 +17,24 @@ export const soundcloudApi = {
 
   searchUsers: async (query: string, offset = 0, limit = 50): Promise<User[]> => {
     try {
-      const tracks = await soundcloudApi.searchTracks(query, limit, offset);
-      const users = new Map<number, User>();
-      for (const t of tracks) {
-        if (t.user && !users.has(t.user.id)) users.set(t.user.id, t.user);
-      }
-      return Array.from(users.values()).slice(0, limit);
-    } catch {
+      const data = await invoke<any>('search_users', { query, limit, offset });
+      const list = data?.collection || [];
+      console.log('[api.searchUsers]', {
+        query,
+        offset,
+        limit,
+        total: data?.total_results,
+        returned: list.length,
+        first: list[0] ? {
+          id: list[0].id,
+          username: list[0].username,
+          avatar_url: list[0].avatar_url,
+          hasAvatar: !!list[0].avatar_url,
+        } : null,
+      });
+      return list;
+    } catch (e) {
+      console.log('[api.searchUsers] error:', e);
       return [];
     }
   },

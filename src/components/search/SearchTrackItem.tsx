@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
-import { formatMs } from '@lib/format'
+import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
+import { formatMs } from '@lib/format';
 import type { Track } from '@store/types';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
   const navigate = useNavigate();
+  const { openTrackMenu } = useTrackContextMenu();
 
   const coverUrl =
     track.artwork_url?.replace('-large', '-t300x300') ||
@@ -26,6 +28,10 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
   return (
     <div
       onClick={() => onPlay(track)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openTrackMenu(track, e);
+      }}
       className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-bg-secondary w-full"
     >
       {coverUrl ? (

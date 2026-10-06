@@ -16,6 +16,8 @@ import PlayerPage from './pages/PlayerPage';
 import SettingsPage from './pages/SettingsPage';
 import ArtistPage from './pages/ArtistPage';
 import PlaylistPage from './pages/PlaylistPage';
+import { useKeyboard } from './hooks/ui/useKeyboard';
+import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
 
 const appWindow = getCurrentWindow();
 
@@ -25,9 +27,20 @@ function AppContent() {
   const customProxy = useStore((s) => s.proxy.custom);
 
   useTheme();
+  useKeyboard();
 
   useEffect(() => {
     getCurrentWindow().show();
+  }, []);
+
+  useEffect(() => {
+    const prevent = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', prevent);
+    return () => document.removeEventListener('contextmenu', prevent);
   }, []);
 
   useEffect(() => {
@@ -41,12 +54,6 @@ function AppContent() {
 
     const t = setTimeout(syncVolume, 300);
     return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const prevent = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener('contextmenu', prevent);
-    return () => document.removeEventListener('contextmenu', prevent);
   }, []);
 
   useEffect(() => {
@@ -145,10 +152,12 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AddToPlaylistProvider>
-        <TitleBar onMinimize={handleMinimize} onMaximize={handleMaximize} onClose={handleClose} />
-        <AppContent />
-      </AddToPlaylistProvider>
+      <ContextMenuProvider>
+        <AddToPlaylistProvider>
+          <TitleBar onMinimize={handleMinimize} onMaximize={handleMaximize} onClose={handleClose} />
+          <AppContent />
+        </AddToPlaylistProvider>
+      </ContextMenuProvider>
     </BrowserRouter>
   );
 }

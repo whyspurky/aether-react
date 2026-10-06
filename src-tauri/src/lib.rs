@@ -51,6 +51,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             api::soundcloud::search_tracks, api::soundcloud::search_playlists, api::soundcloud::get_user_tracks, api::soundcloud::get_user,
+            api::soundcloud::search_users,
             api::soundcloud::get_user_popular_tracks, api::soundcloud::get_related_artists,
             api::soundcloud::get_user_reposts,
             api::soundcloud::get_playlist, api::soundcloud::get_user_playlists,

@@ -3,8 +3,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
-import { useAddToPlaylist } from '../playlist/AddToPlaylistProvider';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
+import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import type { Track } from '@store/types';
 import { formatMs } from '@lib/format';
 
@@ -36,7 +36,7 @@ export function TrackList({
   const playTrack = useStore((s) => s.playTrack);
   const currentTrack = useStore((s) => s.player.currentTrack);
   const isPlaying = useStore((s) => s.player.isPlaying);
-  const { open: openAddToPlaylist, close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
+  const { openTrackMenu } = useTrackContextMenu();
 
   const internalRef = useRef<HTMLDivElement | null>(null);
   const isExternal = !!scrollRef;
@@ -131,6 +131,10 @@ export function TrackList({
     return (
       <div
         onClick={() => handlePlay(track, index)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openTrackMenu(track, e, { onRemove });
+        }}
         className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-bg-secondary ${
           isCurrent ? 'bg-bg-secondary' : ''
         }`}
@@ -176,38 +180,17 @@ export function TrackList({
         </div>
 
         <div className="flex items-center flex-shrink-0 mr-4">
-          <div className="flex items-center gap-1 w-[60px] justify-end">
+          <div className="flex items-center justify-end w-[60px]">
             {showQueueButton && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (openTrackId === track.id) {
-                    closeAddToPlaylist();
-                  } else {
-                    openAddToPlaylist(track, e.currentTarget as HTMLElement);
-                  }
+                  openTrackMenu(track, e, { onRemove, below: true });
                 }}
-                className={`p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200 ${
-                  openTrackId === track.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                }`}
-                title="добавить в плейлист"
+                className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200 opacity-0 group-hover:opacity-100"
+                title="меню трека"
               >
-                <span className={`inline-block transition-transform duration-200 ${openTrackId === track.id ? 'rotate-45' : ''}`}>
-                  <Icon name="plus" size={16} />
-                </span>
-              </button>
-            )}
-
-            {onRemove && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(track);
-                }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-text-tertiary hover:text-red-400 hover:bg-glass-bg transition-all duration-200"
-                title="убрать из плейлиста"
-              >
-                <Icon name="minus" size={16} />
+                <Icon name="ellipsis-vertical" size={16} />
               </button>
             )}
           </div>

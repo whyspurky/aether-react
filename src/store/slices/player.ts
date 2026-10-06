@@ -74,18 +74,18 @@ export const createPlayerSlice = (set: any, get: any) => ({
       ? s.queue.originalTracks.filter((t: Track) => t.id !== trackId)
       : null;
 
-    if (isCurrent) {
-      set({
-        queue: {
-          ...s.queue,
-          tracks: newTracks,
-          originalTracks: newOriginal,
-          currentIndex: -1,
-        },
-      });
-      get().nextTrack();
-      return;
-    }
+if (isCurrent) {
+  set({
+    queue: {
+      ...s.queue,
+      tracks: newTracks,
+      originalTracks: newOriginal,
+      currentIndex: idx - 1,  // перед удалённым — nextTrack даст idx
+    },
+  });
+  get().nextTrack(true);
+  return;
+}
 
     const currentIndex = idx < s.queue.currentIndex
       ? s.queue.currentIndex - 1
@@ -261,6 +261,20 @@ export const createPlayerSlice = (set: any, get: any) => ({
   },
 
   prevTrack: async (manual = false) => {
+    const { player } = get();
+
+    // если трек играет больше 3 секунд — seek в начало
+    if (player.currentTrack && player.position > 3) {
+      try {
+        await api.seekAudio(0);
+      } catch {}
+
+      set((s: any) => ({
+        player: { ...s.player, position: 0 },
+      }));
+      return;
+    }
+
     try { await api.stopAudio(); } catch {}
 
     set((s: any) => ({

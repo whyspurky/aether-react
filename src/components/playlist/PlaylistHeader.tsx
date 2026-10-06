@@ -57,7 +57,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
           >
             {playlist.user.avatar_url && (
               <img
-                src={playlist.user.avatar_url.replace('-large', '-t100x100')}
+                src={playlist.user.avatar_url}
                 alt={playlist.user.username}
                 className="w-6 h-6 rounded-full object-cover"
               />
