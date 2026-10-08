@@ -5,9 +5,6 @@ use crate::audio::state::AppState;
 use crate::api::http;
 use rodio::Source;
 use tauri::Emitter;
-use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::task::JoinHandle;
 
 fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
     let pos = state.playback.lock().unwrap().position().as_secs_f64();
@@ -56,9 +53,13 @@ fn ensure_tick_running(state: &AppState) {
             }
 
             let guard = app_handle.lock().unwrap();
-            if let Some(app) = guard.as_ref() {
-                let _ = app.emit("position-tick", pos);
-            }
+if let Some(app) = guard.as_ref() {
+    let track_id = playback.lock().unwrap().current_track_id;
+    let _ = app.emit("position-tick", serde_json::json!({
+        "position": pos,
+        "track_id": track_id,
+    }));
+}
         }
     });
 
@@ -71,17 +72,16 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
     let cached = {
         let mut slot = state.prefetch_slot.lock().unwrap();
         match slot.as_ref() {
-            Some((cached_id, _)) => {
-                println!("[engine] slot check: cached_id={} incoming_id={}", cached_id, track_id);
-            }
-            None => println!("[engine] slot empty"),
-        }
-        match slot.as_ref() {
             Some((cached_id, _)) if *cached_id == track_id => {
-                println!("[engine] используем prefetched трек");
+                println!("[engine] используем prefetched трек {}", track_id);
                 slot.take().map(|(_, bytes)| bytes)
             }
-            _ => None,
+            Some((cached_id, _)) => {
+                println!("[engine] слот содержит чужой трек {} (нужен {}), очищаем", cached_id, track_id);
+                slot.take();
+                None
+            }
+            None => None,
         }
     };
 
@@ -149,8 +149,8 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
         player.play();
     }
 
-    state.playback.lock().unwrap().start(bytes);
-
+    state.playback.lock().unwrap().start(bytes, track_id);
+    
     let real_offset_ms = started.elapsed().as_millis() as u64;
     let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
 
@@ -311,18 +311,9 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
 
 pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
     println!("[prefetch] вызван prefetch_track track_id={}", track_id);
+
     if let Some(h) = state.prefetch_task.lock().unwrap().take() {
         h.abort();
-    }
-
-    {
-        let slot = state.prefetch_slot.lock().unwrap();
-        if let Some((cached_id, _)) = slot.as_ref() {
-            if *cached_id == track_id {
-                println!("[prefetch] уже в кеше track_id={}", track_id);
-                return Ok(());
-            }
-        }
     }
 
     let slot = state.prefetch_slot.clone();

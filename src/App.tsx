@@ -22,7 +22,6 @@ import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
 const appWindow = getCurrentWindow();
 
 function AppContent() {
-  const preloadHomePageData = useStore((s) => s.preloadHomePageData);
   const proxyMode = useStore((s) => s.proxy.mode);
   const customProxy = useStore((s) => s.proxy.custom);
 

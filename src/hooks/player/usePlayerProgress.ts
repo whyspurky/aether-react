@@ -20,11 +20,11 @@ interface Result {
 
 const END_THRESHOLD = 0.5;
 const SEEK_LOCK_MS = 400;
+const END_CALL_GUARD_MS = 2000;
 
 export function usePlayerProgress({
   currentTrackId,
   isPlaying,
-  isLoading,
   isAudioReady,
   duration,
   isDragging,
@@ -32,19 +32,40 @@ export function usePlayerProgress({
 }: Params): Result {
   const progressRef = useRef(0);
   const durationRef = useRef(duration);
+  durationRef.current = duration;
+
+  // синхронная инициализация при первом рендере с треком
+  const initializedRef = useRef(false);
+  if (!initializedRef.current && currentTrackId) {
+    initializedRef.current = true;
+    const saved = useStore.getState().player.position;
+    if (saved > 0) {
+      progressRef.current = saved;
+    }
+  }
+
   const isPlayingRef = useRef(isPlaying);
   const isReadyRef = useRef(false);
   const endedRef = useRef(false);
   const seekLockUntilRef = useRef(0);
   const isDraggingRef = useRef(false);
   const lastStoreSyncRef = useRef(0);
+  const lastEndCallRef = useRef(0);
+  const currentTrackIdRef = useRef(currentTrackId);
+  currentTrackIdRef.current = currentTrackId;
 
-  useEffect(() => { durationRef.current = duration; }, [duration]);
-  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
-  useEffect(() => { isReadyRef.current = isAudioReady; }, [isAudioReady]);
-  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
-  // сброс при старте трека (в том числе repeat: one)
+  useEffect(() => {
+    isReadyRef.current = isAudioReady;
+  }, [isAudioReady]);
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
   useEffect(() => {
     let unlisten: (() => void) | null = null;
 
@@ -54,7 +75,11 @@ export function usePlayerProgress({
       if (state === 'playing') {
         endedRef.current = false;
         if (position < 1.0) {
-          progressRef.current = 0;
+          // не сбрасываем если это cold start с сохранённой позицией
+          const storePos = useStore.getState().player.position;
+          if (storePos < 5.0) {
+            progressRef.current = 0;
+          }
           seekLockUntilRef.current = performance.now() + 300;
         }
       }
@@ -68,17 +93,28 @@ export function usePlayerProgress({
   useEffect(() => {
     let unlisten: (() => void) | null = null;
 
-    listen<number>('position-tick', (event) => {
+    listen<{ position: number; track_id: number }>('position-tick', (event) => {
+      const { position: pos, track_id: tickTrackId } = event.payload;
+      const d = durationRef.current;
+
+      // игнорируем tick от старого трека
+      const activeId = currentTrackIdRef.current;
+      if (activeId && tickTrackId !== activeId) {
+        return;
+      }
+
       if (!isReadyRef.current) return;
       if (endedRef.current) return;
-
       if (isDraggingRef.current) return;
       if (performance.now() < seekLockUntilRef.current) return;
 
-      const pos = event.payload;
-      const d = durationRef.current;
-
       if (d > 0 && pos >= d - END_THRESHOLD) {
+        const now = performance.now();
+        if (now - lastEndCallRef.current < END_CALL_GUARD_MS) {
+          return;
+        }
+        lastEndCallRef.current = now;
+
         endedRef.current = true;
         progressRef.current = d;
         onTrackEnd();
@@ -89,7 +125,6 @@ export function usePlayerProgress({
         progressRef.current = pos;
       }
 
-      // раз в секунду синхронизируем store чтобы при монтировании взять готовое
       const now = performance.now();
       if (now - lastStoreSyncRef.current > 1000) {
         lastStoreSyncRef.current = now;
@@ -111,21 +146,16 @@ export function usePlayerProgress({
       return;
     }
 
-    // если трек сменился — сбрасываем в 0
     if (prevTrackIdRef.current !== undefined && prevTrackIdRef.current !== currentTrackId) {
       progressRef.current = 0;
       endedRef.current = false;
+      seekLockUntilRef.current = performance.now() + 500;
       prevTrackIdRef.current = currentTrackId;
       return;
     }
 
-    // первый монтаж — берём из стора (при переключении страницы)
     prevTrackIdRef.current = currentTrackId;
     endedRef.current = false;
-    const saved = useStore.getState().player.position;
-    if (saved > 0) {
-      progressRef.current = saved;
-    }
   }, [currentTrackId]);
 
   useEffect(() => {

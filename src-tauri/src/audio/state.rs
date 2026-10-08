@@ -12,6 +12,7 @@ pub struct Playback {
     pub duration_ms: u32,
     pub bytes: Option<Bytes>,
     pub seek_skip_tick: u32,
+    pub current_track_id: u64,
 }
 
 impl Playback {
@@ -25,12 +26,13 @@ impl Playback {
             duration_ms: 0,
             bytes: None,
             seek_skip_tick: 0,
+            current_track_id: 0,
         }
     }
 
     pub fn position(&self) -> Duration {
         let elapsed = match (self.is_playing, self.play_start) {
-            (true, Some(t)) => t.elapsed(),
+            (true, Some(t)) => t.elapsed(), 
             _ => Duration::ZERO,
         };
         let pos = self.base_offset + elapsed;
@@ -38,8 +40,9 @@ impl Playback {
         if max.is_zero() { pos } else { pos.min(max) }
     }
 
-    pub fn start(&mut self, bytes: Bytes) {
-        self.bytes = Some(bytes);
+pub fn start(&mut self, bytes: Bytes, track_id: u64) {
+    self.bytes = Some(bytes);
+    self.current_track_id = track_id;
         self.base_offset = Duration::ZERO;
         self.play_start = Some(Instant::now());
         self.is_playing = true;

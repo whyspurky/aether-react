@@ -4,7 +4,6 @@ import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import { formatMs } from '@lib/format';
 import type { Track } from '@store/types';
-import { useContextMenu } from '@components/ui/ContextMenuProvider';
 interface Props {
   track: Track;
   tracks: Track[];
@@ -17,7 +16,6 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
 
   const index = tracks.findIndex((t) => t.id === track.id);
   const queue = tracks.slice(index >= 0 ? index : 0);
-  const contextMenu = useContextMenu();
   const coverUrl =
     track.artwork_url?.replace('-large', '-t300x300') ||
     track.user?.avatar_url?.replace('-large', '-t300x300') ||

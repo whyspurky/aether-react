@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { PlayerProgressBar } from '@components/player/PlayerProgressBar';
 import { PlayerVolumeBar } from '@components/player/PlayerVolumeBar';
 import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
-import { api } from '@lib/api';
+import { useSeekDrag } from '@hooks/player/useSeekDrag';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 
 export default function PlayerPage() {
@@ -17,19 +17,16 @@ export default function PlayerPage() {
   const nextTrack = useStore((s) => s.nextTrack);
   const prevTrack = useStore((s) => s.prevTrack);
   const setShuffle = useStore((s) => s.setShuffle);
-    const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const setRepeat = useStore((s) => s.setRepeat);
   const setVolume = useStore((s) => s.setVolume);
   const navigate = useNavigate();
   const removeFromQueue = useStore((s) => s.removeFromQueue);
+  const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const { currentTrack, isPlaying, volume, shuffle, repeat, duration, isLoading, isAudioReady } = player;
 
   const trackRef = useRef<HTMLDivElement | null>(null);
   const fillRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const draggingRef = useRef(false);
-  const dragPosRef = useRef(0);
 
   const { displayTrack, displayCover, isTrackChanging } = useTrackAnimation(currentTrack);
 
@@ -44,7 +41,18 @@ export default function PlayerPage() {
 
   const durationRef = useRef(effectiveDuration);
   durationRef.current = effectiveDuration;
+  const seekToRef = useRef<(pos: number) => void>(() => {});
+  // сначала создаём drag, он даёт isDragging
+  const { isDragging, dragPosRef, handleMouseDown } = useSeekDrag({
+    trackRef,
+    effectiveDuration,
+    onSeek: (pos) => {
+      seekToRef.current(pos);
+      useStore.getState().setPosition(pos);
+    },
+  });
 
+  // потом progress, он знает про isDragging
   const { progressRef, seekTo } = usePlayerProgress({
     currentTrackId: currentTrack?.id,
     isPlaying,
@@ -56,12 +64,12 @@ export default function PlayerPage() {
       useStore.getState().nextTrack();
     },
   });
-
+  seekToRef.current = seekTo;
   useEffect(() => {
     let raf: number;
     const tick = () => {
       const d = durationRef.current;
-      const pos = draggingRef.current ? dragPosRef.current : progressRef.current;
+      const pos = isDragging ? dragPosRef.current : progressRef.current;
       const pct = d > 0 ? (pos / d) * 100 : 0;
       if (fillRef.current) fillRef.current.style.width = `${pct}%`;
       if (knobRef.current) knobRef.current.style.left = `${pct}%`;
@@ -69,52 +77,7 @@ export default function PlayerPage() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [progressRef]);
-
-  const posFromClientX = (clientX: number): number | null => {
-    const el = trackRef.current;
-    if (!el || !effectiveDuration) return null;
-    const rect = el.getBoundingClientRect();
-    let percent = (clientX - rect.left) / rect.width;
-    percent = Math.max(0, Math.min(1, percent));
-    return percent * effectiveDuration;
-  };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!effectiveDuration) return;
-    const pos = posFromClientX(e.clientX);
-    if (pos === null) return;
-
-    draggingRef.current = true;
-    setIsDragging(true);
-    dragPosRef.current = pos;
-    e.preventDefault();
-
-    const onMove = (ev: MouseEvent) => {
-      if (!draggingRef.current) return;
-      const p = posFromClientX(ev.clientX);
-      if (p !== null) dragPosRef.current = p;
-    };
-
-    const onUp = (ev: MouseEvent) => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-
-      const p = posFromClientX(ev.clientX);
-      setIsDragging(false);
-      if (p !== null) {
-        seekTo(p);
-        useStore.getState().setPosition(p);
-        api.seekAudio(p).catch(() => {});
-        import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
-      }
-    };
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  };
+  }, [progressRef, isDragging, dragPosRef]);
 
   if (!currentTrack) {
     return (
@@ -221,55 +184,61 @@ export default function PlayerPage() {
               onMouseDown={handleMouseDown}
             />
 
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <button
-                onClick={() => setShuffle(!shuffle)}
-                className={`p-1.5 rounded-full transition-all ${shuffle ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'}`}
-              >
-                <Icon name="shuffle" size={18} />
-              </button>
-              <button
-                onClick={() => prevTrack(true)}
-                className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
-              >
-                <Icon name="skip-back" size={22} />
-              </button>
-              <button
-                onClick={() => { if (!isLoading) togglePlay(); }}
-                disabled={isLoading}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                  isLoading ? 'bg-bg-secondary cursor-wait' : 'bg-bg-secondary hover:scale-105'
-                }`}
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Icon name={isPlaying ? 'pause' : 'play'} size={24} className="text-text-primary" />
-                )}
-              </button>
-              <button
-                onClick={() => nextTrack(true)}
-                className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
-              >
-                <Icon name="skip-forward" size={22} />
-              </button>
-              <button
-                onClick={() => {
-                  const modes = ['none', 'all', 'one'] as const;
-                  setRepeat(modes[(modes.indexOf(repeat) + 1) % 3]);
-                }}
-                className={`p-1.5 rounded-full transition-all ${repeat !== 'none' ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'}`}
-              >
-                <Icon name={repeat === 'one' ? 'repeat-1' : 'repeat'} size={18} />
-              </button>
-            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-2 h-12">
+              <div className="min-w-0">
+                <PlayerVolumeBar
+                  volume={volume}
+                  isAudioReady={isAudioReady}
+                  isLoading={isLoading}
+                  onVolumeChange={setVolume}
+                />
+              </div>
 
-            <PlayerVolumeBar
-              volume={volume}
-              isAudioReady={isAudioReady}
-              isLoading={isLoading}
-              onVolumeChange={setVolume}
-            />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShuffle(!shuffle)}
+                  className={`flex-shrink-0 p-1.5 rounded-full transition-all ${shuffle ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'}`}
+                >
+                  <Icon name="shuffle" size={18} />
+                </button>
+                <button
+                  onClick={() => prevTrack(true)}
+                  className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
+                >
+                  <Icon name="skip-back" size={22} />
+                </button>
+                <button
+                  onClick={() => { if (!isLoading) togglePlay(); }}
+                  disabled={isLoading}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                    isLoading ? 'bg-bg-secondary cursor-wait' : 'bg-bg-secondary hover:scale-105'
+                  }`}
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Icon name={isPlaying ? 'pause' : 'play'} size={24} className="text-text-primary" />
+                  )}
+                </button>
+                <button
+                  onClick={() => nextTrack(true)}
+                  className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
+                >
+                  <Icon name="skip-forward" size={22} />
+                </button>
+                <button
+                  onClick={() => {
+                    const modes = ['none', 'all', 'one'] as const;
+                    setRepeat(modes[(modes.indexOf(repeat) + 1) % 3]);
+                  }}
+                  className={`p-1.5 rounded-full transition-all ${repeat !== 'none' ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'}`}
+                >
+                  <Icon name={repeat === 'one' ? 'repeat-1' : 'repeat'} size={18} />
+                </button>
+              </div>
+
+              <div />
+            </div>
           </div>
         </div>
 

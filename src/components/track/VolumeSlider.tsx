@@ -7,15 +7,21 @@ interface VolumeSliderProps {
   onVolumeChange: (volume: number) => void;
 }
 
-const APPLY_THROTTLE_MS = 30;
+const WHEEL_STEP = 5;
+const STORE_THROTTLE_MS = 100;
+const BAR_WIDTH = 140;
+const BUTTON_SIZE = 36;
+const GAP = 8;
+
+function volumeIcon(v: number): string {
+  if (v === 0) return 'volume-x';
+  if (v < 34) return 'volume-1';
+  return 'volume-2';
+}
 
 export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
-  const [visible, setVisible] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const hideTimer = useRef<NodeJS.Timeout | null>(null);
-  const unmountTimer = useRef<NodeJS.Timeout | null>(null);
-  const pendingHide = useRef(false);
-
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -24,19 +30,14 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
   useEffect(() => { onVolumeChangeRef.current = onVolumeChange; }, [onVolumeChange]);
 
   const isDraggingRef = useRef(false);
-  const lastApplyRef = useRef(0);
   const lastValueRef = useRef(volume);
+  const lastStoreTimeRef = useRef(0);
+  const wheelEndTimerRef = useRef<number | null>(null);
 
   const paintVolume = useCallback((v: number) => {
-    const pct = Math.max(0, Math.min(100, v));
-    if (fillRef.current) fillRef.current.style.height = `${pct}%`;
-    if (knobRef.current) knobRef.current.style.bottom = `${pct}%`;
-  }, []);
-
-  useEffect(() => {
-    paintVolume(volume);
-    lastValueRef.current = volume;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const clamped = Math.max(0, Math.min(100, v));
+    if (fillRef.current) fillRef.current.style.transform = `scaleX(${clamped / 100})`;
+    if (knobRef.current) knobRef.current.style.left = `${clamped}%`;
   }, []);
 
   useEffect(() => {
@@ -45,67 +46,36 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
     lastValueRef.current = volume;
   }, [volume, paintVolume]);
 
-  const apply = useCallback((v: number, force: boolean) => {
-    const final = Math.round(Math.max(0, Math.min(100, v)));
-    lastValueRef.current = final;
+  const applyVisual = useCallback((v: number) => {
+    paintVolume(v);
+    lastValueRef.current = v;
+  }, [paintVolume]);
 
+  const pushToBackend = useCallback((v: number, force: boolean) => {
     const now = performance.now();
-    if (!force && now - lastApplyRef.current < APPLY_THROTTLE_MS) return;
-    lastApplyRef.current = now;
+    if (!force && now - lastStoreTimeRef.current < STORE_THROTTLE_MS) return;
+    lastStoreTimeRef.current = now;
 
+    const final = Math.round(v);
     onVolumeChangeRef.current(final);
     useStore.getState().setVolumeRust(final);
   }, []);
 
-  const clearTimers = () => {
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-    }
-    if (unmountTimer.current) {
-      clearTimeout(unmountTimer.current);
-      unmountTimer.current = null;
-    }
-  };
-
-  const show = () => {
-    clearTimers();
-    pendingHide.current = false;
-    setVisible(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setIsAnimating(true));
-    });
-  };
-
-  const hide = () => {
-    clearTimers();
-    pendingHide.current = true;
-    hideTimer.current = setTimeout(() => {
-      if (!pendingHide.current) return;
-      setIsAnimating(false);
-      unmountTimer.current = setTimeout(() => setVisible(false), 200);
-    }, 220);
-  };
-
-  useEffect(() => {
-    if (!visible) return;
-    const id = requestAnimationFrame(() => setIsAnimating(true));
-    return () => cancelAnimationFrame(id);
-  }, [visible]);
-
   useEffect(() => {
     return () => {
-      clearTimers();
+      if (wheelEndTimerRef.current !== null) {
+        window.clearTimeout(wheelEndTimerRef.current);
+      }
     };
   }, []);
 
-  const calcFromClientY = useCallback((clientY: number): number | null => {
+  const calcFromPointer = (clientX: number): number => {
     const el = trackRef.current;
-    if (!el) return null;
+    if (!el) return 0;
     const rect = el.getBoundingClientRect();
-    const pct = ((rect.bottom - clientY) / rect.height) * 100;
-    return Math.max(0, Math.min(100, pct));
-  }, []);
+    const rel = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(100, rel * 100));
+  };
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const el = trackRef.current;
@@ -113,104 +83,119 @@ export function VolumeSlider({ volume, onVolumeChange }: VolumeSliderProps) {
 
     el.setPointerCapture(e.pointerId);
     isDraggingRef.current = true;
-    lastApplyRef.current = 0;
 
-    const v = calcFromClientY(e.clientY);
-    if (v !== null) {
-      paintVolume(v);
-      apply(v, true);
-    }
+    const v = calcFromPointer(e.clientX);
+    applyVisual(v);
+    pushToBackend(v, true);
     e.preventDefault();
-  }, [calcFromClientY, paintVolume, apply]);
+  }, [applyVisual, pushToBackend]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
-    const v = calcFromClientY(e.clientY);
-    if (v !== null) {
-      paintVolume(v);
-      apply(v, false);
-    }
-  }, [calcFromClientY, paintVolume, apply]);
+    const v = calcFromPointer(e.clientX);
+    applyVisual(v);
+    pushToBackend(v, false);
+  }, [applyVisual, pushToBackend]);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
 
-    apply(lastValueRef.current, true);
+    pushToBackend(lastValueRef.current, true);
     import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
 
     if (trackRef.current) {
       try { trackRef.current.releasePointerCapture(e.pointerId); } catch {}
     }
-  }, [apply]);
+  }, [pushToBackend]);
 
-  const handleTrackClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDraggingRef.current) return;
-    const v = calcFromClientY(e.clientY);
-    if (v !== null) {
-      paintVolume(v);
-      apply(v, true);
-      import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -1 : 1;
+    const base = lastValueRef.current;
+    const next = Math.max(0, Math.min(100, base + dir * WHEEL_STEP));
+    applyVisual(next);
+    pushToBackend(next, false);
+
+    if (wheelEndTimerRef.current !== null) {
+      window.clearTimeout(wheelEndTimerRef.current);
     }
-  }, [calcFromClientY, paintVolume, apply]);
+    wheelEndTimerRef.current = window.setTimeout(() => {
+      wheelEndTimerRef.current = null;
+      pushToBackend(lastValueRef.current, true);
+      import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+    }, 250);
+  }, [applyVisual, pushToBackend]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   return (
-    <div className="relative inline-block">
+    <div
+      ref={wrapperRef}
+      className="relative flex items-center"
+      style={{ width: BUTTON_SIZE, height: BUTTON_SIZE }}
+    >
       <div
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        className="w-9 h-9 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors duration-200"
+        className={`absolute flex items-center h-9 px-3 rounded-full bg-bg-secondary/40 border border-border-subtle transition-all duration-200 ease-out origin-right ${
+          open
+            ? 'opacity-100 translate-x-0 scale-100 pointer-events-auto'
+            : 'opacity-0 translate-x-2 scale-90 pointer-events-none'
+        }`}
+        style={{
+          width: BAR_WIDTH,
+          right: BUTTON_SIZE + GAP,
+          top: '50%',
+          transform: 'translateY(-50%)',
+        }}
+        onWheel={handleWheel}
       >
-        <Icon name={volume === 0 ? 'volume-x' : 'volume-2'} size={18} />
+        <div
+          ref={trackRef}
+          className="flex-1 relative cursor-pointer py-2 -my-2 touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          <div className="relative h-1 bg-[#333333] rounded-full overflow-hidden">
+            <div
+              ref={fillRef}
+              className="absolute left-0 top-0 h-full w-full bg-white rounded-full origin-left will-change-transform"
+              style={{ transform: 'scaleX(0)' }}
+            />
+          </div>
+
+          <div
+            ref={knobRef}
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-md pointer-events-none will-change-transform"
+            style={{ left: '0%' }}
+          />
+        </div>
       </div>
 
-      <div
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        className="absolute bottom-full left-1/2 -translate-x-1/2 w-full h-2"
-      />
-
-      {visible && (
-        <div
-          onMouseEnter={show}
-          onMouseLeave={hide}
-          className={`absolute bottom-full left-1/2 mb-2 px-4 py-3 bg-bg-card rounded-2xl border border-border-subtle shadow-xl transition-all duration-200 ease-out ${
-            isAnimating
-              ? 'opacity-100 translate-y-0 scale-100 -translate-x-1/2'
-              : 'opacity-0 translate-y-2 scale-95 -translate-x-1/2'
-          }`}
-          style={{ transformOrigin: 'bottom center' }}
-        >
-          <div className="w-full flex justify-center">
-            <div
-              ref={trackRef}
-              className="relative touch-none cursor-pointer"
-              style={{ height: '140px', width: '14px' }}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              onClick={handleTrackClick}
-            >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[6px] h-full bg-[#333333] rounded-full" />
-              <div
-                ref={fillRef}
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[6px] bg-white rounded-full"
-                style={{ height: '0%', transition: 'none' }}
-              />
-              <div
-                ref={knobRef}
-                className="absolute left-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none will-change-transform"
-                style={{
-                  bottom: '0%',
-                  transform: 'translate(-50%, 50%)',
-                  transition: 'none',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="relative w-9 h-9 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors duration-200 z-10"
+        title={`громкость ${volume}%`}
+      >
+        <Icon name={volumeIcon(volume)} size={18} />
+      </button>
     </div>
   );
 }

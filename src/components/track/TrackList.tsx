@@ -36,6 +36,9 @@ export function TrackList({
   const playTrack = useStore((s) => s.playTrack);
   const currentTrack = useStore((s) => s.player.currentTrack);
   const isPlaying = useStore((s) => s.player.isPlaying);
+  const favorites = useStore((s) => s.library.favorites);
+  const addToFavorites = useStore((s) => s.addToFavorites);
+  const removeFromFavorites = useStore((s) => s.removeFromFavorites);
   const { openTrackMenu } = useTrackContextMenu();
 
   const internalRef = useRef<HTMLDivElement | null>(null);
@@ -98,12 +101,12 @@ export function TrackList({
     };
   }, []);
 
-  const handlePlay = async (track: Track, index: number) => {
+  const handlePlay = (track: Track, index: number) => {
     if (onTrackClick) {
       onTrackClick(track, index);
       return;
     }
-    await playTrack(track, tracks, index);
+    playTrack(track, tracks, index);
   };
 
   const handleArtistClick = (track: Track, e: React.MouseEvent) => {
@@ -180,7 +183,28 @@ export function TrackList({
         </div>
 
         <div className="flex items-center flex-shrink-0 mr-4">
-          <div className="flex items-center justify-end w-[60px]">
+          <div className="flex items-center gap-1 justify-end w-[84px]">
+            {(() => {
+              const isFav = favorites.some((f) => f.id === track.id);
+              return (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isFav) removeFromFavorites(track.id);
+                    else addToFavorites(track);
+                  }}
+                  className={`p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 ${
+                    isFav
+                      ? 'text-red-400 hover:bg-red-500/10'
+                      : 'text-text-tertiary hover:text-text-primary hover:bg-glass-bg'
+                  }`}
+                  title={isFav ? 'убрать из избранного' : 'в избранное'}
+                >
+                  <Icon name="heart" size={16} />
+                </button>
+              );
+            })()}
+
             {showQueueButton && (
               <button
                 onClick={(e) => {

@@ -61,7 +61,13 @@ export const createPlayerSlice = (set: any, get: any) => ({
   },
 
   addToQueue: (track: Track) =>
-    set((s: any) => ({ queue: { ...s.queue, tracks: [...s.queue.tracks, track] } })),
+    set((s: any) => {
+      if (s.queue.tracks.some((t: Track) => t.id === track.id)) {
+        return s;
+      }
+      return { queue: { ...s.queue, tracks: [...s.queue.tracks, track] } };
+    }),
+
 
   removeFromQueue: (trackId: number) => {
     const s = get();
@@ -102,6 +108,12 @@ if (isCurrent) {
   },
 
   playTrack: async (track: Track, tracks: Track[], index: number, source = 'queue', _errorDepth = 0) => {
+    const state = get();
+
+    // защита от повторного запуска того же трека
+    if (state.player.isLoading && state.player.currentTrack?.id === track.id) {
+      return;
+    }
 
     try { await api.muteAudio(); } catch {}
     try { await api.stopAudio(); } catch {}
@@ -109,12 +121,37 @@ if (isCurrent) {
     const savedSeek = get().player.pendingSeek;
     const startPos = savedSeek && savedSeek > 0 ? savedSeek : 0;
 
+    const { player, queue: currentQueue } = get();
+    const shuffleOn = player.shuffle;
+
+    // если очередь та же самая — не шафлим повторно
+    const isSameQueue = currentQueue.tracks === tracks;
+
+    let finalTracks = tracks;
+    let finalIndex = index;
+    let finalOriginal: Track[] | null = null;
+
+    if (shuffleOn && !isSameQueue) {
+      // сохраняем оригинальный список
+      finalOriginal = tracks;
+
+      // если индекс валидный — берём трек из оригинального списка
+      const targetTrack = tracks[index] || track;
+
+      // перемешиваем остальные, целевой ставим первым
+      const others = tracks.filter((t) => t.id !== targetTrack.id);
+      const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
+
+      finalTracks = [targetTrack, ...shuffledOthers];
+      finalIndex = 0;
+    }
+
     set((s: any) => ({
       queue: {
-        tracks,
-        currentIndex: index,
+        tracks: finalTracks,
+        currentIndex: finalIndex,
         source,
-        originalTracks: s.queue.originalTracks,
+        originalTracks: shuffleOn ? finalOriginal : null,
       },
       player: {
         ...s.player,
@@ -147,6 +184,11 @@ if (isCurrent) {
             },
           }));
         }
+
+        // синхронизируем громкость в rust после старта
+        try {
+          await api.setVolume(get().player.volume);
+        } catch {}
         if (!isValid()) {
           await api.stopAudio();
           return;
@@ -174,7 +216,10 @@ if (isCurrent) {
         if (nextTrack?.id) {
           (async () => {
             try {
+              // проверяем что трек не сменился пока качали
+              if (!isValid()) return;
               const nextUrl = await api.getStreamUrl(nextTrack.id);
+              if (!isValid()) return;
               await api.prefetchAudio(nextUrl, nextTrack.id);
             } catch {}
           })();
@@ -358,7 +403,8 @@ if (isCurrent) {
       }
 
       const others = queue.tracks.filter((t: Track) => t.id !== current.id);
-      const shuffled = [current, ...others.sort(() => Math.random() - 0.5)];
+      const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
+      const shuffled = [current, ...shuffledOthers];
 
       set((s: any) => ({
         player: { ...s.player, shuffle: true },
@@ -366,7 +412,7 @@ if (isCurrent) {
           ...s.queue,
           tracks: shuffled,
           currentIndex: 0,
-          originalTracks: s.queue.tracks,
+          originalTracks: s.queue.originalTracks || s.queue.tracks,
         },
       }));
       return;

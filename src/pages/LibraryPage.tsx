@@ -185,7 +185,7 @@ export default function LibraryPage() {
         />
 
         <div className="p-5 flex-1 flex flex-col min-h-0">
-          <TrackList
+                    <TrackList
             tracks={getCurrentTracks()}
             virtualize
             showQueueButton
