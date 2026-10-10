@@ -56,6 +56,18 @@ pub fn seek_audio(seconds: f64, state: State<AppState>) -> Result<engine::Playba
 }
 
 #[tauri::command]
+pub fn start_volume_stream(
+    on_volume: tauri::ipc::Channel<u32>,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
+    let current = state.playback.lock().unwrap().volume_ui;
+    on_volume.send(current).map_err(|e| e.to_string())?;
+
+    *state.volume_channel.lock().unwrap() = Some(on_volume);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn prefetch_audio(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
     engine::prefetch_track(track_id, url, state).await
 }

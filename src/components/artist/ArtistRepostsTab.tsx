@@ -20,7 +20,7 @@ export function ArtistRepostsTab({ reposts }: Props) {
   if (!reposts.length) return <ArtistEmpty text="нет репостов" />;
 
   return (
-    <div ref={setRefs} className="h-[calc(100vh-140px)] overflow-auto scrollbar-thin">
+    <div ref={setRefs} className="h-full w-full overflow-auto scrollbar-thin">
       <TrackList
         tracks={reposts}
         virtualize

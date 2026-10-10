@@ -27,11 +27,11 @@ function NavButton({ item, isActive, onNavigate }: NavButtonProps) {
       className={`group relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden transition-colors duration-300 ${
         isActive ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'
       }`}
-      title={item.label}
+      aria-label={item.label}
     >
       {/* подсветка снизу вверх */}
       <span
-        className={`absolute inset-0 bg-bg-card origin-bottom transition-transform duration-300 ease-out ${
+        className={`absolute inset-0 bg-bg-card/60 backdrop-blur-sm origin-bottom transition-transform duration-300 ease-out ${
           isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
         }`}
       />
@@ -48,7 +48,7 @@ function NavButton({ item, isActive, onNavigate }: NavButtonProps) {
 
 export function Sidebar({ currentPath, onNavigate }: SidebarProps) {
   return (
-    <aside className="w-16 flex flex-col items-center pt-3 pb-4 gap-2 h-full">
+    <aside className="w-16 flex flex-col items-center pt-3 pb-4 gap-2 h-full bg-bg-secondary/30 backdrop-blur-xl">
       {navItems.map((item) => (
         <NavButton
           key={item.id}

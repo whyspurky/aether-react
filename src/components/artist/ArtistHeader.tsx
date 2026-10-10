@@ -18,7 +18,7 @@ export function ArtistHeader({ artist, tracksCount, repostsCount }: Props) {
   };
 
   return (
-    <div className="relative px-6 pt-0 pb-6">
+    <div className="relative px-6 pt-0 pb-2">
       <div className="flex gap-6 items-start">
         <div className="flex-shrink-0">
           {coverUrl ? (
@@ -53,7 +53,7 @@ export function ArtistHeader({ artist, tracksCount, repostsCount }: Props) {
             </p>
           )}
 
-          <div className="flex items-center gap-6 mt-5">
+          <div className="flex items-center gap-6 mt-4">
             <div className="flex flex-col">
               <span className="text-lg font-semibold text-text-primary">{formatCount(artist.followers_count)}</span>
               <span className="text-xs text-text-tertiary">подписчиков</span>
@@ -81,7 +81,7 @@ export function ArtistHeader({ artist, tracksCount, repostsCount }: Props) {
           </div>
 
           {artist.description && (
-            <p className="text-text-tertiary text-sm mt-4 line-clamp-3 leading-relaxed">
+            <p className="text-text-tertiary text-sm mt-3 line-clamp-3 leading-relaxed">
               {artist.description}
             </p>
           )}

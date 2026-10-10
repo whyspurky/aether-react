@@ -107,7 +107,7 @@ export function ArtistPage() {
 
   if (isLoading || !artist) {
     return (
-      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
+      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
@@ -131,7 +131,7 @@ export function ArtistPage() {
   return (
     <div
       ref={setRefs}
-      className={`h-full bg-bg-primary flex flex-col ${
+      className={`h-full bg-bg-primary/40 flex flex-col ${
         activeTab === 'all' ? 'overflow-y-auto custom-scrollbar-hidden' : 'overflow-hidden'
       }`}
     >
@@ -151,7 +151,7 @@ export function ArtistPage() {
         }}
       />
 
-      <div className={`px-6 py-6 ${activeTab === 'all' ? '' : 'flex-1 min-h-0 flex flex-col'}`}>
+      <div className={`px-6 py-1 ${activeTab === 'all' ? '' : 'flex-1 min-h-0 flex flex-col'}`}>
         {activeTab === 'all' && (
           <ArtistAllTab
             popularTracks={popularTracks}

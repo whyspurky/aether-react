@@ -17,11 +17,30 @@ export function useTrackAnimation(currentTrack: Track | null): Result {
   );
   const prevTrackId = useRef<number | null>(null);
   const isFirstTrack = useRef(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!currentTrack) return;
+    if (displayTrack?.id !== currentTrack.id) return;
+
+    if (
+      displayTrack.genre !== currentTrack.genre ||
+      displayTrack.playback_count !== currentTrack.playback_count ||
+      displayTrack.title !== currentTrack.title
+    ) {
+      setDisplayTrack(currentTrack);
+    }
+  }, [currentTrack, displayTrack]);
 
   useEffect(() => {
     if (!currentTrack) {
       setDisplayTrack(null);
       setDisplayCover(null);
+      setIsTrackChanging(false);
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       return;
     }
 
@@ -39,18 +58,30 @@ export function useTrackAnimation(currentTrack: Track | null): Result {
     }
 
     if (prevTrackId.current !== currentTrack.id) {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+
       setIsTrackChanging(true);
       prevTrackId.current = currentTrack.id;
 
-      const t = setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         setDisplayTrack(currentTrack);
         setDisplayCover(cover);
         setIsTrackChanging(false);
+        timerRef.current = null;
       }, 200);
-
-      return () => clearTimeout(t);
     }
   }, [currentTrack]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   return { displayTrack, displayCover, isTrackChanging };
 }

@@ -18,7 +18,7 @@ export function SearchInput({ value, onChange }: Props) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="исполнители, треки"
-        className="w-full py-3.5 pl-12 pr-4 bg-bg-card border border-border-subtle rounded-xl text-text-primary text-lg placeholder:text-text-tertiary outline-none focus:border-border-visible focus:bg-bg-secondary transition-all duration-200"
+        className="w-full py-3.5 pl-12 pr-4 bg-white/[0.04] border border-border-subtle rounded-xl text-text-primary text-lg placeholder:text-text-tertiary outline-none focus:border-border-visible focus:bg-white/[0.07] transition-all duration-200"
         autoFocus
       />
     </div>

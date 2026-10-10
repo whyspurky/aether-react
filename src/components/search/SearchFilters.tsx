@@ -25,8 +25,8 @@ export function SearchFilters({ filter, onChange, canPlayAll, onPlayAll }: Props
             onClick={() => onChange(f.id)}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
               filter === f.id
-                ? 'bg-bg-secondary text-text-primary'
-                : 'bg-bg-card text-text-tertiary hover:bg-bg-secondary hover:text-text-secondary'
+                ? 'bg-white/[0.08] text-text-primary'
+                : 'bg-white/[0.03] text-text-tertiary hover:bg-white/[0.06] hover:text-text-secondary'
             }`}
           >
             <Icon name={f.icon} size={14} />
@@ -38,7 +38,7 @@ export function SearchFilters({ filter, onChange, canPlayAll, onPlayAll }: Props
       {filter === 'tracks' && canPlayAll && (
         <button
           onClick={onPlayAll}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-bg-secondary text-text-primary hover:bg-text-secondary hover:text-bg-primary transition-all duration-200"
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-text-primary hover:bg-white/[0.12] transition-all duration-200"
         >
           <Icon name="play" size={14} />
           слушать всё

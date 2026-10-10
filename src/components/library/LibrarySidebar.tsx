@@ -25,24 +25,24 @@ export function LibrarySidebar({
   const playlistsScrollRef = useSmoothScroll<HTMLDivElement>();
 
   return (
-    <aside className="w-20 flex-shrink-0 flex flex-col items-center gap-2 p-2">
+    <aside className="w-20 flex-shrink-0 flex flex-col items-center gap-2 p-2 bg-bg-secondary/20 backdrop-blur-sm">
       <button
         onClick={onCreateClick}
-        className="w-14 h-14 flex items-center justify-center rounded-2xl border border-border-subtle bg-bg-secondary/30 text-text-tertiary hover:bg-text-secondary hover:text-bg-primary hover:border-transparent transition-all duration-200 active:scale-95"
-        title="создать плейлист"
+        className="w-14 h-14 flex items-center justify-center rounded-2xl border border-border-subtle bg-bg-primary/40 text-text-tertiary hover:bg-white/[0.1] hover:text-text-primary hover:border-transparent transition-all duration-200 active:scale-95"
+        aria-label="создать плейлист"
       >
         <Icon name="plus" size={18} />
       </button>
 
-      <div className="w-14 rounded-2xl border border-border-subtle bg-bg-secondary/30 p-1 flex flex-col items-center gap-1">
+      <div className="w-14 rounded-2xl border border-border-subtle bg-bg-primary/40 p-1 flex flex-col items-center gap-1">
         <button
           onClick={onSelectFavorites}
           className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
             selectedView === 'favorites'
-              ? 'bg-bg-secondary text-text-secondary'
-              : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
+              ? 'bg-white/[0.08] text-text-secondary'
+              : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary'
           }`}
-          title="избранное"
+          aria-label="избранное"
         >
           <Icon name="heart" size={18} />
         </button>
@@ -51,10 +51,10 @@ export function LibrarySidebar({
           onClick={onSelectHistory}
           className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
             selectedView === 'history'
-              ? 'bg-bg-secondary text-text-secondary'
-              : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-primary'
+              ? 'bg-white/[0.08] text-text-secondary'
+              : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary'
           }`}
-          title="история"
+          aria-label="история"
         >
           <Icon name="history" size={18} />
         </button>
@@ -63,12 +63,19 @@ export function LibrarySidebar({
       {playlists.length > 0 && (
         <div
           ref={playlistsScrollRef}
-          className="w-14 rounded-2xl border border-border-subtle bg-bg-secondary/30 p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
+          className="w-14 rounded-2xl border border-border-subtle bg-bg-primary/40 p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
           style={{ maxHeight: '100%', flex: '0 1 auto' }}
         >
           {playlists.map((playlist) => {
-            const cover = playlist.artwork_url || playlist.tracks[0]?.artwork_url || null;
-            const coverUrl = cover?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t200x200');
+            const cover =
+              playlist.artwork_url ||
+              playlist.tracks[0]?.artwork_url ||
+              playlist.tracks[0]?.user?.avatar_url ||
+              null;
+            const coverUrl = cover?.replace(
+              /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/,
+              '-t200x200$2'
+            );
 
             return (
               <div key={playlist.id} className="group relative flex justify-center">

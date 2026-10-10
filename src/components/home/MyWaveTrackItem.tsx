@@ -34,7 +34,7 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
         e.preventDefault();
         openTrackMenu(track, e);
       }}
-      className="group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-bg-secondary active:scale-[0.98]"
+      className="group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] active:scale-[0.98]"
     >
       {coverUrl ? (
         <img
@@ -49,7 +49,7 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
       )}
 
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-text-secondary transition-colors duration-200">
+        <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-[var(--accent-primary)] transition-colors duration-150">
           {track.title || 'без названия'}
         </h4>
         <p className="text-xs text-text-tertiary truncate">

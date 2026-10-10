@@ -36,14 +36,14 @@ export function SettingsTabData() {
 
   return (
     <>
-      <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">
-        <div className="divide-y divide-border-subtle">
+      <div className="bg-bg-primary/40 rounded-2xl border border-border-subtle overflow-hidden">
+              <div className="divide-y divide-border-subtle">
           <button
             onClick={() => setShowClearHistoryConfirm(true)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.04] transition-colors group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-bg-secondary flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
                 <Icon name="history" size={16} className="text-text-secondary" />
               </div>
               <div className="text-left">
@@ -59,7 +59,7 @@ export function SettingsTabData() {
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-bg-secondary flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
                 <Icon name="heart" size={16} className="text-text-secondary" />
               </div>
               <div className="text-left">
@@ -75,7 +75,7 @@ export function SettingsTabData() {
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-bg-secondary flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
                 <Icon name="trash-2" size={16} className="text-text-secondary" />
               </div>
               <div className="text-left">

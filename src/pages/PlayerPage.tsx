@@ -9,6 +9,9 @@ import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
+import { MarqueeText } from '@components/track/AnimatedTrackInfo';
+import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
+import { usePlayerControlsLayout } from '@hooks/player/usePlayerControlsLayout';
 
 export default function PlayerPage() {
   const player = useStore((s) => s.player);
@@ -23,7 +26,10 @@ export default function PlayerPage() {
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const queueScrollRef = useSmoothScroll<HTMLDivElement>();
   const { currentTrack, isPlaying, volume, shuffle, repeat, duration, isLoading, isAudioReady } = player;
-
+  const favorites = useStore((s) => s.library.favorites);
+  const addToFavorites = useStore((s) => s.addToFavorites);
+  const removeFromFavorites = useStore((s) => s.removeFromFavorites);
+  const { open: openAddToPlaylist } = useAddToPlaylist();
   const trackRef = useRef<HTMLDivElement | null>(null);
   const fillRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
@@ -42,7 +48,7 @@ export default function PlayerPage() {
   const durationRef = useRef(effectiveDuration);
   durationRef.current = effectiveDuration;
   const seekToRef = useRef<(pos: number) => void>(() => {});
-  // сначала создаём drag, он даёт isDragging
+
   const { isDragging, dragPosRef, handleMouseDown } = useSeekDrag({
     trackRef,
     effectiveDuration,
@@ -52,7 +58,16 @@ export default function PlayerPage() {
     },
   });
 
-  // потом progress, он знает про isDragging
+  const controlsContainerRef = useRef<HTMLDivElement | null>(null);
+  const shuffleRef = useRef<HTMLButtonElement | null>(null);
+  const rightButtonsRef = useRef<HTMLDivElement | null>(null);
+
+  const { volumeWidth, volumeMode } = usePlayerControlsLayout({
+    containerRef: controlsContainerRef,
+    shuffleRef,
+    rightButtonsRef,
+  });
+
   const { progressRef, seekTo } = usePlayerProgress({
     currentTrackId: currentTrack?.id,
     isPlaying,
@@ -65,6 +80,7 @@ export default function PlayerPage() {
     },
   });
   seekToRef.current = seekTo;
+
   useEffect(() => {
     let raf: number;
     const tick = () => {
@@ -81,7 +97,7 @@ export default function PlayerPage() {
 
   if (!currentTrack) {
     return (
-      <div className="h-full overflow-auto p-6 bg-bg-primary">
+      <div className="h-full overflow-auto p-6 bg-bg-primary/40">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
             <div className="relative mb-6">
@@ -98,16 +114,16 @@ export default function PlayerPage() {
     );
   }
 
-  const coverSize = 'calc(50vh - 120px)';
+  const coverSize = 'min(250px, calc(50vh - 120px))';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="p-4 flex-1 flex flex-col min-h-0">
-        <div className="flex gap-8 flex-shrink-0" style={{ minHeight: coverSize }}>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="relative flex gap-8 min-h-0" style={{ minHeight: coverSize }}>
           <div
-            className={`flex-shrink-0 rounded-2xl overflow-hidden relative transition-shadow duration-300 ${
+            className={`flex-shrink-0 rounded-2xl overflow-hidden relative transition-all duration-500 z-10 ${
               !isTrackChanging && displayCover
-                ? 'shadow-2xl shadow-white/5'
+                ? 'shadow-[0_25px_100px_-15px_rgba(255,255,255,0.4)] ring-1 ring-white/5'
                 : 'shadow-none'
             }`}
             style={{ width: coverSize, height: coverSize }}
@@ -142,35 +158,49 @@ export default function PlayerPage() {
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col" style={{ height: coverSize }}>
-            <div className="overflow-hidden relative">
-              <h1
-                className={`font-bold text-text-primary mb-2 transition-all duration-200 ease-out will-change-transform ${
-                  isTrackChanging ? 'opacity-0 -translate-x-8' : 'opacity-100 translate-x-0'
-                }`}
-                style={{ fontSize: 'clamp(1.2rem, 3vw, 2.5rem)', lineHeight: '1.2', wordBreak: 'break-word' }}
-              >
-                {displayTrack?.title || currentTrack.title || 'без названия'}
-              </h1>
+            <div
+              className={`transition-all duration-200 ease-out will-change-transform ${
+                isTrackChanging ? 'opacity-0 -translate-x-8' : 'opacity-100 translate-x-0'
+              }`}
+            >
+              <MarqueeText
+                text={displayTrack?.title || currentTrack.title || 'без названия'}
+                className="font-black tracking-tight text-text-primary"
+                style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)', lineHeight: '1.15' }}
+              />
             </div>
 
-            <div className="overflow-hidden relative">
-              <p
-                className={`text-text-secondary transition-all duration-200 ease-out delay-75 will-change-transform ${
-                  isTrackChanging ? 'opacity-0 -translate-x-6' : 'opacity-100 translate-x-0'
-                }`}
-                style={{ fontSize: 'clamp(0.8rem, 1.5vw, 1.2rem)', wordBreak: 'break-word' }}
-              >
-                {currentTrack?.user?.id ? (
-                  <span
-                    onClick={() => navigate(`/artist/${currentTrack.user!.id}`)}
-                    className="cursor-pointer hover:text-text-primary transition-colors"
-                  >
-                    {displayTrack?.user?.username || currentTrack.user.username || ''}
-                  </span>
-                ) : (
-                  displayTrack?.user?.username || currentTrack.user?.username || ''
-                )}
-              </p>
+            <div
+              className={`mt-1 transition-all duration-200 ease-out delay-75 will-change-transform ${
+                isTrackChanging ? 'opacity-0 -translate-x-6' : 'opacity-100 translate-x-0'
+              }`}
+            >
+              <MarqueeText
+                text={currentTrack?.user?.username || displayTrack?.user?.username || ''}
+                className="text-text-secondary"
+                style={{ fontSize: 'clamp(0.85rem, 1.5vw, 1.25rem)' }}
+                onClick={
+                  currentTrack?.user?.id
+                    ? () => navigate(`/artist/${currentTrack.user!.id}`)
+                    : undefined
+                }
+              />
+
+              {(currentTrack?.playback_count || currentTrack?.genre) && (
+                <div className="flex items-center gap-3 mt-2 text-xs text-text-tertiary">
+                  {currentTrack?.playback_count !== undefined && (
+                    <span className="flex items-center gap-1">
+                      <Icon name="play" size={12} />
+                      {currentTrack.playback_count.toLocaleString()}
+                    </span>
+                  )}
+                  {currentTrack?.genre && (
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.08]">
+                      {currentTrack.genre}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex-1" />
@@ -184,18 +214,20 @@ export default function PlayerPage() {
               onMouseDown={handleMouseDown}
             />
 
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mt-2 h-12">
-              <div className="min-w-0">
+            <div ref={controlsContainerRef} className="relative flex items-center mt-2 h-12 min-w-0">
+              <div className="flex items-center min-w-0" style={{ width: volumeWidth }}>
                 <PlayerVolumeBar
                   volume={volume}
                   isAudioReady={isAudioReady}
                   isLoading={isLoading}
                   onVolumeChange={setVolume}
+                  mode={volumeMode}
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
                 <button
+                  ref={shuffleRef}
                   onClick={() => setShuffle(!shuffle)}
                   className={`flex-shrink-0 p-1.5 rounded-full transition-all ${shuffle ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'}`}
                 >
@@ -211,7 +243,7 @@ export default function PlayerPage() {
                   onClick={() => { if (!isLoading) togglePlay(); }}
                   disabled={isLoading}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                    isLoading ? 'bg-bg-secondary cursor-wait' : 'bg-bg-secondary hover:scale-105'
+                    isLoading ? 'bg-white/[0.08] cursor-wait' : 'bg-white/[0.08] hover:bg-white/[0.14] hover:scale-105'
                   }`}
                 >
                   {isLoading ? (
@@ -237,7 +269,37 @@ export default function PlayerPage() {
                 </button>
               </div>
 
-              <div />
+              <div ref={rightButtonsRef} className="flex items-center justify-end gap-2 ml-auto">
+                {currentTrack && (
+                  <button
+                    onClick={() => {
+                      const isFav = favorites.some((f) => f.id === currentTrack.id);
+                      if (isFav) removeFromFavorites(currentTrack.id);
+                      else addToFavorites(currentTrack);
+                    }}
+                    className={`flex-shrink-0 p-1.5 rounded-full transition-all ${
+                      favorites.some((f) => f.id === currentTrack.id)
+                        ? 'text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+                        : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+                    }`}
+                  >
+                    <Icon
+                      name="heart"
+                      size={18}
+                      className={favorites.some((f) => f.id === currentTrack.id) ? 'fill-current' : ''}
+                    />
+                  </button>
+                )}
+
+                {currentTrack && (
+                  <button
+                    onClick={(e) => openAddToPlaylist(currentTrack, e.currentTarget as HTMLElement)}
+                    className="flex-shrink-0 p-1.5 rounded-full text-text-tertiary hover:text-text-secondary transition-all"
+                  >
+                    <Icon name="plus-circle" size={18} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

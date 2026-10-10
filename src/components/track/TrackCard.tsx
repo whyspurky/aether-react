@@ -43,7 +43,7 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
         openTrackMenu(track, e);
       }}
     >
-      <div className="relative aspect-square rounded-xl overflow-hidden bg-bg-secondary border border-border-subtle group-hover:border-border-visible transition-all duration-300 group-hover:shadow-xl group-hover:shadow-white/5">
+      <div className="relative aspect-square rounded-xl overflow-hidden bg-bg-secondary/60 backdrop-blur-sm border border-border-subtle group-hover:border-border-visible transition-all duration-300 group-hover:shadow-xl group-hover:shadow-white/5">
         {coverUrl ? (
           <img
             src={coverUrl}
@@ -62,14 +62,14 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
             openTrackMenu(track, e, { below: true });
           }}
           className="absolute top-2 right-2 w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm grid place-items-center text-white hover:bg-black/80 transition-all duration-200 opacity-0 group-hover:opacity-100"
-          title="меню трека"
+          aria-label="меню трека"
         >
           <Icon name="plus" size={12} />
         </button>
       </div>
 
       <div className="mt-2 space-y-0.5">
-        <h4 className="text-sm font-medium text-text-primary truncate leading-tight">
+        <h4 className="text-sm font-medium text-text-primary truncate leading-tight transition-colors duration-150 group-hover:text-[var(--accent-primary)]">
           {track.title || 'без названия'}
         </h4>
         <p className="text-xs text-text-tertiary truncate leading-tight">

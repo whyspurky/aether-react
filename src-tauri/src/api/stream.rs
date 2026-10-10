@@ -132,8 +132,15 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
     Err(ApiError::Other("нет форматов для трека".into()))
 }
 
+#[derive(serde::Serialize)]
+pub struct StreamInfo {
+    pub url: String,
+    pub genre: Option<String>,
+    pub playback_count: Option<u64>,
+}
+
 #[tauri::command]
-pub async fn get_stream_url(track_id: String) -> Result<String, String> {
+pub async fn get_stream_url(track_id: String) -> Result<StreamInfo, String> {
     let data = get_track(&track_id).await.map_err(|e| e.to_string())?;
 
     if let Some(first) = data.get("errors").and_then(|e| e.as_array()).and_then(|a| a.first()) {
@@ -144,7 +151,16 @@ pub async fn get_stream_url(track_id: String) -> Result<String, String> {
         return Err(format!("ск {}", msg));
     }
 
-    resolve_stream(&data).await.map_err(|e| e.to_string())
+    let url = resolve_stream(&data).await.map_err(|e| e.to_string())?;
+
+    let genre = data.get("genre")
+        .and_then(|g| g.as_str())
+        .filter(|s| !s.is_empty())
+        .map(String::from);
+
+    let playback_count = data.get("playback_count").and_then(|p| p.as_u64());
+
+    Ok(StreamInfo { url, genre, playback_count })
 }
 
 #[tauri::command]

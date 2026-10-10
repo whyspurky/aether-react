@@ -18,12 +18,12 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
       const artistWidth = 25 + Math.random() * 35;
       return (
         <div key={i} className="flex items-center gap-3 p-2">
-          <div className="w-10 h-10 rounded-md bg-bg-secondary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-md bg-white/[0.06] flex items-center justify-center">
             <Icon name="music" size={16} className="text-text-tertiary" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="h-4 bg-bg-secondary rounded mb-1" style={{ width: `${titleWidth}%` }} />
-            <div className="h-3 bg-bg-secondary rounded" style={{ width: `${artistWidth}%` }} />
+            <div className="h-4 bg-white/[0.06] rounded mb-1" style={{ width: `${titleWidth}%` }} />
+            <div className="h-3 bg-white/[0.04] rounded" style={{ width: `${artistWidth}%` }} />
           </div>
         </div>
       );
@@ -41,14 +41,18 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
             <button
               onClick={onPlay}
               disabled={!tracks.length || isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary text-text-secondary rounded-full text-xs font-medium hover:bg-text-secondary hover:text-bg-primary transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.08] text-text-secondary rounded-full text-xs font-medium hover:bg-white/[0.14] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Icon name="play" size={12} />
               <span>слушать</span>
             </button>
           </div>
 
-          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden">
+          <div
+            ref={scrollRef}
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden"
+            style={{ marginBottom: '-1rem', paddingBottom: '1rem' }}
+          >
             {isLoading ? (
               <div className="space-y-1">{renderSkeletons()}</div>
             ) : tracks.length ? (

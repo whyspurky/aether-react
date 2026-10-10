@@ -11,7 +11,11 @@ interface Props {
 
 export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props) {
   const navigate = useNavigate();
-  const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || null;
+  const coverUrl =
+    playlist.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
+    playlist.tracks[0]?.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
+    playlist.tracks[0]?.user?.avatar_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
+    null;
   const title = playlist.title || playlist.name || 'без названия';
 
   const typeLabel = {

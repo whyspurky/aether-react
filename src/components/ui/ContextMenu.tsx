@@ -23,7 +23,6 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
   const [pos, setPos] = useState({ x, y });
   const [closing, setClosing] = useState(false);
 
-  // позиционирование
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -46,7 +45,6 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
     });
   };
 
-  // внешний триггер закрытия (повторный клик по anchor)
   useEffect(() => {
     if (forceClose && forceClose > 0) {
       startClose();
@@ -84,7 +82,7 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
     <div
       ref={ref}
       style={{ top: pos.y, left: pos.x }}
-      className={`fixed z-[9999] min-w-[180px] bg-bg-card border border-border-subtle rounded-xl shadow-2xl py-1 ${
+      className={`fixed z-[9999] min-w-[180px] bg-bg-card/80 backdrop-blur-xl border border-border-subtle rounded-xl shadow-2xl py-1 ${
         closing ? 'animate-menu-exit' : 'animate-menu-enter'
       }`}
     >

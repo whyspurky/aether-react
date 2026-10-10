@@ -47,7 +47,7 @@ export function ProxyConnectionTest({ mode }: Props) {
   }, [mode]);
 
   return (
-    <div className="rounded-2xl border border-border-subtle bg-bg-primary p-5">
+    <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <p className="text-sm text-text-primary">проверка подключения</p>

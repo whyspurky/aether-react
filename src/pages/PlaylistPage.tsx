@@ -99,7 +99,7 @@ export function PlaylistPage() {
 
   if (isLoading || !playlist) {
     return (
-      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
+      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
@@ -121,7 +121,7 @@ export function PlaylistPage() {
   }
 
   return (
-    <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary">
+    <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
       <div className="p-6">
         <button
           onClick={() => navigate(-1)}

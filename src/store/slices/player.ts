@@ -41,7 +41,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const createPlayerSlice = (set: any, get: any) => ({
   queue: {
-    tracks: [],
+    tracks: [] as Track[],
     currentIndex: -1,
     source: '',
     originalTracks: null,
@@ -57,7 +57,7 @@ export const createPlayerSlice = (set: any, get: any) => ({
     position: 0,
     duration: 0,
     pendingSeek: null,
-    shuffleHistory: [],
+    shuffleHistory: [] as number[],
   },
 
   addToQueue: (track: Track) =>
@@ -86,7 +86,7 @@ if (isCurrent) {
       ...s.queue,
       tracks: newTracks,
       originalTracks: newOriginal,
-      currentIndex: idx - 1,  // перед удалённым — nextTrack даст idx
+      currentIndex: idx - 1,
     },
   });
   get().nextTrack(true);
@@ -110,7 +110,6 @@ if (isCurrent) {
   playTrack: async (track: Track, tracks: Track[], index: number, source = 'queue', _errorDepth = 0) => {
     const state = get();
 
-    // защита от повторного запуска того же трека
     if (state.player.isLoading && state.player.currentTrack?.id === track.id) {
       return;
     }
@@ -124,7 +123,6 @@ if (isCurrent) {
     const { player, queue: currentQueue } = get();
     const shuffleOn = player.shuffle;
 
-    // если очередь та же самая — не шафлим повторно
     const isSameQueue = currentQueue.tracks === tracks;
 
     let finalTracks = tracks;
@@ -132,13 +130,10 @@ if (isCurrent) {
     let finalOriginal: Track[] | null = null;
 
     if (shuffleOn && !isSameQueue) {
-      // сохраняем оригинальный список
       finalOriginal = tracks;
 
-      // если индекс валидный — берём трек из оригинального списка
       const targetTrack = tracks[index] || track;
 
-      // перемешиваем остальные, целевой ставим первым
       const others = tracks.filter((t) => t.id !== targetTrack.id);
       const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
 
@@ -172,10 +167,23 @@ if (isCurrent) {
       if (!isValid()) return;
 
       try {
-        const url = await api.getStreamUrl(track.id);
+        const stream = await api.getStreamUrl(track.id);
         if (!isValid()) return;
 
-        const sync = await api.playAudio(url, track.id);
+        if (stream.genre || stream.playback_count !== null) {
+          set((s: any) => ({
+            player: {
+              ...s.player,
+              currentTrack: {
+                ...track,
+                genre: stream.genre || undefined,
+                playback_count: stream.playback_count ?? undefined,
+              },
+            },
+          }));
+        }
+
+        const sync = await api.playAudio(stream.url, track.id);
         if (sync) {
           set((s: any) => ({
             player: {
@@ -185,7 +193,6 @@ if (isCurrent) {
           }));
         }
 
-        // синхронизируем громкость в rust после старта
         try {
           await api.setVolume(get().player.volume);
         } catch {}
@@ -216,11 +223,10 @@ if (isCurrent) {
         if (nextTrack?.id) {
           (async () => {
             try {
-              // проверяем что трек не сменился пока качали
               if (!isValid()) return;
-              const nextUrl = await api.getStreamUrl(nextTrack.id);
+              const nextStream = await api.getStreamUrl(nextTrack.id);
               if (!isValid()) return;
-              await api.prefetchAudio(nextUrl, nextTrack.id);
+              await api.prefetchAudio(nextStream.url, nextTrack.id);
             } catch {}
           })();
         }
@@ -308,7 +314,6 @@ if (isCurrent) {
   prevTrack: async (manual = false) => {
     const { player } = get();
 
-    // если трек играет больше 3 секунд — seek в начало
     if (player.currentTrack && player.position > 3) {
       try {
         await api.seekAudio(0);

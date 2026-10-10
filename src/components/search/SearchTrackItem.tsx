@@ -32,7 +32,7 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
         e.preventDefault();
         openTrackMenu(track, e);
       }}
-      className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-bg-secondary w-full"
+      className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] w-full"
     >
       {coverUrl ? (
         <img src={coverUrl} className="w-12 h-12 rounded-md object-cover flex-shrink-0" alt="" />
@@ -42,7 +42,7 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <h4 className="text-base font-medium text-text-primary truncate">
+        <h4 className="text-base font-medium text-text-primary truncate transition-colors duration-150 group-hover:text-[var(--accent-primary)]">
           {track.title || 'без названия'}
         </h4>
         <p className="text-sm text-text-tertiary truncate">
@@ -65,7 +65,7 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
         <button
           onClick={(e) => onAddToQueue(track, e)}
           className="p-2 rounded-md text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-text-secondary transition-all duration-200"
-          title="добавить в очередь"
+          aria-label="добавить в очередь"
         >
           <Icon name="plus" size={16} />
         </button>

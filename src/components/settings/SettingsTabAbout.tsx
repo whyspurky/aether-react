@@ -9,10 +9,9 @@ export function SettingsTabAbout() {
   }, []);
 
   return (
-    <div className="bg-bg-primary rounded-2xl border border-border-subtle overflow-hidden">
-      <div className="p-6">
+    <div className="bg-bg-primary/40 rounded-2xl border border-border-subtle overflow-hidden">      <div className="p-6">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-bg-secondary flex items-center justify-center border border-border-subtle">
+          <div className="w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center border border-border-subtle">
             <span className="text-text-secondary text-lg font-bold">a</span>
           </div>
           <div>

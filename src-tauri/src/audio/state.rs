@@ -7,6 +7,7 @@ pub struct Playback {
     pub is_playing: bool,
     pub is_muted: bool,
     pub volume: f32,
+    pub volume_ui: u32,
     pub base_offset: Duration,
     pub play_start: Option<Instant>,
     pub duration_ms: u32,
@@ -21,6 +22,7 @@ impl Playback {
             is_playing: false,
             is_muted: false,
             volume: 0.8,
+            volume_ui: 80,
             base_offset: Duration::ZERO,
             play_start: None,
             duration_ms: 0,
@@ -32,7 +34,7 @@ impl Playback {
 
     pub fn position(&self) -> Duration {
         let elapsed = match (self.is_playing, self.play_start) {
-            (true, Some(t)) => t.elapsed(), 
+            (true, Some(t)) => t.elapsed(),
             _ => Duration::ZERO,
         };
         let pos = self.base_offset + elapsed;
@@ -40,9 +42,9 @@ impl Playback {
         if max.is_zero() { pos } else { pos.min(max) }
     }
 
-pub fn start(&mut self, bytes: Bytes, track_id: u64) {
-    self.bytes = Some(bytes);
-    self.current_track_id = track_id;
+    pub fn start(&mut self, bytes: Bytes, track_id: u64) {
+        self.bytes = Some(bytes);
+        self.current_track_id = track_id;
         self.base_offset = Duration::ZERO;
         self.play_start = Some(Instant::now());
         self.is_playing = true;
@@ -87,6 +89,7 @@ pub fn start(&mut self, bytes: Bytes, track_id: u64) {
     pub fn set_volume(&mut self, v: u32) -> f32 {
         let clamped = (v as f32 / 100.0).clamp(0.0, 1.0);
         self.volume = clamped;
+        self.volume_ui = v;
         if self.is_muted { 0.0 } else { clamped }
     }
 
@@ -107,6 +110,7 @@ pub struct AppState {
     pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
     pub tick_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    pub volume_channel: Arc<Mutex<Option<tauri::ipc::Channel<u32>>>>,
 }
 
 impl AppState {
@@ -122,6 +126,7 @@ impl AppState {
             prefetch_task: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
             tick_task: Arc::new(Mutex::new(None)),
+            volume_channel: Arc::new(Mutex::new(None)),
         }
     }
 }

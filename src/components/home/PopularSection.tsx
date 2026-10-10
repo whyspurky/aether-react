@@ -39,9 +39,9 @@ export function PopularSection({
           <HorizontalScroll gap={12} style={{ minHeight: '280px' }}>
             {[...Array(7)].map((_, i) => (
               <div key={i} className="w-[160px] flex-shrink-0 animate-pulse">
-                <div className="aspect-square rounded-xl bg-bg-secondary" />
-                <div className={`mt-2 h-3 bg-bg-secondary rounded ${TITLE_WIDTHS[i % TITLE_WIDTHS.length]}`} />
-                <div className={`mt-1 h-2 bg-bg-secondary rounded ${ARTIST_WIDTHS[i % ARTIST_WIDTHS.length]}`} />
+                <div className="aspect-square rounded-xl bg-white/[0.06]" />
+                <div className={`mt-2 h-3 bg-white/[0.06] rounded ${TITLE_WIDTHS[i % TITLE_WIDTHS.length]}`} />
+                <div className={`mt-1 h-2 bg-white/[0.04] rounded ${ARTIST_WIDTHS[i % ARTIST_WIDTHS.length]}`} />
               </div>
             ))}
           </HorizontalScroll>
@@ -61,9 +61,9 @@ export function PopularSection({
               <>
                 {[...Array(3)].map((_, i) => (
                   <div key={i} className="w-[160px] flex-shrink-0 animate-pulse">
-                    <div className="aspect-square rounded-xl bg-bg-secondary" />
-                    <div className="mt-2 h-3 bg-bg-secondary rounded w-3/4" />
-                    <div className="mt-1 h-2 bg-bg-secondary rounded w-1/2" />
+                    <div className="aspect-square rounded-xl bg-white/[0.06]" />
+                    <div className="mt-2 h-3 bg-white/[0.06] rounded w-3/4" />
+                    <div className="mt-1 h-2 bg-white/[0.04] rounded w-1/2" />
                   </div>
                 ))}
               </>

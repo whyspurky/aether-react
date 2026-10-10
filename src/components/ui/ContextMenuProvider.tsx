@@ -23,7 +23,6 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   const anchorRef = useRef<HTMLElement | undefined>(undefined);
 
   const open = useCallback((x: number, y: number, items: ContextMenuItem[], anchor?: HTMLElement) => {
-    // повторный клик по тому же anchor — закрываем анимированно
     if (anchorRef.current && anchor === anchorRef.current) {
       setState((prev) => prev ? { ...prev, forceClose: prev.forceClose + 1 } : null);
       anchorRef.current = undefined;

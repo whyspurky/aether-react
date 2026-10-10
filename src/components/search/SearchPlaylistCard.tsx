@@ -8,7 +8,11 @@ interface Props {
 
 export function SearchPlaylistCard({ playlist }: Props) {
   const navigate = useNavigate();
-  const coverUrl = playlist.artwork_url?.replace('-large', '-t300x300') || null;
+  const coverUrl =
+    playlist.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
+    playlist.tracks?.[0]?.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
+    playlist.tracks?.[0]?.user?.avatar_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
+    null;
   const title = playlist.title || playlist.name || 'без названия';
 
   const typeLabel = {
@@ -20,7 +24,7 @@ export function SearchPlaylistCard({ playlist }: Props) {
   return (
     <div
       onClick={() => navigate(`/playlist/${playlist.id}`)}
-      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
+      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card/60 backdrop-blur-sm border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
     >
       {coverUrl ? (
         <img src={coverUrl} alt={title} className="w-12 h-12 rounded-md object-cover flex-shrink-0" />

@@ -212,7 +212,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
   return (
     <div className="space-y-4">
       {/* папка zapret */}
-      <div className="rounded-2xl border border-border-subtle bg-bg-primary p-5 space-y-4">
+      <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5 space-y-4">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <input
@@ -224,7 +224,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
             />
             <button
               onClick={handlePickFolder}
-              title="выбрать папку"
+              aria-label="выбрать папку"
               className="px-3 py-2 rounded-lg text-text-tertiary hover:bg-bg-secondary hover:text-text-primary transition-all"
             >
               <Icon name="folder" size={16} />
@@ -259,7 +259,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
           )}
 
           {downloadError && (
-            <p className="text-xs text-red-400 font-mono truncate" title={downloadError}>
+            <p className="text-xs text-red-400 font-mono truncate" aria-label={downloadError}>
               {downloadError}
             </p>
           )}
@@ -268,7 +268,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
 
       {/* стратегии */}
       {folder.trim() && (
-        <div className="rounded-2xl border border-border-subtle bg-bg-primary p-5 space-y-4">
+        <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-text-primary">стратегии</p>
             <span className="text-xs text-text-tertiary">
@@ -336,7 +336,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
 
       {/* списки доменов */}
       {folder.trim() && (
-        <div className="rounded-2xl border border-border-subtle bg-bg-primary p-5 space-y-4">
+        <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-text-primary">списки доменов</p>
             <div className="flex items-center gap-2">
@@ -354,7 +354,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
           </div>
 
           {listError && (
-            <p className="text-xs text-red-400 font-mono truncate" title={listError}>
+            <p className="text-xs text-red-400 font-mono truncate" aria-label={listError}>
               {listError}
             </p>
           )}
@@ -378,7 +378,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                     <div className="flex items-center gap-2">
                       <span
                         className={lc.has_sndcdn ? 'text-green-500' : 'text-red-400'}
-                        title={
+                        aria-label={
                           lc.has_sndcdn
                             ? `${lc.sndcdn_lines.length} строк`
                             : 'sndcdn не найден'
@@ -391,7 +391,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
 
                   <button
                     onClick={() => handleOpenFile(lc.file)}
-                    title="открыть"
+                    aria-label="открыть"
                     className="p-1 rounded text-text-tertiary hover:bg-bg-secondary hover:text-text-primary transition-all"
                   >
                     <Icon name="external-link" size={12} />

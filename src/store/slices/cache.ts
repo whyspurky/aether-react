@@ -130,13 +130,16 @@ export const createCacheSlice = (set: any, get: any) => ({
     },
   })),
 
-    setSearchCache: (tab: 'tracks' | 'artists' | 'playlists', patch: Partial<CacheSlice['searchPage']['cache']['tracks']>) =>
+  setSearchCache: (
+    tab: 'tracks' | 'artists' | 'playlists',
+    patch: Partial<{ items: Track[] | User[] | Playlist[]; offset: number; hasMore: boolean; loaded: boolean }>
+  ) =>
     set((s: any) => ({
       searchPage: {
         ...s.searchPage,
         cache: {
           ...s.searchPage.cache,
-          [tab]: { ...s.searchPage.cache[tab], ...patch },
+          [tab]: { ...s.searchPage.cache[tab], ...patch } as any,
         },
       },
     })),

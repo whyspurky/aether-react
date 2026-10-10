@@ -17,7 +17,7 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
 
 export function SettingsSidebar({ activeTab, zapretRunning, onChange }: Props) {
   return (
-    <aside className="w-48 flex-shrink-0 border-r border-border-subtle bg-bg-primary p-4">
+    <aside className="w-48 flex-shrink-0 border-r border-border-subtle bg-bg-primary/40 p-4">
       <div className="space-y-1">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -33,7 +33,7 @@ export function SettingsSidebar({ activeTab, zapretRunning, onChange }: Props) {
               }`}
             >
               <span
-                className={`absolute inset-0 bg-bg-secondary origin-bottom transition-transform duration-300 ease-out ${
+                className={`absolute inset-0 bg-white/[0.08] origin-bottom transition-transform duration-300 ease-out ${
                   isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
                 }`}
               />

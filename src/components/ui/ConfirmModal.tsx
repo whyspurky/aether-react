@@ -38,7 +38,7 @@ export function ConfirmModal({
       onClick={onCancel}
     >
       <div
-        className="bg-bg-card rounded-xl w-[400px] max-w-[90%] shadow-2xl border border-border-subtle animate-modal-content"
+        className="bg-bg-card/80 backdrop-blur-xl rounded-xl w-[400px] max-w-[90%] shadow-2xl border border-border-subtle animate-modal-content"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-5 border-b border-border-subtle">

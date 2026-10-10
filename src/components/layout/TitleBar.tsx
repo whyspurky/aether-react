@@ -20,16 +20,16 @@ export function TitleBar({ onMinimize, onMaximize, onClose }: TitleBarProps) {
       </div>
 
       <div className="flex items-center gap-1.5">
-        <button onClick={onMinimize} className={btnClass} title="свернуть">
+        <button onClick={onMinimize} className={btnClass} aria-label="свернуть">
           <Icon name="minus" size={14} />
         </button>
-        <button onClick={onMaximize} className={btnClass} title="развернуть">
+        <button onClick={onMaximize} className={btnClass} aria-label="развернуть">
           <Icon name="square" size={14} />
         </button>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-md flex items-center justify-center text-text-tertiary hover:bg-red-600 hover:text-white transition-all duration-200"
-          title="закрыть"
+          aria-label="закрыть"
         >
           <Icon name="x" size={14} />
         </button>

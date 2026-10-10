@@ -36,7 +36,7 @@ export function ProxyModeSelector({ mode, zapretRunning, onChange }: Props) {
             className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 ${
               active
                 ? 'bg-bg-secondary border-border-visible'
-                : 'bg-bg-primary border-border-subtle hover:border-border-visible'
+                : 'bg-bg-primary/40 border-border-subtle hover:border-border-visible'
             } ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
           >
             <div className="w-9 h-9 rounded-lg bg-bg-secondary flex items-center justify-center flex-shrink-0">

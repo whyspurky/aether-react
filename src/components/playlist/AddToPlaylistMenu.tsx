@@ -52,7 +52,9 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (menuRef.current?.contains(target)) return;
+
       if (anchorEl?.contains(target)) return;
+
       onClose();
     };
 
@@ -60,7 +62,10 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
       if (e.key === 'Escape') onClose();
     };
 
-    const handleScroll = () => onClose();
+    const handleScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      onClose();
+    };
     const handleResize = () => onClose();
 
     document.addEventListener('mousedown', handleMouseDown);
@@ -99,7 +104,7 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
         maxHeight: MENU_MAX_HEIGHT,
         visibility: pos ? 'visible' : 'hidden',
       }}
-      className={`fixed z-[9999] bg-bg-card rounded-xl border border-border-subtle shadow-2xl overflow-hidden ${
+      className={`fixed z-[9999] bg-bg-card/80 backdrop-blur-xl rounded-xl border border-border-subtle shadow-2xl overflow-hidden ${
         isClosing ? 'animate-menu-exit' : 'animate-menu-enter'
       }`}
       onClick={(e) => e.stopPropagation()}
@@ -110,8 +115,15 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
         ) : (
           playlists.map((pl) => {
             const hasTrack = pl.tracks.some((t) => t.id === track.id);
-            const cover = pl.artwork_url || pl.tracks[0]?.artwork_url || null;
-            const coverUrl = cover?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)$/, '-t200x200');
+            const cover =
+              pl.artwork_url ||
+              pl.tracks[0]?.artwork_url ||
+              pl.tracks[0]?.user?.avatar_url ||
+              null;
+            const coverUrl = cover?.replace(
+              /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/,
+              '-t200x200$2'
+            );
 
             return (
               <button

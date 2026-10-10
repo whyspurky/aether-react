@@ -41,7 +41,6 @@ export function ScrollableSection({
     };
   }, []);
 
-  // drag скролл мышкой
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;

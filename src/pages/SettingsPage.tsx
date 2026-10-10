@@ -26,7 +26,7 @@ export default function SettingsPage() {
   }, []);
 
   return (
-    <div className="h-full flex bg-bg-primary rounded-2xl overflow-hidden border border-border-subtle">
+    <div className="h-full flex bg-bg-primary/40 rounded-2xl overflow-hidden border border-border-subtle">
       <SettingsSidebar
         activeTab={activeTab}
         zapretRunning={zapretStatus === 'running'}

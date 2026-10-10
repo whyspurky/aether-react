@@ -214,6 +214,11 @@ pub fn get_position(state: State<AppState>) -> Result<f64, String> {
 pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
     let effective = state.playback.lock().unwrap().set_volume(volume);
     state.player.lock().unwrap().set_volume(effective);
+
+    if let Some(ch) = state.volume_channel.lock().unwrap().as_ref() {
+        let _ = ch.send(volume);
+    }
+
     Ok(())
 }
 

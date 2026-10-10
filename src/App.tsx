@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AddToPlaylistProvider } from './components/playlist/AddToPlaylistProvider';
 import { useEffect } from 'react';
@@ -43,7 +41,6 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    // синхронизируем громкость с rust при старте
     const syncVolume = () => {
       const s = useStore.getState();
       if (typeof s.player.volume === 'number') {
@@ -70,9 +67,9 @@ function AppContent() {
       clearInterval(t);
 
       try {
-        const url = await api.getStreamUrl(s.player.currentTrack.id);
-        if (!url) return;
-        await api.prefetchAudio(url, s.player.currentTrack.id);
+        const stream = await api.getStreamUrl(s.player.currentTrack.id);
+        if (!stream?.url) return;
+        await api.prefetchAudio(stream.url, s.player.currentTrack.id);
       } catch {}
     };
 

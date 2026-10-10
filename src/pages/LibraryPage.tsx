@@ -22,7 +22,7 @@ export default function LibraryPage() {
   const removeFromPlaylist = useStore((s) => s.removeFromPlaylist);
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
-  const { close: closeAddToPlaylist, openTrackId } = useAddToPlaylist();
+  const { close: closeAddToPlaylist } = useAddToPlaylist();
  
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
@@ -42,11 +42,7 @@ export default function LibraryPage() {
     setShowSettingsMenu(false);
   }, [selectedView, selectedPlaylistId]);
 
-  useEffect(() => {
-    if (selectedView !== 'playlist' || !selectedPlaylist || !openTrackId) return;
-    const stillThere = selectedPlaylist.tracks.some((t) => t.id === openTrackId);
-    if (!stillThere) closeAddToPlaylist();
-  }, [selectedPlaylist, selectedView, openTrackId, closeAddToPlaylist]);
+ 
   
   const validatePlaylistName = (name: string): boolean => {
     if (name.length > MAX_PLAYLIST_NAME_LENGTH) {
@@ -184,7 +180,7 @@ export default function LibraryPage() {
           }}
         />
 
-        <div className="p-5 flex-1 flex flex-col min-h-0">
+        <div className="p-1 flex-1 flex flex-col min-h-0">
                     <TrackList
             tracks={getCurrentTracks()}
             virtualize

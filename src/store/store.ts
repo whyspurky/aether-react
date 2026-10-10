@@ -7,13 +7,11 @@ import { createCacheSlice, type CacheSlice } from './slices/cache';
 import { createLibrarySlice, type LibrarySlice } from './slices/library';
 import { createPlayerSlice, type PlayerSlice } from './slices/player';
 
- 
-
 export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice>()(
   persist(
     (set, get) => ({
       ...createProxySlice(set),
-      ...createUiSlice(set),
+      ...createUiSlice(set, get),
       ...createCacheSlice(set, get),
       ...createLibrarySlice(set),
       ...createPlayerSlice(set, get),
@@ -21,7 +19,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
 
     {
       name: 'aether-storage',
-      version: 2,
+      version: 6,
       storage: createJSONStorage(() => tauriStorage),
       onRehydrateStorage: () => () => {},
       migrate: (persisted: any, version) => {
@@ -40,13 +38,64 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
               };
             }
             if (!persisted.proxy.custom) {
-              persisted.proxy.custom = { type: 'socks5', host: '127.0.0.1', port: 1080, username: '', password: '' };
+              persisted.proxy.custom = {
+                type: 'socks5',
+                host: '127.0.0.1',
+                port: 1080,
+                username: '',
+                password: '',
+              };
             }
             if (!persisted.proxy.mode) {
               persisted.proxy.mode = 'off';
             }
           }
         }
+
+        if (version < 3) {
+          if (!persisted.blur) {
+            persisted.blur = {
+              enabled: true,
+              amount: 60,
+              opacity: 0.25,
+            };
+          }
+        }
+
+        if (version < 4) {
+          if (!persisted.blur) {
+            persisted.blur = {
+              enabled: true,
+              amount: 60,
+              opacity: 0.25,
+            };
+          }
+          if (persisted.blur) {
+            delete persisted.blur.mode;
+            delete persisted.blur.color1;
+            delete persisted.blur.color2;
+            delete persisted.blur.direction;
+          }
+        }
+
+        if (version < 5) {
+          if (!persisted.themeId) persisted.themeId = 'neutral';
+          if (persisted.themeId === 'dark') persisted.themeId = 'neutral';
+          if (!persisted.customPresets) persisted.customPresets = [];
+        }
+
+                if (version < 6) {
+          if (persisted.accentOverride !== undefined) {
+            delete persisted.accentOverride;
+          }
+          if (persisted.customPresets) {
+            persisted.customPresets = persisted.customPresets.map((p: any) => {
+              const { accentOverride, ...rest } = p;
+              return rest;
+            });
+          }
+        }
+
         return persisted;
       },
       partialize: (s) => ({
@@ -62,6 +111,13 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           currentTrack: s.player.currentTrack,
           position: s.player.position,
         },
+        themeId: s.themeId,
+        blur: {
+          enabled: s.blur.enabled,
+          amount: s.blur.amount,
+          opacity: s.blur.opacity,
+        },
+        customPresets: s.customPresets,
         proxy: {
           mode: s.proxy.mode,
           custom: s.proxy.custom,

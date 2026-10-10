@@ -20,7 +20,7 @@ export function SearchArtistCard({ artist }: Props) {
   return (
     <div
       onClick={() => navigate(`/artist/${artist.id}`)}
-      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
+      className="flex items-center gap-3 p-3 rounded-xl bg-bg-card/60 backdrop-blur-sm border border-border-subtle hover:border-border-visible transition-all duration-200 cursor-pointer group"
     >
       {artist.avatar_url ? (
         <img

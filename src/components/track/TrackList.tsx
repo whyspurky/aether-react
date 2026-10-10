@@ -138,8 +138,8 @@ export function TrackList({
           e.preventDefault();
           openTrackMenu(track, e, { onRemove });
         }}
-        className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-bg-secondary ${
-          isCurrent ? 'bg-bg-secondary' : ''
+        className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] ${
+          isCurrent ? 'bg-[var(--accent-muted)]' : ''
         }`}
       >
         {showNumber && (
@@ -165,7 +165,13 @@ export function TrackList({
         )}
 
         <div className="flex-1 min-w-0">
-          <h4 className={`text-sm font-medium truncate ${isCurrent ? 'text-text-secondary' : 'text-text-primary'}`}>
+          <h4
+            className={`text-sm font-medium truncate transition-colors duration-150 ${
+              isCurrent
+                ? 'text-text-secondary'
+                : 'text-text-primary group-hover:text-[var(--accent-primary)]'
+            }`}
+          >
             {track.title || 'без названия'}
           </h4>
           <p className="text-xs text-text-tertiary truncate">
@@ -195,13 +201,17 @@ export function TrackList({
                   }}
                   className={`p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 ${
                     isFav
-                      ? 'text-red-400 hover:bg-red-500/10'
-                      : 'text-text-tertiary hover:text-text-primary hover:bg-glass-bg'
+                      ? 'text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+                      : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
                   }`}
-                  title={isFav ? 'убрать из избранного' : 'в избранное'}
+                  aria-label={isFav ? 'убрать из избранного' : 'в избранное'}
                 >
-                  <Icon name="heart" size={16} />
-                </button>
+            <Icon
+              name="heart"
+              size={16}
+              className={isFav ? 'fill-current' : ''}
+            />
+          </button>
               );
             })()}
 
@@ -212,7 +222,7 @@ export function TrackList({
                   openTrackMenu(track, e, { onRemove, below: true });
                 }}
                 className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200 opacity-0 group-hover:opacity-100"
-                title="меню трека"
+                aria-label="меню трека"
               >
                 <Icon name="ellipsis-vertical" size={16} />
               </button>
@@ -260,16 +270,16 @@ export function TrackList({
     }
 
     return (
-      <div ref={setRefs} className="h-full overflow-auto scrollbar-thin">
+      <div ref={setRefs} className="h-full w-full overflow-auto scrollbar-thin">
         {inner}
       </div>
     );
   }
 
   return (
-    <div className="space-y-1 pr-2">
+    <div className="space-y-1 w-full">
       {tracks.map((_, index) => (
-        <div key={tracks[index].id}>{renderItem(tracks[index], index)}</div>
+        <div key={tracks[index].id} className="w-full">{renderItem(tracks[index], index)}</div>
       ))}
     </div>
   );

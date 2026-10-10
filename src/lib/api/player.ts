@@ -7,11 +7,19 @@ interface PlaybackSync {
 }
 
 export const playerApi = {
-  getStreamUrl: async (trackId: number): Promise<string> => {
+  getStreamUrl: async (trackId: number): Promise<{
+    url: string;
+    genre: string | null;
+    playback_count: number | null;
+  }> => {
     if (!trackId) throw new Error('trackId не указан');
-    const url = await invoke<string>('get_stream_url', { trackId: String(trackId) });
-    if (!url || typeof url !== 'string') throw new Error(`неверный url: ${url}`);
-    return url;
+    const data = await invoke<{
+      url: string;
+      genre: string | null;
+      playback_count: number | null;
+    }>('get_stream_url', { trackId: String(trackId) });
+    if (!data || typeof data.url !== 'string') throw new Error(`неверный url: ${data?.url}`);
+    return data;
   },
 
   playAudio: async (url: string, trackId: number): Promise<PlaybackSync> => {

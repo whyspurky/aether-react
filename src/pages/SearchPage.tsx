@@ -124,7 +124,6 @@ export default function SearchPage() {
     }
   }, [setSearchPage, setSearchCache]);
 
-  // при смене query — полный сброс кеша и новый поиск
   useEffect(() => {
     if (!debouncedQuery) {
       resetSearchPage();
@@ -145,7 +144,6 @@ export default function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
-  // при смене filter — берём из кеша или грузим
   useEffect(() => {
     if (!debouncedQuery) return;
 
@@ -232,8 +230,17 @@ export default function SearchPage() {
 
   return (
     <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden">
-      <div className="sticky top-0 z-10 rounded-2xl border border-border-subtle bg-bg-secondary/80 backdrop-blur-xl overflow-hidden">
-        <div className="p-4">
+      <div className="sticky top-0 z-10 rounded-2xl overflow-hidden">
+        {/* сильный блюр-стекло под всю панель */}
+        <div
+          className="absolute inset-0 bg-bg-primary/50 pointer-events-none"
+          style={{
+            backdropFilter: 'blur(40px) saturate(1.5)',
+            WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
+          }}
+        />
+
+        <div className="relative p-4">
           <SearchInput
             value={query}
             onChange={(v) => { setQuery(v); setSearchPage({ query: v }); }}

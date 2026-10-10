@@ -25,6 +25,8 @@ export interface Track {
   streamable?: boolean;
   access?: string;
   playback_count?: number;
+  genre?: string;
+  created_at?: string;
 }
 
 export interface Playlist {

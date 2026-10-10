@@ -34,7 +34,6 @@ export function usePlayerProgress({
   const durationRef = useRef(duration);
   durationRef.current = duration;
 
-  // синхронная инициализация при первом рендере с треком
   const initializedRef = useRef(false);
   if (!initializedRef.current && currentTrackId) {
     initializedRef.current = true;
@@ -75,7 +74,6 @@ export function usePlayerProgress({
       if (state === 'playing') {
         endedRef.current = false;
         if (position < 1.0) {
-          // не сбрасываем если это cold start с сохранённой позицией
           const storePos = useStore.getState().player.position;
           if (storePos < 5.0) {
             progressRef.current = 0;
@@ -97,7 +95,6 @@ export function usePlayerProgress({
       const { position: pos, track_id: tickTrackId } = event.payload;
       const d = durationRef.current;
 
-      // игнорируем tick от старого трека
       const activeId = currentTrackIdRef.current;
       if (activeId && tickTrackId !== activeId) {
         return;

@@ -13,7 +13,7 @@ interface Props {
 
 export function CustomProxyForm({ config, onChange }: Props) {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-bg-primary p-5 space-y-4">
+    <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5 space-y-4">
       <div>
         <label className="text-xs text-text-tertiary mb-2 block">тип</label>
         <div className="flex gap-2">
