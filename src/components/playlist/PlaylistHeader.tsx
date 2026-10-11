@@ -18,7 +18,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
     upgradeCoverUrl(playlist.tracks[0]?.user?.avatar_url, 't500x500') ||
     null;
 
-  const title = playlist.name || 'без названия';
+  const title = (playlist as any).title || playlist.name || 'без названия';
   const typeLabel = {
     album: 'альбом',
     ep: 'ep',

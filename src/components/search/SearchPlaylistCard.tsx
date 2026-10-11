@@ -27,7 +27,7 @@ export function SearchPlaylistCard({ playlist }: Props) {
     upgradeCover(playlist.tracks?.[0]?.user?.avatar_url) ||
     null;
 
-  const title = playlist.name || 'без названия';
+  const title = (playlist as any).title || playlist.name || 'без названия';
   const typeLabel = TYPE_LABELS[playlist.playlist_type || 'playlist'];
 
   return (

@@ -32,6 +32,7 @@ export interface Track {
 export interface Playlist {
   id: string | number;
   name: string;
+  // soundcloud возвращает title, локально используем name
   title?: string;
   tracks: Track[];
   artwork_url?: string;
