@@ -3,16 +3,9 @@ use futures::stream::{self, StreamExt, TryStreamExt};
 use url::Url;
 
 use super::ApiError;
-use super::client::http;
+use super::client::{http, truncate};
 
 const MAX_HLS_BYTES: usize = 200 * 1024 * 1024;
-
-fn truncate(s: &str, max: usize) -> &str {
-    if s.len() <= max { return s; }
-    let mut end = max;
-    while end > 0 && !s.is_char_boundary(end) { end -= 1; }
-    &s[..end]
-}
 
 pub fn is_master_playlist(text: &str) -> bool {
     text.contains("#EXT-X-STREAM-INF")

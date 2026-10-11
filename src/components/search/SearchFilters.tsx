@@ -25,7 +25,7 @@ export function SearchFilters({ filter, onChange, canPlayAll, onPlayAll }: Props
             onClick={() => onChange(f.id)}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
               filter === f.id
-                ? 'bg-white/[0.08] text-text-primary'
+                ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
                 : 'bg-white/[0.03] text-text-tertiary hover:bg-white/[0.06] hover:text-text-secondary'
             }`}
           >

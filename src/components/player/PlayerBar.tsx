@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
-import { VolumeSlider } from '../track/VolumeSlider';
+import { VolumeControl } from './VolumeControl';
 import { AnimatedTrackInfo } from '../track/AnimatedTrackInfo';
 import { useStore } from '@store/store';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,12 @@ import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
 import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import type { Track } from '@store/types';
+
+const MAX_VOLUME_WIDTH = 120;
+const MIN_VOLUME_WIDTH = 80;
+const MIN_LEFT_WIDTH = 150;
+const INITIAL_LEFT_WIDTH = 200;
+const CONTROLS_GAP_PX = 24;
 
 export function PlayerBar() {
   const navigate = useNavigate();
@@ -37,10 +43,8 @@ export function PlayerBar() {
   const shuffleRef = useRef<HTMLButtonElement | null>(null);
   const leftBlockRef = useRef<HTMLDivElement | null>(null);
 
-  const [leftMaxWidth, setLeftMaxWidth] = useState(200);
-
-  const MAX_VOLUME_WIDTH = 120;
-  const [volumeMaxWidth, setVolumeMaxWidth] = useState(140);
+  const [leftMaxWidth, setLeftMaxWidth] = useState(INITIAL_LEFT_WIDTH);
+  const [volumeMaxWidth, setVolumeMaxWidth] = useState(MAX_VOLUME_WIDTH);
 
   const effectiveDuration = duration > 0
     ? duration
@@ -92,17 +96,15 @@ export function PlayerBar() {
       if (repeatEl && volEl) {
         const rr = repeatEl.getBoundingClientRect();
         const vr = volEl.getBoundingClientRect();
-        const gap = 24;
-        const available = vr.left - rr.right - gap;
-        setVolumeMaxWidth(Math.min(MAX_VOLUME_WIDTH, Math.max(80, available)));
+        const available = vr.left - rr.right - CONTROLS_GAP_PX;
+        setVolumeMaxWidth(Math.min(MAX_VOLUME_WIDTH, Math.max(MIN_VOLUME_WIDTH, available)));
       }
 
       if (shuffleEl && leftEl) {
         const sr = shuffleEl.getBoundingClientRect();
         const lr = leftEl.getBoundingClientRect();
-        const gap = 24;
-        const available = sr.left - lr.left - gap;
-        setLeftMaxWidth(Math.max(150, available));
+        const available = sr.left - lr.left - CONTROLS_GAP_PX;
+        setLeftMaxWidth(Math.max(MIN_LEFT_WIDTH, available));
       }
     };
 
@@ -200,7 +202,7 @@ export function PlayerBar() {
         </button>
 
         <button
-          onClick={togglePlay}
+          onClick={() => void togglePlay()}
           disabled={isLoading}
           className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
             isLoading
@@ -238,7 +240,7 @@ export function PlayerBar() {
 
       {/* правый блок: громкость + плюс */}
       <div ref={volIconRef} className="absolute right-6 flex items-center gap-2">
-        <VolumeSlider volume={volume} onVolumeChange={setVolume} maxWidth={volumeMaxWidth} />
+        <VolumeControl volume={volume} onVolumeChange={setVolume} variant="capsule" maxWidth={volumeMaxWidth} />
         {currentTrack && (
           <button
             onClick={(e) => openAddToPlaylist(currentTrack, e.currentTarget as HTMLElement)}

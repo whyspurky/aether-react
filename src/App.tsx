@@ -5,8 +5,14 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { TitleBar } from './components/layout/TitleBar';
 import { Layout } from './components/layout/Layout';
 import { useTheme } from './hooks/ui/useTheme';
-import { useStore } from './store/store';
-import { api } from './lib/api';
+import { useKeyboard } from './hooks/ui/useKeyboard';
+import { useProxySync } from './hooks/app/useProxySync';
+import { useContextMenuPrevent } from './hooks/app/useContextMenuPrevent';
+import { useWindowShow } from './hooks/app/useWindowShow';
+import { useVolumeRestore } from './hooks/app/useVolumeRestore';
+import { useColdStartPrefetch } from './hooks/app/useColdStartPrefetch';
+import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
+import { saveNow } from './lib/store/tauriStorage';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import LibraryPage from './pages/LibraryPage';
@@ -14,105 +20,17 @@ import PlayerPage from './pages/PlayerPage';
 import SettingsPage from './pages/SettingsPage';
 import ArtistPage from './pages/ArtistPage';
 import PlaylistPage from './pages/PlaylistPage';
-import { useKeyboard } from './hooks/ui/useKeyboard';
-import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
 
 const appWindow = getCurrentWindow();
 
 function AppContent() {
-  const proxyMode = useStore((s) => s.proxy.mode);
-  const customProxy = useStore((s) => s.proxy.custom);
-
   useTheme();
   useKeyboard();
-
-  useEffect(() => {
-    getCurrentWindow().show();
-  }, []);
-
-  useEffect(() => {
-    const prevent = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
-      e.preventDefault();
-    };
-    document.addEventListener('contextmenu', prevent);
-    return () => document.removeEventListener('contextmenu', prevent);
-  }, []);
-
-  useEffect(() => {
-    const syncVolume = () => {
-      const s = useStore.getState();
-      if (typeof s.player.volume === 'number') {
-        api.setVolume(s.player.volume);
-      }
-    };
-
-    const t = setTimeout(syncVolume, 300);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    let fired = false;
-
-    const check = async () => {
-      if (fired) return;
-
-      const s = useStore.getState();
-      if (!s.player.currentTrack) return;
-      if (s.queue.currentIndex < 0) return;
-      if (s.player.isAudioReady) return;
-
-      fired = true;
-      clearInterval(t);
-
-      try {
-        const stream = await api.getStreamUrl(s.player.currentTrack.id);
-        if (!stream?.url) return;
-        await api.prefetchAudio(stream.url, s.player.currentTrack.id);
-      } catch {}
-    };
-
-    const t = setInterval(check, 200);
-    const stop = setTimeout(() => clearInterval(t), 10000);
-
-    return () => {
-      clearInterval(t);
-      clearTimeout(stop);
-    };
-  }, []);
-
-useEffect(() => {
-  const t = setTimeout(async () => {
-    try {
-      if (proxyMode === 'custom') {
-        if (!customProxy.host.trim() || customProxy.port <= 0) {
-          return;
-        }
-        await api.proxySetCustom({
-          kind: customProxy.type,
-          host: customProxy.host.trim(),
-          port: customProxy.port,
-          username: customProxy.username,
-          password: customProxy.password,
-        });
-      } else {
-        await api.proxyClear();
-      }
-    } catch (e) {
-    }
-  }, 500);
-
-  return () => clearTimeout(t);
-}, [
-  proxyMode,
-  customProxy.type,
-  customProxy.host,
-  customProxy.port,
-  customProxy.username,
-  customProxy.password,
-]);
-
+  useWindowShow();
+  useContextMenuPrevent();
+  useVolumeRestore();
+  useColdStartPrefetch();
+  useProxySync();
 
   return (
     <Layout>
@@ -139,10 +57,7 @@ function App() {
   };
 
   const handleClose = async () => {
-    try {
-      const { flushPending } = await import('@lib/store/tauriStorage');
-      await flushPending();
-    } catch {}
+    try { await saveNow(); } catch {}
     try { await appWindow.close(); } catch {}
   };
 

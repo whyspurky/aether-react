@@ -6,20 +6,29 @@ interface Props {
   playlist: Playlist;
 }
 
+const IMG_SIZE_RE = /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/;
+const TYPE_LABELS: Record<string, string> = {
+  album: 'альбом',
+  ep: 'ep',
+  playlist: 'плейлист',
+};
+
+function upgradeCover(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  return url.replace(IMG_SIZE_RE, '-t300x300$2');
+}
+
 export function SearchPlaylistCard({ playlist }: Props) {
   const navigate = useNavigate();
-  const coverUrl =
-    playlist.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
-    playlist.tracks?.[0]?.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
-    playlist.tracks?.[0]?.user?.avatar_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t300x300$2') ||
-    null;
-  const title = playlist.title || playlist.name || 'без названия';
 
-  const typeLabel = {
-    album: 'альбом',
-    ep: 'ep',
-    playlist: 'плейлист',
-  }[playlist.playlist_type || 'playlist'];
+  const coverUrl =
+    upgradeCover(playlist.artwork_url) ||
+    upgradeCover(playlist.tracks?.[0]?.artwork_url) ||
+    upgradeCover(playlist.tracks?.[0]?.user?.avatar_url) ||
+    null;
+
+  const title = playlist.name || 'без названия';
+  const typeLabel = TYPE_LABELS[playlist.playlist_type || 'playlist'];
 
   return (
     <div

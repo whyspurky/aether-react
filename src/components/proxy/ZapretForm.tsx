@@ -7,6 +7,9 @@ import { listen } from '@tauri-apps/api/event';
 
 type ZapretStatus = 'unknown' | 'running' | 'stopped' | 'not_installed';
 
+const WARMING_POLL_INTERVAL_MS = 500;
+const WARMING_TIMEOUT_MS = 10000;
+
 interface ListCheck {
   file: string;
   exists: boolean;
@@ -51,8 +54,6 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
       }
     };
     fetch();
-    const interval = setInterval(fetch, 3000);
-    return () => clearInterval(interval);
   }, [onStatusChange]);
 
   useEffect(() => {
@@ -179,12 +180,25 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
       await api.zapretRunBat(selectedStrategy);
       onChangeBatPath(selectedStrategy);
 
-      setTimeout(async () => {
+      const startTime = Date.now();
+      const poll = async (): Promise<void> => {
         try {
           const s = await api.zapretStatus();
-          onStatusChange(s);
+          if (s === 'running') {
+            onStatusChange(s);
+            setWarming(false);
+            return;
+          }
         } catch {}
-      }, 1500);
+
+        if (Date.now() - startTime >= WARMING_TIMEOUT_MS) {
+          setWarming(false);
+          return;
+        }
+
+        setTimeout(poll, WARMING_POLL_INTERVAL_MS);
+      };
+      poll();
     } catch (e) {
       onStatusChange('stopped');
       setWarming(false);
@@ -220,12 +234,12 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
               value={folder}
               onChange={(e) => setZapretFolder(e.target.value)}
               placeholder="C:\zapret"
-              className="flex-1 px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg outline-none focus:border-border-visible text-sm text-text-primary placeholder:text-text-tertiary font-mono"
+              className="flex-1 px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary font-mono"
             />
             <button
               onClick={handlePickFolder}
               aria-label="выбрать папку"
-              className="px-3 py-2 rounded-lg text-text-tertiary hover:bg-bg-secondary hover:text-text-primary transition-all"
+              className="px-3 py-2 rounded-lg text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary transition-all"
             >
               <Icon name="folder" size={16} />
             </button>
@@ -235,7 +249,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="w-full px-3 py-2 rounded-lg text-xs bg-bg-secondary text-text-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 rounded-lg text-xs bg-white/[0.08] text-text-primary hover:bg-white/[0.14] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {downloading ? 'скачивание...' : 'скачать zapret'}
             </button>
@@ -243,9 +257,9 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
 
           {downloadProgress && downloadProgress.total > 0 && (
             <div className="space-y-1">
-              <div className="h-1 bg-bg-secondary rounded-full overflow-hidden">
+              <div className="h-1 bg-[var(--accent-muted)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-text-secondary transition-all duration-200"
+                  className="h-full bg-[var(--accent-primary)] transition-all duration-200"
                   style={{
                     width: `${(downloadProgress.downloaded / downloadProgress.total) * 100}%`,
                   }}
@@ -272,7 +286,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
           <div className="flex items-center justify-between">
             <p className="text-sm text-text-primary">стратегии</p>
             <span className="text-xs text-text-tertiary">
-              {scanLoading ? 'сканирование...' : ``}
+              {scanLoading ? 'сканирование...' : ''}
             </span>
           </div>
 
@@ -295,8 +309,8 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                       onClick={() => !locked && setSelectedStrategy(s.path)}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-xs transition-all ${
                         active
-                          ? 'bg-bg-secondary text-text-primary'
-                          : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-secondary'
+                          ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                          : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-secondary'
                       } ${
                         locked
                           ? 'opacity-50 cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-tertiary'
@@ -323,7 +337,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                   <button
                     onClick={handleStartSelected}
                     disabled={loading || !selectedStrategy}
-                    className="px-3 py-1.5 rounded-lg text-xs text-text-secondary bg-bg-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-secondary disabled:hover:text-text-secondary"
+                    className="px-3 py-1.5 rounded-lg text-xs text-text-primary bg-white/[0.08] hover:bg-white/[0.14] transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/[0.08]"
                   >
                     {loading ? '...' : 'запустить'}
                   </button>
@@ -346,7 +360,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
               <button
                 onClick={handleAddDomains}
                 disabled={listLoading}
-                className="px-2.5 py-1 rounded-lg text-xs text-text-secondary bg-bg-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-2.5 py-1 rounded-lg text-xs text-text-primary bg-white/[0.08] hover:bg-white/[0.14] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 добавить домены
               </button>
@@ -366,9 +380,11 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                   key={lc.file}
                   className="flex items-center gap-3 px-2 py-1.5 rounded-lg text-xs"
                 >
-                  <span className={lc.exists ? 'text-green-500' : 'text-text-tertiary'}>
-                    {lc.exists ? '✓' : '·'}
-                  </span>
+                  <Icon
+                    name={lc.exists ? 'check' : 'minus'}
+                    size={12}
+                    className={lc.exists ? 'text-green-500' : 'text-text-tertiary'}
+                  />
 
                   <span className="flex-1 truncate font-mono text-text-secondary">
                     {lc.file}
@@ -377,14 +393,17 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                   {lc.exists && (
                     <div className="flex items-center gap-2">
                       <span
-                        className={lc.has_sndcdn ? 'text-green-500' : 'text-red-400'}
                         aria-label={
                           lc.has_sndcdn
                             ? `${lc.sndcdn_lines.length} строк`
                             : 'sndcdn не найден'
                         }
                       >
-                        {lc.has_sndcdn ? '✓' : '✕'}
+                        <Icon
+                          name={lc.has_sndcdn ? 'check' : 'alert-circle'}
+                          size={12}
+                          className={lc.has_sndcdn ? 'text-green-500' : 'text-red-400'}
+                        />
                       </span>
                     </div>
                   )}
@@ -392,7 +411,7 @@ export function ZapretForm({ batPath, status, folder, onChangeBatPath, onStatusC
                   <button
                     onClick={() => handleOpenFile(lc.file)}
                     aria-label="открыть"
-                    className="p-1 rounded text-text-tertiary hover:bg-bg-secondary hover:text-text-primary transition-all"
+                    className="p-1 rounded text-text-tertiary hover:bg-white/[0.06] hover:text-[var(--accent-primary)] transition-all"
                   >
                     <Icon name="external-link" size={12} />
                   </button>

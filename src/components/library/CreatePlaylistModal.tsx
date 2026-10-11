@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface Props {
@@ -11,17 +11,26 @@ interface Props {
 export function CreatePlaylistModal({ isOpen, maxLength, onClose, onCreate }: Props) {
   const [name, setName] = useState('');
 
+  const handleClose = () => {
+    setName('');
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleCreate = () => {
     if (!name.trim()) return;
     onCreate(name.trim());
     setName('');
-  };
-
-  const handleClose = () => {
-    setName('');
-    onClose();
   };
 
   return createPortal(

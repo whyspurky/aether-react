@@ -49,7 +49,6 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
     if (forceClose && forceClose > 0) {
       startClose();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forceClose]);
 
   useEffect(() => {
@@ -75,7 +74,6 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor]);
 
   return createPortal(
@@ -86,14 +84,14 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
         closing ? 'animate-menu-exit' : 'animate-menu-enter'
       }`}
     >
-      {items.map((item, i) => (
+      {items.map((item) => (
         <button
-          key={i}
+          key={item.label}
           onClick={() => { item.onClick(); startClose(); }}
           className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
             item.danger
               ? 'text-red-400 hover:bg-red-500/10'
-              : 'text-text-secondary hover:bg-bg-secondary'
+              : 'text-text-secondary hover:bg-[var(--accent-muted)] hover:text-[var(--accent-primary)]'
           }`}
         >
           {item.icon && <Icon name={item.icon} size={14} />}

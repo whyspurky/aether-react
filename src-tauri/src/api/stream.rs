@@ -3,17 +3,11 @@ use serde_json::Value;
 
 use super::ApiError;
 use super::client::{fetch_retry, fetch_json_retry};
-use super::CLIENT_ID;
-use super::BASE_URL;
+use super::{add_client_id, BASE_URL, CLIENT_ID};
 use super::hls::download_hls;
 
 fn with_auth(url: &str, auth: &str) -> String {
-    let mut u = if url.contains("client_id=") {
-        url.to_string()
-    } else {
-        let sep = if url.contains('?') { '&' } else { '?' };
-        format!("{}{}client_id={}", url, sep, CLIENT_ID)
-    };
+    let mut u = add_client_id(url);
     if !auth.is_empty() && !u.contains("track_authorization=") {
         u.push_str("&track_authorization=");
         u.push_str(&urlencoding::encode(auth));
@@ -93,13 +87,7 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
         }
     }
 
-    for t in &progressive {
-        if let Some(url) = resolve_progressive_variant(t, auth).await {
-            println!("[stream] выбран: progressive MP3 (стабильный)");
-            return Ok(url);
-        }
-    }
-
+    // порядок: aac 160 → aac other → mp3 hls → progressive (по доке 07_soundcloud)
     for t in hls_aac_160 {
         if let Some(url) = resolve_hls_variant(t, auth).await {
             println!("[stream] выбран: AAC 160 kbps (HLS)");
@@ -124,7 +112,7 @@ async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
 
     for t in progressive {
         if let Some(url) = resolve_progressive_variant(t, auth).await {
-            println!("[stream] выбран: progressive (fallback)");
+            println!("[stream] выбран: progressive MP3 (fallback)");
             return Ok(url);
         }
     }

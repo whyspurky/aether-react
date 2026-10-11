@@ -1,12 +1,12 @@
 import { Icon } from '@components/ui/Icon';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
+import { upgradeCoverUrl } from '@lib/format';
 import type { Playlist } from '@store/types';
 
 type LibraryView = 'favorites' | 'history' | 'playlist';
 
 interface Props {
   selectedView: LibraryView;
-  selectedPlaylistId: string | null;
   playlists: Playlist[];
   onSelectFavorites: () => void;
   onSelectHistory: () => void;
@@ -28,18 +28,18 @@ export function LibrarySidebar({
     <aside className="w-20 flex-shrink-0 flex flex-col items-center gap-2 p-2 bg-bg-secondary/20 backdrop-blur-sm">
       <button
         onClick={onCreateClick}
-        className="w-14 h-14 flex items-center justify-center rounded-2xl border border-border-subtle bg-bg-primary/40 text-text-tertiary hover:bg-white/[0.1] hover:text-text-primary hover:border-transparent transition-all duration-200 active:scale-95"
+        className="w-14 h-14 flex items-center justify-center rounded-2xl border border-border-subtle bg-white/[0.03] text-text-tertiary hover:bg-white/[0.1] hover:text-text-primary hover:border-transparent transition-all duration-200 active:scale-95"
         aria-label="создать плейлист"
       >
         <Icon name="plus" size={18} />
       </button>
 
-      <div className="w-14 rounded-2xl border border-border-subtle bg-bg-primary/40 p-1 flex flex-col items-center gap-1">
+      <div className="w-14 rounded-2xl border border-border-subtle bg-white/[0.03] p-1 flex flex-col items-center gap-1">
         <button
           onClick={onSelectFavorites}
           className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
             selectedView === 'favorites'
-              ? 'bg-white/[0.08] text-text-secondary'
+              ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
               : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary'
           }`}
           aria-label="избранное"
@@ -51,7 +51,7 @@ export function LibrarySidebar({
           onClick={onSelectHistory}
           className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 ${
             selectedView === 'history'
-              ? 'bg-white/[0.08] text-text-secondary'
+              ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
               : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-primary'
           }`}
           aria-label="история"
@@ -63,26 +63,22 @@ export function LibrarySidebar({
       {playlists.length > 0 && (
         <div
           ref={playlistsScrollRef}
-          className="w-14 rounded-2xl border border-border-subtle bg-bg-primary/40 p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-thin"
+          className="w-14 rounded-2xl border border-border-subtle bg-white/[0.03] p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden"
           style={{ maxHeight: '100%', flex: '0 1 auto' }}
         >
           {playlists.map((playlist) => {
             const cover =
               playlist.artwork_url ||
               playlist.tracks[0]?.artwork_url ||
-              playlist.tracks[0]?.user?.avatar_url ||
-              null;
-            const coverUrl = cover?.replace(
-              /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/,
-              '-t200x200$2'
-            );
+              playlist.tracks[0]?.user?.avatar_url;
+            const coverUrl = upgradeCoverUrl(cover, 't300x300');
 
             return (
               <div key={playlist.id} className="group relative flex justify-center">
                 <button
                   onClick={() => onSelectPlaylist(playlist)}
                   className="w-12 h-12 flex items-center justify-center rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
-                  title={playlist.name}
+                  aria-label={playlist.name}
                 >
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="w-full h-full object-cover" />

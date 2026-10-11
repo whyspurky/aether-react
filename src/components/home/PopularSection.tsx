@@ -53,9 +53,7 @@ export function PopularSection({
             className="animate-content-fade-in"
           >
             {tracks.map((track, i) => (
-              <div key={`${track.id}-${i}`}>
-                <TrackCard track={track} index={i} tracks={tracks} />
-              </div>
+              <TrackCard key={track.id} track={track} index={i} tracks={tracks} />
             ))}
             {isLoadingMore && (
               <>
@@ -72,7 +70,7 @@ export function PopularSection({
         )}
 
         {!hasMore && tracks.length > 0 && !isLoading && (
-          <div className="text-center text-text-tertiary text-xs mt-2 animate-fade-in">
+          <div className="text-center text-text-tertiary text-xs mt-2 animate-content-fade-in">
             это всё популярное
           </div>
         )}

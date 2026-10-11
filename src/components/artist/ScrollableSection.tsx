@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-
+import { useEffect, useRef } from 'react';
 interface Props {
   title: string;
   count: number;
@@ -8,44 +7,24 @@ interface Props {
   children: (scrollRef: React.RefObject<HTMLDivElement | null>) => React.ReactNode;
 }
 
+const DEFAULT_ITEM_HEIGHT = 60;
+const DEFAULT_MAX_HEIGHT = 600;
+const DRAG_THRESHOLD_PX = 5;
+
 export function ScrollableSection({
   title,
   count,
-  itemHeight = 56,
-  maxHeight = 600,
+  itemHeight = DEFAULT_ITEM_HEIGHT,
+  maxHeight = DEFAULT_MAX_HEIGHT,
   children,
 }: Props) {
   const innerRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollDown, setCanScrollDown] = useState(false);
-  const [canScrollUp, setCanScrollUp] = useState(false);
-
   const height = Math.min(count * itemHeight, maxHeight);
 
-  const checkScroll = () => {
-    const el = innerRef.current;
-    if (!el) return;
-    setCanScrollUp(el.scrollTop > 4);
-    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
-  };
-
-  useEffect(() => {
-    const el = innerRef.current;
-    if (!el) return;
-    checkScroll();
-    el.addEventListener('scroll', checkScroll);
-    const observer = new ResizeObserver(checkScroll);
-    observer.observe(el);
-    return () => {
-      el.removeEventListener('scroll', checkScroll);
-      observer.disconnect();
-    };
-  }, []);
-
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;
 
-    const dragThreshold = 5;
     let isPressed = false;
     let isDragging = false;
     let startY = 0;
@@ -53,8 +32,6 @@ export function ScrollableSection({
 
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-drag-scroll-off]')) return;
 
       isPressed = true;
       isDragging = false;
@@ -68,7 +45,7 @@ export function ScrollableSection({
       const dy = e.clientY - startY;
 
       if (!isDragging) {
-        if (Math.abs(dy) < dragThreshold) return;
+        if (Math.abs(dy) < DRAG_THRESHOLD_PX) return;
         isDragging = true;
         el.style.cursor = 'grabbing';
         el.style.userSelect = 'none';
@@ -115,11 +92,6 @@ export function ScrollableSection({
       </div>
 
       <div className="relative">
-        <div
-          className={`pointer-events-none absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-bg-primary to-transparent z-10 transition-opacity duration-300 ${
-            canScrollUp ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
 
         <div
           ref={innerRef}
@@ -129,11 +101,6 @@ export function ScrollableSection({
           {children(innerRef)}
         </div>
 
-        <div
-          className={`pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-bg-primary to-transparent z-10 transition-opacity duration-300 ${
-            canScrollDown ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
       </div>
     </section>
   );

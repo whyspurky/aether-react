@@ -13,8 +13,7 @@ export function ArtistPlaylistCard({ playlist }: Props) {
     playlist.tracks?.[0]?.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
     playlist.tracks?.[0]?.user?.avatar_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
     null;
-  const title = playlist.title || playlist.name || 'без названия';
-
+const title = playlist.title || playlist.name || 'без названия';
   const typeLabel = {
     album: 'альбом',
     ep: 'ep',
@@ -26,7 +25,7 @@ export function ArtistPlaylistCard({ playlist }: Props) {
       onClick={() => navigate(`/playlist/${playlist.id}`)}
       className="cursor-pointer group"
     >
-      <div className="aspect-square rounded-xl overflow-hidden bg-bg-secondary border border-border-subtle group-hover:border-border-visible transition-all duration-300 shadow-lg shadow-white/0 group-hover:shadow-white/5">
+      <div className="aspect-square rounded-xl overflow-hidden bg-bg-secondary border border-border-subtle group-hover:border-border-visible transition-all duration-300">
         {coverUrl ? (
           <img
             src={coverUrl}

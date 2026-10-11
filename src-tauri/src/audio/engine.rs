@@ -6,6 +6,10 @@ use crate::api::http;
 use rodio::Source;
 use tauri::Emitter;
 
+fn is_hls_url(url: &str) -> bool {
+    url.contains(".m3u8") || url.contains("/hls/")
+}
+
 fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
     let pos = state.playback.lock().unwrap().position().as_secs_f64();
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
@@ -52,14 +56,26 @@ fn ensure_tick_running(state: &AppState) {
                 continue;
             }
 
-            let guard = app_handle.lock().unwrap();
-if let Some(app) = guard.as_ref() {
-    let track_id = playback.lock().unwrap().current_track_id;
-    let _ = app.emit("position-tick", serde_json::json!({
-        "position": pos,
-        "track_id": track_id,
-    }));
-}
+            let (track_id, is_still_playing) = {
+                let pb = playback.lock().unwrap();
+                (pb.current_track_id, pb.is_playing)
+            };
+
+            if !is_still_playing {
+                continue;
+            }
+
+            let app_opt = {
+                let guard = app_handle.lock().unwrap();
+                guard.as_ref().cloned()
+            };
+
+            if let Some(app) = app_opt {
+                let _ = app.emit("position-tick", serde_json::json!({
+                    "position": pos,
+                    "track_id": track_id,
+                }));
+            }
         }
     });
 
@@ -87,7 +103,7 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
 
     let bytes = if let Some(bytes) = cached {
         bytes
-    } else if url.contains(".m3u8") || url.contains("/hls/") {
+    } else if is_hls_url(&url) {
         println!("[engine] качаем hls полностью");
         let start = std::time::Instant::now();
         let r = Bytes::from(crate::api::download_hls_track(&url).await?);
@@ -126,7 +142,7 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
 
     println!("[engine] создаём decoder");
     let cursor = std::io::Cursor::new(bytes.clone());
-    let hint = if url.contains(".m3u8") || url.contains("/hls/") { "aac" } else { "mp3" };
+    let hint = if is_hls_url(&url) { "aac" } else { "mp3" };
     let source = rodio::Decoder::builder()
         .with_data(cursor)
         .with_hint(hint)
@@ -323,13 +339,21 @@ pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppStat
 
     let slot = state.prefetch_slot.clone();
     let task_slot = state.prefetch_task.clone();
+    let current_id = state.prefetch_current_id.clone();
     let url_clone = url.clone();
+
+    // маркер текущего таска, чтобы не обнулить чужой slot при завершении
+    let my_id: u128 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    *current_id.lock().unwrap() = my_id;
 
     let handle = tokio::spawn(async move {
         println!("[prefetch] старт {}", &url_clone[..url_clone.len().min(80)]);
         let start = std::time::Instant::now();
 
-        let result = if url_clone.contains(".m3u8") || url_clone.contains("/hls/") {
+        let result = if is_hls_url(&url_clone) {
             crate::api::download_hls_track(&url_clone).await.map(Bytes::from)
         } else {
             match http().get(&url_clone).send().await {
@@ -340,6 +364,13 @@ pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppStat
                 Err(e) => Err(e.to_string()),
             }
         };
+
+        // проверяем что мы всё ещё "текущий" таск
+        let still_current = *current_id.lock().unwrap() == my_id;
+        if !still_current {
+            println!("[prefetch] таск устарел, отбрасываем результат");
+            return;
+        }
 
         match result {
             Ok(bytes) => {
@@ -352,7 +383,10 @@ pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppStat
             }
         }
 
-        *task_slot.lock().unwrap() = None;
+        // обнуляем task_slot только если это всё ещё наш таск
+        if *current_id.lock().unwrap() == my_id {
+            *task_slot.lock().unwrap() = None;
+        }
     });
 
     *state.prefetch_task.lock().unwrap() = Some(handle);

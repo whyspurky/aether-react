@@ -4,7 +4,6 @@ import { useElementBounds } from '@hooks/ui/useElementBounds';
 interface Params {
   containerRef: React.RefObject<HTMLElement | null>;
   shuffleRef: React.RefObject<HTMLElement | null>;
-  rightButtonsRef: React.RefObject<HTMLElement | null>;
 }
 
 interface Result {
@@ -20,12 +19,10 @@ const GAP = 16;
 export function usePlayerControlsLayout({
   containerRef,
   shuffleRef,
-  rightButtonsRef,
 }: Params): Result {
   const bounds = useElementBounds({
     container: containerRef,
     shuffle: shuffleRef,
-    right: rightButtonsRef,
   });
 
   const [result, setResult] = useState<Result>({

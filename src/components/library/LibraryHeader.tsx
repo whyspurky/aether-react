@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
+import { upgradeCoverUrl } from '@lib/format';
 import type { Playlist } from '@store/types';
 
 type LibraryView = 'favorites' | 'history' | 'playlist';
@@ -9,7 +11,6 @@ interface Props {
   title: string;
   count: number;
   icon: string;
-  iconColor: string;
   maxNameLength: number;
   isEditing: boolean;
   editingName: string;
@@ -21,7 +22,7 @@ interface Props {
   onTogglePlaylistMenu: () => void;
   onToggleSettingsMenu: () => void;
   onStartEdit: () => void;
-  onDeletePlaylist: (id: string) => void;
+  onDeletePlaylist: (id: string | number) => void;
   onClearRequest: () => void;
 }
 
@@ -31,7 +32,6 @@ export function LibraryHeader({
   title,
   count,
   icon,
-  iconColor,
   maxNameLength,
   isEditing,
   editingName,
@@ -46,15 +46,44 @@ export function LibraryHeader({
   onDeletePlaylist,
   onClearRequest,
 }: Props) {
-  const currentCover =
+  const playlistMenuRef = useRef<HTMLDivElement | null>(null);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showPlaylistMenu && !showSettingsMenu) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      if (showPlaylistMenu && playlistMenuRef.current && !playlistMenuRef.current.contains(target)) {
+        onTogglePlaylistMenu();
+      }
+      if (showSettingsMenu && settingsMenuRef.current && !settingsMenuRef.current.contains(target)) {
+        onToggleSettingsMenu();
+      }
+    };
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showPlaylistMenu) onTogglePlaylistMenu();
+        if (showSettingsMenu) onToggleSettingsMenu();
+      }
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [showPlaylistMenu, showSettingsMenu, onTogglePlaylistMenu, onToggleSettingsMenu]);
+
+  const rawCover =
     selectedView === 'playlist' && selectedPlaylist
       ? (selectedPlaylist.artwork_url || selectedPlaylist.tracks[0]?.artwork_url || selectedPlaylist.tracks[0]?.user?.avatar_url || null)
       : null;
 
-  const coverUrl = currentCover?.replace(
-    /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/,
-    '-t500x500$2'
-  );
+  const coverUrl = upgradeCoverUrl(rawCover, 't500x500');
 
   return (
     <div className="sticky top-0 z-20 mx-3 mt-3 rounded-xl border border-white/[0.06] bg-bg-primary/40 backdrop-blur-2xl p-5 shadow-lg shadow-black/20">
@@ -64,7 +93,11 @@ export function LibraryHeader({
             {coverUrl ? (
               <img src={coverUrl} alt="" className="w-full h-full object-cover" />
             ) : (
-              <Icon name={icon} size={32} className={iconColor} />
+              <Icon
+                name={icon}
+                size={32}
+                className={selectedView === 'favorites' ? 'text-text-secondary' : 'text-text-primary'}
+              />
             )}
           </div>
 
@@ -108,7 +141,7 @@ export function LibraryHeader({
 
         <div className="flex items-center gap-4">
           {selectedView === 'playlist' && selectedPlaylist && (
-            <div className="relative">
+            <div ref={playlistMenuRef} className="relative">
               <button
                 onClick={onTogglePlaylistMenu}
                 className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-all"
@@ -137,7 +170,7 @@ export function LibraryHeader({
           )}
 
           {(selectedView === 'favorites' || selectedView === 'history') && (
-            <div className="relative">
+            <div ref={settingsMenuRef} className="relative">
               <button
                 onClick={onToggleSettingsMenu}
                 className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-all"

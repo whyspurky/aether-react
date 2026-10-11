@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { invokeCmd } from './client';
 
-interface PlaybackSync {
+export interface PlaybackSync {
   position_sec: number;
   real_offset_ms: number;
 }

@@ -36,7 +36,8 @@ export function PlaylistPage() {
     const load = async () => {
       setIsLoading(true);
       try {
-        const local = useStore.getState().library.playlists.find((p) => p.id === id);
+        const local = useStore.getState().library.playlists.find((p) => String(p.id) === id);
+        console.log('[playlist local]', { id, local });
         if (local) {
           setPlaylist(local);
           setTracks(local.tracks || []);
@@ -55,6 +56,7 @@ export function PlaylistPage() {
           return;
         }
 
+        console.log('[playlist]', { id, data, allTracks });
         setPlaylist(data);
         setTracks(allTracks);
         setPlaylistCache(id, { playlist: data, tracks: allTracks, scrollTop: cached?.scrollTop ?? 0 });
@@ -67,7 +69,6 @@ export function PlaylistPage() {
 
     if (!cached) load();
     else setIsLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
   useEffect(() => {
@@ -76,7 +77,6 @@ export function PlaylistPage() {
         if (rootRef.current) rootRef.current.scrollTop = cached.scrollTop;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   useEffect(() => {
@@ -84,12 +84,11 @@ export function PlaylistPage() {
       const el = rootRef.current;
       if (id && el) setPlaylistCache(id, { scrollTop: el.scrollTop });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleImport = () => {
     if (!playlist) return;
-    const title = playlist.title || playlist.name || 'без названия';
+const title = playlist.title || playlist.name || 'без названия';
     if (libraryPlaylists.some((p) => p.name === title)) {
       return;
     }

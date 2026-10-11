@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '@lib/api';
+import { Icon } from '@components/ui/Icon';
 import { CompactResult } from './CompactResult';
 import type { ProxyMode } from '@store/types';
 
@@ -61,7 +62,7 @@ export function ProxyConnectionTest({ mode }: Props) {
             <div className="flex flex-col gap-1 text-xs text-right">
               {testError ? (
                 <div className="flex items-center gap-1.5 justify-end">
-                  <span className="text-red-400">✕</span>
+                  <Icon name="alert-circle" size={12} className="text-red-400" />
                   <span className="text-red-400 font-mono">error</span>
                 </div>
               ) : (
@@ -76,7 +77,7 @@ export function ProxyConnectionTest({ mode }: Props) {
           <button
             onClick={handleTest}
             disabled={testLoading}
-            className="px-4 py-2 rounded-lg text-xs font-medium bg-bg-secondary text-text-secondary hover:bg-text-secondary hover:text-bg-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            className="px-4 py-2 rounded-lg text-xs font-medium bg-white/[0.08] text-text-primary hover:bg-white/[0.14] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
           >
             {testLoading ? 'проверка...' : 'проверить'}
           </button>

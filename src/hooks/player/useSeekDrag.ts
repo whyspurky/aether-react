@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { api } from '@lib/api';
+import { saveNow } from '@lib/store/tauriStorage';
 
 interface Params {
   trackRef: React.MutableRefObject<HTMLElement | null>;
@@ -58,7 +59,7 @@ export function useSeekDrag({ trackRef, effectiveDuration, onSeek }: Params): Re
       if (p !== null) {
         onSeek(p);
         api.seekAudio(p).catch(() => {});
-        import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+        saveNow().catch(() => {});
       }
     };
 

@@ -4,7 +4,7 @@ import { useStore } from '@store/store';
 import { useNavigate } from 'react-router-dom';
 import { useTrackAnimation } from '@hooks/player/useTrackAnimation';
 import { PlayerProgressBar } from '@components/player/PlayerProgressBar';
-import { PlayerVolumeBar } from '@components/player/PlayerVolumeBar';
+import { VolumeControl } from '@components/player/VolumeControl';
 import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
@@ -12,20 +12,29 @@ import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { MarqueeText } from '@components/track/AnimatedTrackInfo';
 import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import { usePlayerControlsLayout } from '@hooks/player/usePlayerControlsLayout';
+import { getCoverUrl } from '@lib/format';
 
 export default function PlayerPage() {
-  const player = useStore((s) => s.player);
-  const queue = useStore((s) => s.queue);
+  const currentTrack = useStore((s) => s.player.currentTrack);
+  const isPlaying = useStore((s) => s.player.isPlaying);
+  const isLoading = useStore((s) => s.player.isLoading);
+  const isAudioReady = useStore((s) => s.player.isAudioReady);
+  const volume = useStore((s) => s.player.volume);
+  const shuffle = useStore((s) => s.player.shuffle);
+  const repeat = useStore((s) => s.player.repeat);
+  const duration = useStore((s) => s.player.duration);
+
+  const queueTracks = useStore((s) => s.queue.tracks);
+
   const togglePlay = useStore((s) => s.togglePlay);
   const nextTrack = useStore((s) => s.nextTrack);
   const prevTrack = useStore((s) => s.prevTrack);
   const setShuffle = useStore((s) => s.setShuffle);
   const setRepeat = useStore((s) => s.setRepeat);
   const setVolume = useStore((s) => s.setVolume);
-  const navigate = useNavigate();
   const removeFromQueue = useStore((s) => s.removeFromQueue);
+  const navigate = useNavigate();
   const queueScrollRef = useSmoothScroll<HTMLDivElement>();
-  const { currentTrack, isPlaying, volume, shuffle, repeat, duration, isLoading, isAudioReady } = player;
   const favorites = useStore((s) => s.library.favorites);
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);
@@ -36,10 +45,8 @@ export default function PlayerPage() {
 
   const { displayTrack, displayCover, isTrackChanging } = useTrackAnimation(currentTrack);
 
-  const coverUrl =
-    currentTrack?.artwork_url?.replace('-large', '-t500x500') ||
-    currentTrack?.user?.avatar_url?.replace('-large', '-t500x500') ||
-    null;
+  const coverUrl = getCoverUrl(currentTrack, 't500x500');
+  const isFav = currentTrack ? favorites.some((f) => f.id === currentTrack.id) : false;
 
   const effectiveDuration = duration > 0
     ? duration
@@ -65,7 +72,6 @@ export default function PlayerPage() {
   const { volumeWidth, volumeMode } = usePlayerControlsLayout({
     containerRef: controlsContainerRef,
     shuffleRef,
-    rightButtonsRef,
   });
 
   const { progressRef, seekTo } = usePlayerProgress({
@@ -129,7 +135,7 @@ export default function PlayerPage() {
             style={{ width: coverSize, height: coverSize }}
           >
             <div
-              className={`absolute inset-0 transition-all duration-200 ease-out will-change-transform ${
+              className={`absolute inset-0 transition-all duration-200 ease-out ${
                 isTrackChanging ? 'opacity-0 -translate-x-12' : 'opacity-100 translate-x-0'
               }`}
             >
@@ -143,7 +149,7 @@ export default function PlayerPage() {
             </div>
 
             <div
-              className={`absolute inset-0 transition-all duration-200 ease-out will-change-transform ${
+              className={`absolute inset-0 transition-all duration-200 ease-out ${
                 isTrackChanging ? 'opacity-0 translate-x-12' : 'opacity-100 translate-x-0'
               }`}
             >
@@ -159,7 +165,7 @@ export default function PlayerPage() {
 
           <div className="flex-1 min-w-0 flex flex-col" style={{ height: coverSize }}>
             <div
-              className={`transition-all duration-200 ease-out will-change-transform ${
+              className={`transition-all duration-200 ease-out ${
                 isTrackChanging ? 'opacity-0 -translate-x-8' : 'opacity-100 translate-x-0'
               }`}
             >
@@ -171,7 +177,7 @@ export default function PlayerPage() {
             </div>
 
             <div
-              className={`mt-1 transition-all duration-200 ease-out delay-75 will-change-transform ${
+              className={`mt-1 transition-all duration-200 ease-out delay-75 ${
                 isTrackChanging ? 'opacity-0 -translate-x-6' : 'opacity-100 translate-x-0'
               }`}
             >
@@ -216,12 +222,11 @@ export default function PlayerPage() {
 
             <div ref={controlsContainerRef} className="relative flex items-center mt-2 h-12 min-w-0">
               <div className="flex items-center min-w-0" style={{ width: volumeWidth }}>
-                <PlayerVolumeBar
+                <VolumeControl
                   volume={volume}
-                  isAudioReady={isAudioReady}
                   isLoading={isLoading}
                   onVolumeChange={setVolume}
-                  mode={volumeMode}
+                  variant={volumeMode === 'icon' ? 'icon' : 'inline'}
                 />
               </div>
 
@@ -240,7 +245,7 @@ export default function PlayerPage() {
                   <Icon name="skip-back" size={22} />
                 </button>
                 <button
-                  onClick={() => { if (!isLoading) togglePlay(); }}
+                  onClick={() => { if (!isLoading) void togglePlay(); }}
                   disabled={isLoading}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                     isLoading ? 'bg-white/[0.08] cursor-wait' : 'bg-white/[0.08] hover:bg-white/[0.14] hover:scale-105'
@@ -273,12 +278,11 @@ export default function PlayerPage() {
                 {currentTrack && (
                   <button
                     onClick={() => {
-                      const isFav = favorites.some((f) => f.id === currentTrack.id);
                       if (isFav) removeFromFavorites(currentTrack.id);
                       else addToFavorites(currentTrack);
                     }}
                     className={`flex-shrink-0 p-1.5 rounded-full transition-all ${
-                      favorites.some((f) => f.id === currentTrack.id)
+                      isFav
                         ? 'text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
                         : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
                     }`}
@@ -286,7 +290,7 @@ export default function PlayerPage() {
                     <Icon
                       name="heart"
                       size={18}
-                      className={favorites.some((f) => f.id === currentTrack.id) ? 'fill-current' : ''}
+                      className={isFav ? 'fill-current' : ''}
                     />
                   </button>
                 )}
@@ -305,7 +309,7 @@ export default function PlayerPage() {
         </div>
 
         <PlayerQueue
-          tracks={queue.tracks}
+          tracks={queueTracks}
           scrollRef={queueScrollRef}
           onRemove={removeFromQueue}
         />

@@ -11,6 +11,11 @@ import { SearchPlaylistCard } from '@components/search/SearchPlaylistCard';
 import { SearchSkeletons } from '@components/search/SearchSkeletons';
 import { SearchEmpty } from '@components/search/SearchEmpty';
 
+const DEBOUNCE_MS = 200;
+const TRACKS_PER_PAGE = 20;
+const ARTISTS_PER_PAGE = 30;
+const PLAYLISTS_PER_PAGE = 20;
+
 export default function SearchPage() {
   const sp = useStore((s) => s.searchPage);
   const setSearchPage = useStore((s) => s.setSearchPage);
@@ -27,7 +32,6 @@ export default function SearchPage() {
 
   const smoothRef = useSmoothScroll<HTMLDivElement>();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const lastElementRef = useRef<HTMLDivElement | null>(null);
 
   const isLoadingRef = useRef(false);
@@ -49,7 +53,7 @@ export default function SearchPage() {
   const addToQueue = useStore((s) => s.addToQueue);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), 200);
+    const t = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -57,7 +61,6 @@ export default function SearchPage() {
     if (containerRef.current && sp.scrollTop > 0) {
       containerRef.current.scrollTop = sp.scrollTop;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -76,11 +79,11 @@ export default function SearchPage() {
 
     try {
       if (tab === 'tracks') {
-        const results = await api.searchTracks(q, 20, newOffset);
+        const results = await api.searchTracks(q, TRACKS_PER_PAGE, newOffset);
         const fresh = results.filter((t) => t?.id);
         const prev = reset ? [] : useStore.getState().searchPage.cache.tracks.items;
         const next = [...prev, ...fresh];
-        const nextHasMore = fresh.length === 20;
+        const nextHasMore = fresh.length === TRACKS_PER_PAGE;
         const nextOffset = newOffset + fresh.length;
 
         setTracks(next);
@@ -90,10 +93,10 @@ export default function SearchPage() {
         setSearchCache('tracks', { items: next, offset: nextOffset, hasMore: nextHasMore, loaded: true });
         setSearchPage({ query: q });
       } else if (tab === 'artists') {
-        const results = await api.searchUsers(q, newOffset, 30);
+        const results = await api.searchUsers(q, newOffset, ARTISTS_PER_PAGE);
         const prev = reset ? [] : useStore.getState().searchPage.cache.artists.items;
         const next = [...prev, ...results];
-        const nextHasMore = results.length === 30;
+        const nextHasMore = results.length === ARTISTS_PER_PAGE;
         const nextOffset = newOffset + results.length;
 
         setArtists(next);
@@ -103,11 +106,10 @@ export default function SearchPage() {
         setSearchCache('artists', { items: next, offset: nextOffset, hasMore: nextHasMore, loaded: true });
         setSearchPage({ query: q });
       } else {
-        const data = await api.searchPlaylists(q, 20, newOffset);
-        const items = (data?.collection || []) as Playlist[];
+        const items = await api.searchPlaylists(q, PLAYLISTS_PER_PAGE, newOffset);
         const prev = reset ? [] : useStore.getState().searchPage.cache.playlists.items;
         const next = [...prev, ...items];
-        const nextHasMore = items.length === 20;
+        const nextHasMore = items.length === PLAYLISTS_PER_PAGE;
         const nextOffset = newOffset + items.length;
 
         setPlaylists(next);
@@ -141,7 +143,6 @@ export default function SearchPage() {
     offsetRef.current = 0;
     if (containerRef.current) containerRef.current.scrollTop = 0;
     performSearch(filterRef.current, 0, true, debouncedQuery);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
   useEffect(() => {
@@ -171,7 +172,6 @@ export default function SearchPage() {
       if (!c.loaded) performSearch('playlists', 0, true, debouncedQuery);
       else if (containerRef.current) containerRef.current.scrollTop = 0;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, debouncedQuery]);
 
   useEffect(() => {
@@ -193,11 +193,9 @@ export default function SearchPage() {
     );
 
     observer.observe(el);
-    observerRef.current = observer;
 
     return () => {
       observer.disconnect();
-      observerRef.current = null;
     };
   }, [performSearch]);
 

@@ -44,6 +44,10 @@ export function ArtistPage() {
       setIsLoading(true);
       try {
         const uid = parseInt(id, 10);
+        if (isNaN(uid)) {
+          navigate('/search');
+          return;
+        }
 
         const user = await api.getUser(uid);
         if (!user) {
@@ -85,7 +89,6 @@ export function ArtistPage() {
 
     if (!cached) load();
     else setIsLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
   useEffect(() => {
@@ -94,7 +97,6 @@ export function ArtistPage() {
         if (rootRef.current) rootRef.current.scrollTop = cached.scrollTop;
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   useEffect(() => {
@@ -102,7 +104,6 @@ export function ArtistPage() {
       const el = rootRef.current;
       if (id && el) setArtistCache(id, { scrollTop: el.scrollTop });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (isLoading || !artist) {

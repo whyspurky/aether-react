@@ -65,7 +65,6 @@ export function useElementBounds<T extends Record<string, React.RefObject<HTMLEl
       }
       return changed ? next : prev;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refsKey]);
 
   const scheduleMeasure = useCallback(() => {
@@ -94,7 +93,6 @@ export function useElementBounds<T extends Record<string, React.RefObject<HTMLEl
       window.removeEventListener('resize', scheduleMeasure);
       window.removeEventListener('scroll', scheduleMeasure, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleMeasure, refsKey]);
 
   return bounds;

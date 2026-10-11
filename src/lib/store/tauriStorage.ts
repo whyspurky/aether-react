@@ -18,7 +18,7 @@ async function flush() {
   } catch {}
 }
 
-export async function flushPending(): Promise<void> {
+export async function saveNow(): Promise<void> {
   if (debounceTimer !== null) {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
@@ -55,13 +55,11 @@ export const tauriStorage: StateStorage = {
 };
 
 export async function clearTauriStorage(): Promise<void> {
-  await invoke('clear_store');
-}
-
-export async function saveNow(): Promise<void> {
+  pendingKey = null;
+  pendingValue = null;
   if (debounceTimer !== null) {
     window.clearTimeout(debounceTimer);
     debounceTimer = null;
   }
-  await flush();
+  await invoke('clear_store');
 }

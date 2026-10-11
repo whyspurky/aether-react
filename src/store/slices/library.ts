@@ -1,11 +1,12 @@
 import type { Track, Playlist } from '../types';
 
+const HISTORY_MAX = 200;
+
 export interface LibrarySlice {
   library: {
     favorites: Track[];
     history: Track[];
     playlists: Playlist[];
-    currentPlaylist: Playlist | null;
   };
   addToFavorites: (track: Track) => void;
   removeFromFavorites: (trackId: number) => void;
@@ -13,13 +14,12 @@ export interface LibrarySlice {
   removeFromHistory: (trackId: number) => void;
   clearHistory: () => void;
   clearFavorites: () => void;
-  createPlaylist: (name: string) => void;
+  createPlaylist: (name: string) => string;
   importPlaylist: (name: string, tracks: Track[], artworkUrl?: string) => string;
-  updatePlaylist: (id: string, name: string) => void;
-  addToPlaylist: (playlistId: string, track: Track) => void;
-  removeFromPlaylist: (playlistId: string, trackId: number) => void;
-  deletePlaylist: (playlistId: string) => void;
-  setCurrentPlaylist: (playlist: Playlist | null) => void;
+  updatePlaylist: (id: string | number, name: string) => void;
+  addToPlaylist: (playlistId: string | number, track: Track) => void;
+  removeFromPlaylist: (playlistId: string | number, trackId: number) => void;
+  deletePlaylist: (playlistId: string | number) => void;
 }
 
 export const createLibrarySlice = (set: any) => ({
@@ -27,7 +27,6 @@ export const createLibrarySlice = (set: any) => ({
     favorites: [],
     history: [],
     playlists: [],
-    currentPlaylist: null,
   },
 
   addToFavorites: (track: Track) =>
@@ -47,7 +46,7 @@ export const createLibrarySlice = (set: any) => ({
     set((s: any) => ({
       library: {
         ...s.library,
-        history: [track, ...s.library.history.filter((t: Track) => t.id !== track.id)].slice(0, 200),
+        history: [track, ...s.library.history.filter((t: Track) => t.id !== track.id)].slice(0, HISTORY_MAX),
       },
     })),
 
@@ -60,8 +59,10 @@ export const createLibrarySlice = (set: any) => ({
   clearFavorites: () => set((s: any) => ({ library: { ...s.library, favorites: [] } })),
 
   createPlaylist: (name: string) => {
-    const pl: Playlist = { id: Date.now().toString(), name, tracks: [], createdAt: Date.now() };
+    const id = Date.now().toString();
+    const pl: Playlist = { id, name, tracks: [], createdAt: Date.now() };
     set((s: any) => ({ library: { ...s.library, playlists: [pl, ...s.library.playlists] } }));
+    return id;
   },
 
   importPlaylist: (name: string, tracks: Track[], artworkUrl?: string) => {
@@ -71,7 +72,7 @@ export const createLibrarySlice = (set: any) => ({
     return id;
   },
 
-  updatePlaylist: (id: string, name: string) =>
+  updatePlaylist: (id: string | number, name: string) =>
     set((s: any) => ({
       library: {
         ...s.library,
@@ -79,7 +80,7 @@ export const createLibrarySlice = (set: any) => ({
       },
     })),
 
-  addToPlaylist: (playlistId: string, track: Track) =>
+  addToPlaylist: (playlistId: string | number, track: Track) =>
     set((s: any) => ({
       library: {
         ...s.library,
@@ -91,7 +92,7 @@ export const createLibrarySlice = (set: any) => ({
       },
     })),
 
-  removeFromPlaylist: (playlistId: string, trackId: number) =>
+  removeFromPlaylist: (playlistId: string | number, trackId: number) =>
     set((s: any) => ({
       library: {
         ...s.library,
@@ -101,11 +102,8 @@ export const createLibrarySlice = (set: any) => ({
       },
     })),
 
-  deletePlaylist: (playlistId: string) =>
+  deletePlaylist: (playlistId: string | number) =>
     set((s: any) => ({
       library: { ...s.library, playlists: s.library.playlists.filter((pl: Playlist) => pl.id !== playlistId) },
     })),
-
-  setCurrentPlaylist: (playlist: Playlist | null) =>
-    set((s: any) => ({ library: { ...s.library, currentPlaylist: playlist } })),
 });

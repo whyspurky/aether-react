@@ -12,8 +12,9 @@ export function useKeyboard() {
       const s = useStore.getState();
 
       if (e.code === 'Space') {
+        if (e.repeat) return;
         e.preventDefault();
-        if (!s.player.isLoading) s.togglePlay();
+        if (!s.player.isLoading) void s.togglePlay();
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         s.nextTrack(true);
@@ -24,12 +25,10 @@ export function useKeyboard() {
         e.preventDefault();
         const next = Math.min(100, s.player.volume + 5);
         s.setVolume(next);
-        s.setVolumeRust(next);
       } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         const next = Math.max(0, s.player.volume - 5);
         s.setVolume(next);
-        s.setVolumeRust(next);
       }
     };
 

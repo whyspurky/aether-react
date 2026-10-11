@@ -23,8 +23,8 @@ export function CustomProxyForm({ config, onChange }: Props) {
               onClick={() => onChange({ type: t })}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 config.type === t
-                  ? 'bg-bg-secondary text-text-primary'
-                  : 'text-text-tertiary hover:bg-bg-secondary hover:text-text-secondary'
+                  ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                  : 'text-text-tertiary hover:bg-white/[0.06] hover:text-text-secondary'
               }`}
             >
               {t.toUpperCase()}
@@ -41,7 +41,7 @@ export function CustomProxyForm({ config, onChange }: Props) {
             value={config.host}
             onChange={(e) => onChange({ host: e.target.value })}
             placeholder="127.0.0.1"
-            className="w-full px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg outline-none focus:border-border-visible text-sm text-text-primary placeholder:text-text-tertiary"
+            className="w-full px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary"
           />
         </div>
         <div>
@@ -51,8 +51,7 @@ export function CustomProxyForm({ config, onChange }: Props) {
             value={config.port}
             onChange={(e) => onChange({ port: parseInt(e.target.value) || 0 })}
             placeholder="1080"
-            className="w-full px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg outline-none focus:border-border-visible text-sm text-text-primary placeholder:text-text-tertiary"
-          />
+            className="w-full px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary"          />
         </div>
       </div>
 
@@ -63,8 +62,7 @@ export function CustomProxyForm({ config, onChange }: Props) {
             type="text"
             value={config.username}
             onChange={(e) => onChange({ username: e.target.value })}
-            className="w-full px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg outline-none focus:border-border-visible text-sm text-text-primary placeholder:text-text-tertiary"
-          />
+            className="w-full px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary"          />
         </div>
         <div>
           <label className="text-xs text-text-tertiary mb-2 block">пароль (опционально)</label>
@@ -72,8 +70,7 @@ export function CustomProxyForm({ config, onChange }: Props) {
             type="password"
             value={config.password}
             onChange={(e) => onChange({ password: e.target.value })}
-            className="w-full px-3 py-2 bg-bg-secondary border border-border-subtle rounded-lg outline-none focus:border-border-visible text-sm text-text-primary placeholder:text-text-tertiary"
-          />
+            className="w-full px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-[var(--accent-primary)] focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary"          />
         </div>
       </div>
 

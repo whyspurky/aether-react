@@ -35,7 +35,7 @@ export function ProxyModeSelector({ mode, zapretRunning, onChange }: Props) {
             onClick={() => !isDisabled && onChange(m.id)}
             className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 ${
               active
-                ? 'bg-bg-secondary border-border-visible'
+                ? 'bg-[var(--accent-muted)] border-[var(--accent-primary)]'
                 : 'bg-bg-primary/40 border-border-subtle hover:border-border-visible'
             } ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
           >
@@ -43,7 +43,7 @@ export function ProxyModeSelector({ mode, zapretRunning, onChange }: Props) {
               <Icon
                 name={m.icon}
                 size={16}
-                className={active ? 'text-text-primary' : 'text-text-tertiary'}
+                className={active ? 'text-[var(--accent-primary)]' : 'text-text-tertiary'}
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -62,7 +62,7 @@ export function ProxyModeSelector({ mode, zapretRunning, onChange }: Props) {
               <p className="text-xs text-text-tertiary mt-0.5">{m.desc}</p>
             </div>
             {active && !isDisabled && (
-              <Icon name="check" size={16} className="text-text-secondary flex-shrink-0" />
+              <Icon name="check" size={16} className="text-[var(--accent-primary)] flex-shrink-0" />
             )}
           </button>
         );

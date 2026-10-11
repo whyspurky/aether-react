@@ -1,3 +1,9 @@
+export const BLUR_AMOUNT_MAX = 120;
+export const BLUR_OPACITY_MAX = 0.5;
+export const BLUR_AMOUNT_DEFAULT = 60;
+export const BLUR_OPACITY_DEFAULT = 0.25;
+export const PRESET_NAME_MAX = 24;
+
 export interface CustomPreset {
   id: string;
   name: string;
@@ -11,9 +17,6 @@ export interface CustomPreset {
 }
 
 export interface UiSlice {
-  preload: {
-    isPreloading: boolean;
-  };
   themeId: string;
   blur: {
     enabled: boolean;
@@ -34,14 +37,11 @@ export interface UiSlice {
 }
 
 export const createUiSlice = (set: any, get: any) => ({
-  preload: {
-    isPreloading: false,
-  },
   themeId: 'neutral',
   blur: {
     enabled: true,
-    amount: 60,
-    opacity: 0.25,
+    amount: BLUR_AMOUNT_DEFAULT,
+    opacity: BLUR_OPACITY_DEFAULT,
   },
   customPresets: [],
 
@@ -49,15 +49,15 @@ export const createUiSlice = (set: any, get: any) => ({
   setBlurEnabled: (enabled: boolean) =>
     set((s: any) => ({ blur: { ...s.blur, enabled } })),
   setBlurAmount: (amount: number) =>
-    set((s: any) => ({ blur: { ...s.blur, amount: Math.max(0, Math.min(120, amount)) } })),
+    set((s: any) => ({ blur: { ...s.blur, amount: Math.max(0, Math.min(BLUR_AMOUNT_MAX, amount)) } })),
   setBlurOpacity: (opacity: number) =>
-    set((s: any) => ({ blur: { ...s.blur, opacity: Math.max(0, Math.min(0.5, opacity)) } })),
+    set((s: any) => ({ blur: { ...s.blur, opacity: Math.max(0, Math.min(BLUR_OPACITY_MAX, opacity)) } })),
 
   saveCustomPreset: (name: string) => {
     const s = get();
     const preset: CustomPreset = {
       id: `preset-${Date.now()}`,
-      name: name.slice(0, 24),
+      name: name.slice(0, PRESET_NAME_MAX),
       themeId: s.themeId,
       blur: { ...s.blur },
       createdAt: Date.now(),
@@ -84,7 +84,7 @@ export const createUiSlice = (set: any, get: any) => ({
     const s = get();
     set({
       customPresets: s.customPresets.map((p: CustomPreset) =>
-        p.id === id ? { ...p, name: name.slice(0, 24) } : p
+        p.id === id ? { ...p, name: name.slice(0, PRESET_NAME_MAX) } : p
       ),
     });
   },

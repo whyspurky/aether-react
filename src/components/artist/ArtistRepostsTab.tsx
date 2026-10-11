@@ -10,7 +10,7 @@ interface Props {
 
 export function ArtistRepostsTab({ reposts }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const setSmoothRef = useSmoothScroll<HTMLDivElement>({ sensitivity: 1.5, duration: 300 });
+  const setSmoothRef = useSmoothScroll<HTMLDivElement>();
 
   const setRefs = (node: HTMLDivElement | null) => {
     setSmoothRef(node);
@@ -20,7 +20,7 @@ export function ArtistRepostsTab({ reposts }: Props) {
   if (!reposts.length) return <ArtistEmpty text="нет репостов" />;
 
   return (
-    <div ref={setRefs} className="h-full w-full overflow-auto scrollbar-thin">
+    <div ref={setRefs} className="h-full w-full overflow-auto">
       <TrackList
         tracks={reposts}
         virtualize

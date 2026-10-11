@@ -8,16 +8,8 @@ window.addEventListener('beforeunload', () => {
   api.stopAudio();
 });
 
-async function bootstrap() {
-  try {
-    await api.stopAudio();
-  } catch {}
-
-  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-}
-
-bootstrap();
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);

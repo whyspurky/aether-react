@@ -3,13 +3,22 @@ pub mod hls;
 pub mod soundcloud;
 pub mod stream;
 
-pub use client::{http};
-pub use stream::{download_hls_track};
+pub use client::http;
+pub use stream::download_hls_track;
 
 pub const CLIENT_ID: &str = "dkevB9EsY4jIoSm8RfddPNUKyn6hurXF";
 pub const BASE_URL: &str = "https://api-v2.soundcloud.com";
 pub const MIN_TRACK_MS: u64 = 30_000;
 pub const MAX_TRACK_MS: u64 = 600_000;
+
+pub fn add_client_id(url: &str) -> String {
+    if url.contains("client_id=") {
+        url.to_string()
+    } else {
+        let sep = if url.contains('?') { '&' } else { '?' };
+        format!("{}{}client_id={}", url, sep, CLIENT_ID)
+    }
+}
 
 #[derive(Debug)]
 pub enum ApiError {

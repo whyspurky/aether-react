@@ -7,15 +7,18 @@ interface Props {
   repostsCount: number;
 }
 
+const MILLION = 1_000_000;
+const THOUSAND = 1_000;
+
+function formatCount(n: number | undefined): string {
+  if (!n) return '0';
+  if (n >= MILLION) return (n / MILLION).toFixed(1) + 'M';
+  if (n >= THOUSAND) return (n / THOUSAND).toFixed(1) + 'K';
+  return String(n);
+}
+
 export function ArtistHeader({ artist, tracksCount, repostsCount }: Props) {
   const coverUrl = artist.avatar_url?.replace('-large', '-t500x500') || null;
-
-  const formatCount = (n: number | undefined) => {
-    if (!n) return '0';
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-    return String(n);
-  };
 
   return (
     <div className="relative px-6 pt-0 pb-2">

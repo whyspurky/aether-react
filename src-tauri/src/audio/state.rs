@@ -12,6 +12,7 @@ pub struct Playback {
     pub play_start: Option<Instant>,
     pub duration_ms: u32,
     pub bytes: Option<Bytes>,
+    // пропуск tick'ов после seek (3 = 300ms), чтобы rodio успел перемотать
     pub seek_skip_tick: u32,
     pub current_track_id: u64,
 }
@@ -105,9 +106,11 @@ impl Playback {
 pub struct AppState {
     pub player: Arc<Mutex<rodio::Player>>,
     pub playback: Arc<Mutex<Playback>>,
+    // underscore: важно держать sink живым, иначе звук отваливается
     pub _sink_handle: Arc<Mutex<rodio::MixerDeviceSink>>,
     pub prefetch_slot: Arc<Mutex<Option<(u64, Bytes)>>>,
     pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    pub prefetch_current_id: Arc<Mutex<u128>>,
     pub app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
     pub tick_task: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub volume_channel: Arc<Mutex<Option<tauri::ipc::Channel<u32>>>>,
@@ -124,6 +127,7 @@ impl AppState {
             playback: Arc::new(Mutex::new(Playback::new())),
             prefetch_slot: Arc::new(Mutex::new(None)),
             prefetch_task: Arc::new(Mutex::new(None)),
+            prefetch_current_id: Arc::new(Mutex::new(0)),
             app_handle: Arc::new(Mutex::new(None)),
             tick_task: Arc::new(Mutex::new(None)),
             volume_channel: Arc::new(Mutex::new(None)),

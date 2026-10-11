@@ -11,7 +11,7 @@ export function SearchInput({ value, onChange }: Props) {
       <Icon
         name="search"
         size={20}
-        className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-text-secondary transition-colors"
+        className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-[var(--accent-primary)] transition-colors"
       />
       <input
         type="text"

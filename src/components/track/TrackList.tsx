@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
@@ -6,7 +6,7 @@ import { useStore } from '@store/store';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import type { Track } from '@store/types';
-import { formatMs } from '@lib/format';
+import { formatMs, getCoverUrl } from '@lib/format';
 
 interface TrackListProps {
   tracks: Track[];
@@ -18,7 +18,8 @@ interface TrackListProps {
   onRemove?: (track: Track) => void;
 }
 
-const ITEM_HEIGHT = 56;
+const ITEM_HEIGHT = 60;
+const ITEM_GAP_PX = 4;
 const SMOOTH_DURATION = 300;
 
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -40,6 +41,8 @@ export function TrackList({
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);
   const { openTrackMenu } = useTrackContextMenu();
+
+  const favIds = useMemo(() => new Set(favorites.map((f) => f.id)), [favorites]);
 
   const internalRef = useRef<HTMLDivElement | null>(null);
   const isExternal = !!scrollRef;
@@ -126,10 +129,8 @@ export function TrackList({
 
   const renderItem = (track: Track, index: number) => {
     const isCurrent = currentTrack?.id === track.id;
-    const coverUrl =
-      track.artwork_url?.replace('-large', '-t300x300') ||
-      track.user?.avatar_url?.replace('-large', '-t300x300') ||
-      null;
+    const isFav = favIds.has(track.id);
+    const coverUrl = getCoverUrl(track, 't300x300');
 
     return (
       <div
@@ -141,6 +142,7 @@ export function TrackList({
         className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] ${
           isCurrent ? 'bg-[var(--accent-muted)]' : ''
         }`}
+        style={{ marginBottom: ITEM_GAP_PX }}
       >
         {showNumber && (
           <div className="w-8 text-center text-sm text-text-tertiary">
@@ -190,30 +192,21 @@ export function TrackList({
 
         <div className="flex items-center flex-shrink-0 mr-4">
           <div className="flex items-center gap-1 justify-end w-[84px]">
-            {(() => {
-              const isFav = favorites.some((f) => f.id === track.id);
-              return (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isFav) removeFromFavorites(track.id);
-                    else addToFavorites(track);
-                  }}
-                  className={`p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 ${
-                    isFav
-                      ? 'text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
-                      : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
-                  }`}
-                  aria-label={isFav ? 'убрать из избранного' : 'в избранное'}
-                >
-            <Icon
-              name="heart"
-              size={16}
-              className={isFav ? 'fill-current' : ''}
-            />
-          </button>
-              );
-            })()}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isFav) removeFromFavorites(track.id);
+                else addToFavorites(track);
+              }}
+              className={`p-1.5 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100 ${
+                isFav
+                  ? 'text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+                  : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+              }`}
+              aria-label={isFav ? 'убрать из избранного' : 'в избранное'}
+            >
+              <Icon name="heart" size={16} className={isFav ? 'fill-current' : ''} />
+            </button>
 
             {showQueueButton && (
               <button
@@ -270,14 +263,14 @@ export function TrackList({
     }
 
     return (
-      <div ref={setRefs} className="h-full w-full overflow-auto scrollbar-thin">
+      <div ref={setRefs} className="h-full w-full overflow-auto">
         {inner}
       </div>
     );
   }
 
   return (
-    <div className="space-y-1 w-full">
+    <div className="w-full">
       {tracks.map((_, index) => (
         <div key={tracks[index].id} className="w-full">{renderItem(tracks[index], index)}</div>
       ))}

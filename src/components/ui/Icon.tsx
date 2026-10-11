@@ -20,6 +20,12 @@ for (const [path, raw] of Object.entries(modules)) {
 
 const cache = new Map<string, string>();
 
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    cache.clear();
+  });
+}
+
 function prepare(svg: string, size: number, className: string): string {
   const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
   const el = doc.querySelector('svg');
@@ -40,6 +46,7 @@ export function Icon({ name, className = '', size = 20 }: IconProps) {
     const cached = cache.get(key);
     if (cached) return cached;
     const result = prepare(raw, size, className);
+    if (cache.size > 500) cache.clear();
     cache.set(key, result);
     return result;
   }, [name, size, className]);

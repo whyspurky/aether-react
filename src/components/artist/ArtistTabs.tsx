@@ -47,7 +47,7 @@ export function ArtistTabs({ activeTab, onChange }: Props) {
   }, [activeTab]);
 
   return (
-    <div data-artist-tabs className="sticky top-0 z-30 bg-bg-primary/95 backdrop-blur-xl border-b border-border-subtle">
+    <div className="sticky top-0 z-30 bg-bg-primary/95 backdrop-blur-xl border-b border-border-subtle">
       <div ref={containerRef} className="relative flex gap-7 px-7">
         {TABS.map((t) => (
           <ArtistTabButton
@@ -61,7 +61,7 @@ export function ArtistTabs({ activeTab, onChange }: Props) {
         ))}
 
         <div
-          className="absolute bottom-0 h-[2px] bg-text-primary rounded-full pointer-events-none"
+          className="absolute bottom-0 h-[2px] bg-[var(--accent-primary)] rounded-full pointer-events-none"
           style={{
             left: indicator.left,
             width: indicator.width,

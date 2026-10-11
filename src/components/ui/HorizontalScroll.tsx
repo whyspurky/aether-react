@@ -9,6 +9,9 @@ interface HorizontalScrollProps {
 
 const FRICTION = 0.9999;
 const MIN_VELOCITY = 0.3;
+const DRAG_THRESHOLD = 5;
+const VELOCITY_OLD_WEIGHT = 0.7;
+const VELOCITY_NEW_WEIGHT = 0.3;
 
 export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps>(
   ({ children, className = '', style = {}, gap = 16 }, ref) => {
@@ -24,7 +27,6 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
       const el = innerRef.current;
       if (!el) return;
 
-      const dragThreshold = 5;
       let isPressed = false;
       let isDragging = false;
       let startX = 0;
@@ -90,7 +92,7 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
         const dy = e.clientY - startY;
 
         if (!isDragging) {
-          if (Math.abs(dx) < dragThreshold && Math.abs(dy) < dragThreshold) return;
+          if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
 
           isDragging = true;
           el.style.cursor = 'grabbing';
@@ -104,7 +106,7 @@ export const HorizontalScroll = forwardRef<HTMLDivElement, HorizontalScrollProps
         const dt = now - lastTime;
         if (dt > 0) {
           const instant = (e.clientX - lastX) / dt;
-          velocity = velocity * 0.7 + instant * 0.3;
+          velocity = velocity * VELOCITY_OLD_WEIGHT + instant * VELOCITY_NEW_WEIGHT;
         }
         lastX = e.clientX;
         lastTime = now;

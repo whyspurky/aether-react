@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { themes } from '@/theme/themes';
+import { BLUR_AMOUNT_MAX, BLUR_OPACITY_MAX, PRESET_NAME_MAX } from '@store/slices/ui';
 
 export function SettingsTabAppearance() {
   const themeId = useStore((s) => s.themeId);
@@ -25,7 +26,7 @@ export function SettingsTabAppearance() {
     setShowSave(false);
   };
 
-  const themeList = Object.values(themes);
+  const themeList = useMemo(() => Object.values(themes), []);
 
   return (
     <div className="space-y-4">
@@ -49,7 +50,7 @@ export function SettingsTabAppearance() {
                 onClick={() => setThemeId(t.id)}
                 className={`flex flex-col items-center gap-2 p-2 rounded-xl transition-all ${
                   themeId === t.id
-                    ? 'bg-white/[0.08] ring-1 ring-white/[0.15]'
+                    ? 'bg-[var(--accent-muted)] ring-1 ring-[var(--accent-primary)]'
                     : 'hover:bg-white/[0.05]'
                 }`}
               >
@@ -72,8 +73,6 @@ export function SettingsTabAppearance() {
               </button>
             ))}
           </div>
-
- 
         </div>
       </div>
 
@@ -93,7 +92,7 @@ export function SettingsTabAppearance() {
             <button
               onClick={() => setBlurEnabled(!blur.enabled)}
               className={`relative w-10 h-6 rounded-full transition-colors duration-200 ${
-                blur.enabled ? 'bg-text-secondary' : 'bg-white/[0.08]'
+                blur.enabled ? 'bg-[var(--accent-primary)]' : 'bg-white/[0.08]'
               }`}
               aria-label="переключить размытие"
             >
@@ -115,10 +114,10 @@ export function SettingsTabAppearance() {
                 <input
                   type="range"
                   min={0}
-                  max={120}
+                  max={BLUR_AMOUNT_MAX}
                   step={2}
                   value={blur.amount}
-                  onChange={(e) => setBlurAmount(parseInt(e.target.value))}
+                  onChange={(e) => setBlurAmount(parseInt(e.target.value, 10))}
                   className="settings-slider"
                 />
               </div>
@@ -133,10 +132,10 @@ export function SettingsTabAppearance() {
                 <input
                   type="range"
                   min={0}
-                  max={50}
+                  max={Math.round(BLUR_OPACITY_MAX * 100)}
                   step={1}
                   value={Math.round(blur.opacity * 100)}
-                  onChange={(e) => setBlurOpacity(parseInt(e.target.value) / 100)}
+                  onChange={(e) => setBlurOpacity(parseInt(e.target.value, 10) / 100)}
                   className="settings-slider"
                 />
               </div>
@@ -173,7 +172,7 @@ export function SettingsTabAppearance() {
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
                 placeholder="название пресета"
-                maxLength={24}
+                maxLength={PRESET_NAME_MAX}
                 onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
                 className="flex-1 px-3 py-2 bg-white/[0.04] border border-border-subtle rounded-lg outline-none focus:border-border-visible focus:bg-white/[0.06] text-sm text-text-primary placeholder:text-text-tertiary"
               />

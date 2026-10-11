@@ -9,21 +9,24 @@ interface Props {
   onPlay: () => void;
 }
 
+const SKELETON_WIDTHS = Array.from({ length: 6 }, () => ({
+  title: 30 + Math.random() * 40,
+  artist: 25 + Math.random() * 35,
+}));
+
 export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
   const scrollRef = useSmoothScroll<HTMLDivElement>();
 
   const renderSkeletons = () =>
-    [...Array(6)].map((_, i) => {
-      const titleWidth = 30 + Math.random() * 40;
-      const artistWidth = 25 + Math.random() * 35;
+    SKELETON_WIDTHS.map(({ title, artist }, i) => {
       return (
         <div key={i} className="flex items-center gap-3 p-2">
           <div className="w-10 h-10 rounded-md bg-white/[0.06] flex items-center justify-center">
             <Icon name="music" size={16} className="text-text-tertiary" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="h-4 bg-white/[0.06] rounded mb-1" style={{ width: `${titleWidth}%` }} />
-            <div className="h-3 bg-white/[0.04] rounded" style={{ width: `${artistWidth}%` }} />
+            <div className="h-4 bg-white/[0.06] rounded mb-1" style={{ width: `${title}%` }} />
+            <div className="h-3 bg-white/[0.04] rounded" style={{ width: `${artist}%` }} />
           </div>
         </div>
       );
@@ -35,7 +38,7 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
         <div className="relative z-10 flex flex-col h-full">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-text-secondary animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />
               <h2 className="mb-1 text-base font-bold text-text-primary">моя волна</h2>
             </div>
             <button

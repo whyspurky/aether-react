@@ -65,22 +65,11 @@ fn process_running() -> bool {
     stdout.contains("winws.exe")
 }
 
-fn run_as_admin(program: &str, args: &[&str]) -> Result<(), String> {
-    let args_str = args
-        .iter()
-        .map(|a| format!("'{}'", a.replace('\'', "''")))
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    let cmd = format!(
-        "Start-Process -Verb RunAs -FilePath '{}' -ArgumentList {}",
-        program, args_str
-    );
-
+fn run_powershell(cmd: &str) -> Result<(), String> {
     println!("[zapret] powershell: {}", cmd);
 
     let output = Command::new("powershell")
-        .args(["-Command", &cmd])
+        .args(["-Command", cmd])
         .output()
         .map_err(|e| format!("powershell: {}", e))?;
 
@@ -97,30 +86,28 @@ fn run_as_admin(program: &str, args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
+fn run_as_admin(program: &str, args: &[&str]) -> Result<(), String> {
+    let args_str = args
+        .iter()
+        .map(|a| format!("'{}'", a.replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let cmd = format!(
+        "Start-Process -Verb RunAs -FilePath '{}' -ArgumentList {}",
+        program, args_str
+    );
+
+    run_powershell(&cmd)
+}
+
 fn run_bat_as_admin(bat_path: &str) -> Result<(), String> {
     let cmd = format!(
         "Start-Process -Verb RunAs -FilePath 'cmd.exe' -ArgumentList '/c', '{}'",
         bat_path.replace('\'', "''")
     );
 
-    println!("[zapret] powershell: {}", cmd);
-
-    let output = Command::new("powershell")
-        .args(["-Command", &cmd])
-        .output()
-        .map_err(|e| format!("powershell: {}", e))?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        let out = String::from_utf8_lossy(&output.stdout);
-        let msg = format!("{}{}", err.trim(), out.trim());
-        if !msg.is_empty() {
-            return Err(format!("powershell: {}", msg));
-        }
-        return Err(format!("powershell exit {}", output.status));
-    }
-
-    Ok(())
+    run_powershell(&cmd)
 }
 
 
@@ -398,15 +385,7 @@ pub async fn zapret_check_lists(folder: String) -> Result<Vec<ListCheck>, String
     Ok(result)
 }
 
-#[tauri::command]
-pub async fn zapret_add_soundcloud_domains(folder: String) -> Result<(), String> {
-    let root = Path::new(&folder);
-    let lists_dir = root.join("lists");
-    let actual_dir = if lists_dir.exists() { lists_dir } else { root.to_path_buf() };
-
-    let path = actual_dir.join("list-general-user.txt");
-
-let domains = [
+const SOUNDCLOUD_DOMAINS: &[&str] = &[
     "soundcloud.com",
     "www.soundcloud.com",
     "sndcdn.com",
@@ -429,6 +408,14 @@ let domains = [
     "dezyktpp25vy8.cloudfront.net",
 ];
 
+#[tauri::command]
+pub async fn zapret_add_soundcloud_domains(folder: String) -> Result<(), String> {
+    let root = Path::new(&folder);
+    let lists_dir = root.join("lists");
+    let actual_dir = if lists_dir.exists() { lists_dir } else { root.to_path_buf() };
+
+    let path = actual_dir.join("list-general-user.txt");
+
     let mut content = fs::read_to_string(&path).unwrap_or_default();
 
     if content.is_empty() {
@@ -441,7 +428,7 @@ let domains = [
         .collect();
 
     let mut added = 0;
-    for d in domains {
+    for d in SOUNDCLOUD_DOMAINS {
         if !existing.contains(&d.to_lowercase()) {
             content.push_str(d);
             content.push('\n');

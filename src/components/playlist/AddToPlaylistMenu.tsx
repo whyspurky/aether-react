@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
+import { upgradeCoverUrl } from '@lib/format';
 import type { Track } from '@store/types';
 
 interface Props {
@@ -79,10 +80,9 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
       window.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchorEl]);
 
-  const handleToggle = (playlistId: string, hasTrack: boolean) => {
+  const handleToggle = (playlistId: string | number, hasTrack: boolean) => {
     if (lockRef.current) return;
     lockRef.current = true;
     setTimeout(() => { lockRef.current = false; }, CLICK_LOCK_MS);
@@ -118,20 +118,16 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
             const cover =
               pl.artwork_url ||
               pl.tracks[0]?.artwork_url ||
-              pl.tracks[0]?.user?.avatar_url ||
-              null;
-            const coverUrl = cover?.replace(
-              /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/,
-              '-t200x200$2'
-            );
+              pl.tracks[0]?.user?.avatar_url;
+            const coverUrl = upgradeCoverUrl(cover, 't300x300');
 
             return (
               <button
                 key={pl.id}
                 onClick={() => handleToggle(pl.id, hasTrack)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-bg-secondary transition text-left"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-white/[0.06] hover:text-text-primary transition text-left"
               >
-                <div className="w-8 h-8 rounded-md bg-bg-secondary flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-8 h-8 rounded-md bg-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -141,7 +137,7 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
                 <span className="flex-1 truncate">{pl.name}</span>
                 <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
                   {hasTrack ? (
-                    <Icon name="check" size={14} className="text-text-primary" />
+                    <Icon name="check" size={14} className="text-[var(--accent-primary)]" />
                   ) : null}
                 </span>
               </button>

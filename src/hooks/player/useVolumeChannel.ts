@@ -19,9 +19,7 @@ class VolumeChannelManager {
 
     try {
       await invoke('start_volume_stream', { onVolume: this.channel });
-    } catch (e) {
-      console.error('[volume-channel] failed to start', e);
-    }
+    } catch {}
   }
 
   subscribe(listener: Listener): () => void {
@@ -30,12 +28,6 @@ class VolumeChannelManager {
     return () => {
       this.listeners.delete(listener);
     };
-  }
-
-  destroy() {
-    this.channel = null;
-    this.listeners.clear();
-    this.started = false;
   }
 }
 

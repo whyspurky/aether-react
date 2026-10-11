@@ -21,6 +21,11 @@ interface Result {
 const END_THRESHOLD = 0.5;
 const SEEK_LOCK_MS = 400;
 const END_CALL_GUARD_MS = 2000;
+const STORE_SYNC_MS = 1000;
+const PLAYBACK_STATE_LOCK_MS = 300;
+const TRACK_CHANGE_LOCK_MS = 500;
+const RESET_POSITION_THRESHOLD = 1.0;
+const STORE_RESET_THRESHOLD = 5.0;
 
 export function usePlayerProgress({
   currentTrackId,
@@ -73,12 +78,12 @@ export function usePlayerProgress({
 
       if (state === 'playing') {
         endedRef.current = false;
-        if (position < 1.0) {
+        if (position < RESET_POSITION_THRESHOLD) {
           const storePos = useStore.getState().player.position;
-          if (storePos < 5.0) {
+          if (storePos < STORE_RESET_THRESHOLD) {
             progressRef.current = 0;
           }
-          seekLockUntilRef.current = performance.now() + 300;
+          seekLockUntilRef.current = performance.now() + PLAYBACK_STATE_LOCK_MS;
         }
       }
     }).then((fn) => { unlisten = fn; });
@@ -123,7 +128,7 @@ export function usePlayerProgress({
       }
 
       const now = performance.now();
-      if (now - lastStoreSyncRef.current > 1000) {
+      if (now - lastStoreSyncRef.current > STORE_SYNC_MS) {
         lastStoreSyncRef.current = now;
         useStore.getState().setPosition(pos);
       }
@@ -146,7 +151,7 @@ export function usePlayerProgress({
     if (prevTrackIdRef.current !== undefined && prevTrackIdRef.current !== currentTrackId) {
       progressRef.current = 0;
       endedRef.current = false;
-      seekLockUntilRef.current = performance.now() + 500;
+      seekLockUntilRef.current = performance.now() + TRACK_CHANGE_LOCK_MS;
       prevTrackIdRef.current = currentTrackId;
       return;
     }

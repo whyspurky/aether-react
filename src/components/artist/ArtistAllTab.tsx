@@ -73,7 +73,7 @@ export function ArtistAllTab({
         </section>
       )}
 
-      {!popularTracks.length && !tracks.length && !reposts.length && (
+      {!popularTracks.length && !tracks.length && !reposts.length && !relatedArtists.length && (
         <div className="flex flex-col items-center justify-center py-12 text-text-tertiary">
           <Icon name="music" size={64} className="mb-4 opacity-30" />
           <p>у этого артиста пока ничего нет</p>

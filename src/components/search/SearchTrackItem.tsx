@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
-import { formatMs } from '@lib/format';
+import { formatMs, getCoverUrl } from '@lib/format';
 import type { Track } from '@store/types';
 
 interface Props {
@@ -14,10 +14,7 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
   const navigate = useNavigate();
   const { openTrackMenu } = useTrackContextMenu();
 
-  const coverUrl =
-    track.artwork_url?.replace('-large', '-t300x300') ||
-    track.user?.avatar_url?.replace('-large', '-t300x300') ||
-    null;
+  const coverUrl = getCoverUrl(track, 't300x300');
 
   const handleArtistClick = (e: React.MouseEvent) => {
     e.stopPropagation();

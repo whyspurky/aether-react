@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { api } from '@lib/api';
+import { saveNow } from '@lib/store/tauriStorage';
 import { Icon } from '@components/ui/Icon';
 import { useVolumeChannel } from '@hooks/player/useVolumeChannel';
 
+type Variant = 'capsule' | 'inline' | 'icon';
+
 interface Props {
   volume: number;
-  isAudioReady: boolean;
-  isLoading: boolean;
   onVolumeChange: (volume: number) => void;
-  mode?: 'full' | 'icon';
+  variant: Variant;
+  maxWidth?: number;
+  isLoading?: boolean;
 }
 
 const WHEEL_STEP = 3;
 const STORE_THROTTLE_MS = 100;
 const SHOW_PERCENT_MS = 800;
+const WHEEL_END_MS = 250;
+const MIN_BAR_WIDTH = 80;
+const BUTTON_SIZE = 36;
+const CAPSULE_GAP = 8;
 
 function volumeIcon(v: number): string {
   if (v === 0) return 'volume-x';
@@ -22,20 +29,23 @@ function volumeIcon(v: number): string {
   return 'volume-3';
 }
 
-export function PlayerVolumeBar({
+export function VolumeControl({
   volume,
-  isLoading,
   onVolumeChange,
-  mode = 'full',
+  variant,
+  maxWidth = 140,
+  isLoading = false,
 }: Props) {
+  const [open, setOpen] = useState(variant !== 'capsule');
+  const [showPercent, setShowPercent] = useState(false);
+  const [displayVolume, setDisplayVolume] = useState(volume);
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const capsuleRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
-  const iconButtonRef = useRef<HTMLButtonElement>(null);
-  const containerDivRef = useRef<HTMLDivElement>(null);
-
-  const [showPercent, setShowPercent] = useState(false);
-  const [displayVolume, setDisplayVolume] = useState(volume);
   const percentTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -43,7 +53,9 @@ export function PlayerVolumeBar({
   }, [volume, showPercent]);
 
   const onVolumeChangeRef = useRef(onVolumeChange);
-  useEffect(() => { onVolumeChangeRef.current = onVolumeChange; }, [onVolumeChange]);
+  useEffect(() => {
+    onVolumeChangeRef.current = onVolumeChange;
+  }, [onVolumeChange]);
 
   const isDraggingRef = useRef(false);
   const lastValueRef = useRef(volume);
@@ -93,7 +105,7 @@ export function PlayerVolumeBar({
 
     const final = Math.round(v);
     onVolumeChangeRef.current(final);
-    invoke('set_volume', { volume: final }).catch(() => {});
+    api.setVolume(final).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -108,7 +120,7 @@ export function PlayerVolumeBar({
   }, []);
 
   useEffect(() => {
-    const els = [iconButtonRef.current, containerDivRef.current].filter(Boolean) as HTMLElement[];
+    const els = [buttonRef.current, capsuleRef.current].filter(Boolean) as HTMLElement[];
     if (!els.length) return;
 
     const onWheel = (e: WheelEvent) => {
@@ -125,8 +137,8 @@ export function PlayerVolumeBar({
       wheelEndTimerRef.current = window.setTimeout(() => {
         wheelEndTimerRef.current = null;
         pushVolume(lastValueRef.current, true);
-        import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
-      }, 250);
+        saveNow().catch(() => {});
+      }, WHEEL_END_MS);
     };
 
     for (const el of els) {
@@ -137,7 +149,7 @@ export function PlayerVolumeBar({
         el.removeEventListener('wheel', onWheel);
       }
     };
-  }, [applyVisual, pushVolume]);
+  }, [applyVisual, pushVolume, variant]);
 
   const calcFromPointer = (clientX: number): number => {
     const el = trackRef.current;
@@ -172,35 +184,111 @@ export function PlayerVolumeBar({
     isDraggingRef.current = false;
 
     pushVolume(lastValueRef.current, true);
-    import('@lib/store/tauriStorage').then(({ saveNow }) => saveNow());
+    saveNow().catch(() => {});
 
     if (trackRef.current) {
       try { trackRef.current.releasePointerCapture(e.pointerId); } catch {}
     }
   }, [pushVolume]);
 
-  if (mode === 'icon') {
+  useEffect(() => {
+    if (variant !== 'capsule') return;
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, variant]);
+
+  const iconContent = showPercent ? (
+    <span className="text-[10px] tabular-nums text-text-primary font-medium leading-none">
+      {displayVolume}
+    </span>
+  ) : (
+    <Icon name={volumeIcon(volume)} size={variant === 'inline' ? 14 : 18} />
+  );
+
+  if (variant === 'icon') {
     return (
       <button
-        ref={iconButtonRef}
+        ref={buttonRef}
         className="w-9 h-9 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors"
         disabled={isLoading}
         aria-label="громкость"
       >
-        {showPercent ? (
-          <span className="text-[10px] tabular-nums text-text-primary font-medium leading-none">
-            {displayVolume}
-          </span>
-        ) : (
-          <Icon name={volumeIcon(volume)} size={18} />
-        )}
+        {iconContent}
       </button>
+    );
+  }
+
+  if (variant === 'capsule') {
+    return (
+      <div
+        ref={wrapperRef}
+        className="relative flex items-center"
+        style={{ width: BUTTON_SIZE, height: BUTTON_SIZE }}
+      >
+        <div
+          ref={capsuleRef}
+          className={`absolute flex items-center h-9 px-3 rounded-full bg-bg-secondary/40 border border-border-subtle transition-all duration-200 ease-out origin-right -translate-y-1/2 ${
+            open
+              ? 'opacity-100 translate-x-0 scale-100 pointer-events-auto'
+              : 'opacity-0 translate-x-2 scale-90 pointer-events-none'
+          }`}
+          style={{
+            width: Math.max(MIN_BAR_WIDTH, maxWidth),
+            right: BUTTON_SIZE + CAPSULE_GAP,
+            top: '50%',
+          }}
+        >
+          <div
+            ref={trackRef}
+            className="flex-1 relative cursor-pointer py-2 -my-2 touch-none"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
+            <div className="relative h-1 bg-[var(--accent-muted)] rounded-full overflow-hidden">
+              <div
+                ref={fillRef}
+                className="absolute left-0 top-0 h-full w-full bg-[var(--accent-primary)] rounded-full origin-left will-change-transform"
+                style={{ transform: 'scaleX(0)' }}
+              />
+            </div>
+            <div
+              ref={knobRef}
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--accent-primary)] rounded-full shadow-md pointer-events-none will-change-transform"
+              style={{ left: '0%' }}
+            />
+          </div>
+        </div>
+
+        <button
+          ref={buttonRef}
+          onClick={() => setOpen((v) => !v)}
+          className="relative w-9 h-9 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary transition-colors duration-200 z-10"
+          aria-label={`громкость ${volume}%`}
+        >
+          {iconContent}
+        </button>
+      </div>
     );
   }
 
   return (
     <div
-      ref={containerDivRef}
+      ref={wrapperRef}
       className="group flex items-center gap-2 h-9 px-3 rounded-full bg-white/[0.04] border border-border-subtle select-none w-full min-w-0 overflow-hidden"
     >
       <button
@@ -208,13 +296,7 @@ export function PlayerVolumeBar({
         disabled={isLoading}
         aria-label="громкость"
       >
-        {showPercent ? (
-          <span className="text-[10px] tabular-nums text-text-primary font-medium leading-none">
-            {displayVolume}
-          </span>
-        ) : (
-          <Icon name={volumeIcon(volume)} size={14} />
-        )}
+        {iconContent}
       </button>
 
       <div
@@ -232,12 +314,11 @@ export function PlayerVolumeBar({
             style={{ transform: 'scaleX(0)' }}
           />
         </div>
-
-          <div
-            ref={knobRef}
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--accent-primary)] rounded-full shadow-md pointer-events-none will-change-transform"
-            style={{ left: '0%' }}
-          />
+        <div
+          ref={knobRef}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-[var(--accent-primary)] rounded-full shadow-md pointer-events-none will-change-transform"
+          style={{ left: '0%' }}
+        />
       </div>
     </div>
   );

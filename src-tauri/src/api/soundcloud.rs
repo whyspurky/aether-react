@@ -3,20 +3,21 @@ use std::time::Duration;
 use futures::stream::{self, StreamExt};
 use serde_json::{json, Value};
 
-use super::CLIENT_ID;
-use super::BASE_URL;
-use super::MIN_TRACK_MS;
-use super::MAX_TRACK_MS;
+use super::{add_client_id, BASE_URL, CLIENT_ID, MIN_TRACK_MS, MAX_TRACK_MS};
 use super::client::{http, apply_proxy, get_proxy_status, ProxyConfig, fetch_retry};
 
-fn add_client_id(url: &str) -> String {
-    if url.contains("client_id=") {
-        url.to_string()
-    } else {
-        let sep = if url.contains('?') { '&' } else { '?' };
-        format!("{}{}client_id={}", url, sep, CLIENT_ID)
-    }
-}
+const PAGINATION_MAX_PAGES: usize = 20;
+const TRACKS_CHUNK_SIZE: usize = 50;
+const POPULAR_ROUNDS: usize = 3;
+const POPULAR_BATCH_SIZE: usize = 5;
+const POPULAR_ARTISTS: &[&str] = &[
+    "shadowraze", "zxcursed", "CUPSIZE",
+    "sorrow", "whitek3d", "AQUAKEY", "tewiq", "vohley",
+    "ONDA ANDAR", "FORTUNA 812", "auratoshi", "madk1d", "dope17",
+    "akkiemi", "3umph", "СЕРЕГА ПИРАТ", "голодный", "тёмный принц", "murasame", "Full Smena",
+];
+const MY_WAVE_TARGET: usize = 50;
+const MY_WAVE_PER_ARTIST: usize = 10;
 
 async fn fetch_paginated(start_url: &str) -> Result<Vec<Value>, String> {
     let mut all = vec![];
@@ -27,7 +28,7 @@ async fn fetch_paginated(start_url: &str) -> Result<Vec<Value>, String> {
         if !seen.insert(url.clone()) {
             break;
         }
-        if seen.len() > 20 {
+        if seen.len() > PAGINATION_MAX_PAGES {
             break;
         }
 
@@ -123,29 +124,7 @@ pub async fn search_users(query: String, limit: u32, offset: u32) -> Result<Valu
         "{}/search/users?client_id={}&q={}&limit={}&offset={}&linked_partitioning=1",
         BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit, offset
     );
-
-    let data = fetch_retry(&url).await.map_err(|e| {
-        println!("[search_users] error: {}", e);
-        e.to_string()
-    })?;
-
-    let count = data.get("collection")
-        .and_then(|c| c.as_array())
-        .map(|a| a.len())
-        .unwrap_or(0);
-
-    println!("[search_users] query={:?} count={}", query, count);
-
-    if let Some(arr) = data.get("collection").and_then(|c| c.as_array()) {
-        for (i, u) in arr.iter().take(3).enumerate() {
-            let id = u.get("id").and_then(|v| v.as_u64());
-            let username = u.get("username").and_then(|v| v.as_str()).unwrap_or("?");
-            let avatar = u.get("avatar_url").and_then(|v| v.as_str());
-            println!("[search_users]   {}: id={:?} username={} avatar={:?}", i, id, username, avatar);
-        }
-    }
-
-    Ok(data)
+    fetch_retry(&url).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -162,10 +141,7 @@ pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Val
             }
             Ok(json!({ "collection": [], "total_results": 0 }))
         }
-        Err(e) => {
-            eprintln!("[RUST] поиск упал {}", e);
-            Ok(json!({ "success": false, "collection": [], "total_results": 0, "error": e.to_string() }))
-        }
+        Err(e) => Ok(json!({ "collection": [], "total_results": 0, "error": e.to_string() })),
     }
 }
 
@@ -252,7 +228,7 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
     let mut all = vec![];
     let mut seen = HashSet::new();
 
-    for chunk in ids.chunks(50) {
+    for chunk in ids.chunks(TRACKS_CHUNK_SIZE) {
         let ids_str = chunk.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
         let url = format!("{}/tracks?ids={}&client_id={}", BASE_URL, ids_str, CLIENT_ID);
 
@@ -289,27 +265,20 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
     let mut tracks = vec![];
     let mut seen = HashSet::new();
 
-    let artists = [
-        "shadowraze", "zxcursed", "CUPSIZE",
-        "sorrow", "whitek3d", "AQUAKEY", "tewiq", "vohley",
-        "ONDA ANDAR", "FORTUNA 812", "auratoshi", "madk1d", "dope17",
-        "akkiemi", "3umph", "СЕРЕГА ПИРАТ", "голодный", "тёмный принц", "murasame", "Full Smena"
-    ];
-
-    let n = artists.len();
+    let n = POPULAR_ARTISTS.len();
     let mut cursor = offset % n;
     let mut round = 0;
 
-    while tracks.len() < limit && round < 3 {
+    while tracks.len() < limit && round < POPULAR_ROUNDS {
         let remaining = limit - tracks.len();
-        let inner_offset = (offset / n + round) * 5;
+        let inner_offset = (offset / n + round) * POPULAR_BATCH_SIZE;
 
         let batch: Vec<String> = (0..remaining).map(|_| {
             let idx = cursor % n;
             cursor += 1;
             format!(
-                "{}/search/tracks?client_id={}&q={}&limit=5&offset={}",
-                BASE_URL, CLIENT_ID, urlencoding::encode(artists[idx]), inner_offset
+                "{}/search/tracks?client_id={}&q={}&limit={}&offset={}",
+                BASE_URL, CLIENT_ID, urlencoding::encode(POPULAR_ARTISTS[idx]), POPULAR_BATCH_SIZE, inner_offset
             )
         }).collect();
 
@@ -350,15 +319,12 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
 pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> {
     use std::collections::VecDeque;
 
-    const TARGET: usize = 50;
-    const PER_ARTIST: usize = 10;
-
     let mut seen = HashSet::new();
 
     let urls: Vec<String> = history_artists.iter().take(10).map(|artist| {
         format!(
             "{}/search/tracks?client_id={}&q={}&limit={}&offset=0",
-            BASE_URL, CLIENT_ID, urlencoding::encode(artist), PER_ARTIST
+            BASE_URL, CLIENT_ID, urlencoding::encode(artist), MY_WAVE_PER_ARTIST
         )
     }).collect();
 
@@ -374,7 +340,7 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
         .map(|v| v.into_iter().collect())
         .collect();
 
-    let mut tracks = Vec::with_capacity(TARGET);
+    let mut tracks = Vec::with_capacity(MY_WAVE_TARGET);
     'outer: loop {
         let mut progressed = false;
         for bucket in buckets.iter_mut() {
@@ -389,7 +355,7 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
                     break;
                 }
             }
-            if tracks.len() >= TARGET { break 'outer; }
+            if tracks.len() >= MY_WAVE_TARGET { break 'outer; }
         }
         if !progressed { break; }
     }

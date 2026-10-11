@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CreatePlaylistModal } from '@components/library/CreatePlaylistModal';
 import { LibrarySidebar } from '@components/library/LibrarySidebar';
 import { LibraryHeader } from '@components/library/LibraryHeader';
 import { TrackList } from '@components/track/TrackList';
-import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import { ConfirmModal } from '@components/ui/ConfirmModal';
 import { useStore } from '@store/store';
-import type { Playlist } from '@store/types';
+import type { Playlist, Track } from '@store/types';
 
 type LibraryView = 'favorites' | 'history' | 'playlist';
 
@@ -22,10 +21,10 @@ export default function LibraryPage() {
   const removeFromPlaylist = useStore((s) => s.removeFromPlaylist);
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
-  const { close: closeAddToPlaylist } = useAddToPlaylist();
+
  
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | number | null>(null);
   const selectedPlaylist = useStore((s) =>
     selectedPlaylistId ? s.library.playlists.find((p) => p.id === selectedPlaylistId) ?? null : null
   );
@@ -44,54 +43,46 @@ export default function LibraryPage() {
 
  
   
-  const validatePlaylistName = (name: string): boolean => {
-    if (name.length > MAX_PLAYLIST_NAME_LENGTH) {
-      return false;
+  const view = useMemo(() => {
+    if (selectedView === 'favorites') {
+      return {
+        tracks: favorites,
+        title: 'избранное',
+        icon: 'heart',
+        count: favorites.length,
+      };
     }
-    return true;
-  };
-
-  const getCurrentTracks = () => {
-    if (selectedView === 'favorites') return favorites;
-    if (selectedView === 'history') return history;
-    if (selectedView === 'playlist' && selectedPlaylist) return selectedPlaylist.tracks || [];
-    return [];
-  };
-
-  const getCurrentTitle = () => {
-    if (selectedView === 'favorites') return 'избранное';
-    if (selectedView === 'history') return 'история';
-    if (selectedView === 'playlist' && selectedPlaylist) return selectedPlaylist.name;
-    return '';
-  };
-
-  const getCurrentIcon = () => {
-    if (selectedView === 'favorites') return 'heart';
-    if (selectedView === 'history') return 'history';
-    if (selectedView === 'playlist') return 'folder';
-    return 'music';
-  };
-
-  const getCurrentCount = () => {
-    if (selectedView === 'favorites') return favorites.length;
-    if (selectedView === 'history') return history.length;
-    if (selectedView === 'playlist' && selectedPlaylist) return selectedPlaylist.tracks?.length || 0;
-    return 0;
-  };
-
-  const getIconColor = () => {
-    if (selectedView === 'favorites') return 'text-text-secondary';
-    return 'text-text-primary';
-  };
-
+    if (selectedView === 'history') {
+      return {
+        tracks: history,
+        title: 'история',
+        icon: 'history',
+        count: history.length,
+      };
+    }
+    if (selectedView === 'playlist' && selectedPlaylist) {
+      return {
+        tracks: selectedPlaylist.tracks || [],
+        title: selectedPlaylist.name,
+        icon: 'folder',
+        count: selectedPlaylist.tracks?.length || 0,
+      };
+    }
+    return {
+      tracks: [] as Track[],
+      title: '',
+      icon: 'music',
+      count: 0,
+    };
+  }, [selectedView, selectedPlaylist, favorites, history]);
 
   const handleCreatePlaylist = (name: string) => {
-    if (!validatePlaylistName(name)) return;
+    if (name.length > MAX_PLAYLIST_NAME_LENGTH) return;
     createPlaylist(name);
     setShowCreateModal(false);
   };
 
-  const handleDeletePlaylist = (id: string) => {
+  const handleDeletePlaylist = (id: string | number) => {
     deletePlaylist(id);
     if (selectedPlaylistId === id) {
       setSelectedPlaylistId(null);
@@ -112,7 +103,7 @@ export default function LibraryPage() {
 
   const handleSaveEdit = () => {
     if (!selectedPlaylist || !editingName.trim()) return;
-    if (!validatePlaylistName(editingName)) return;
+    if (editingName.length > MAX_PLAYLIST_NAME_LENGTH) return;
 
     updatePlaylist(selectedPlaylist.id, editingName.trim());
     setIsEditing(false);
@@ -140,7 +131,6 @@ export default function LibraryPage() {
     <div className="h-full flex">
       <LibrarySidebar
         selectedView={selectedView}
-        selectedPlaylistId={selectedPlaylistId}
         playlists={playlists}
         onSelectFavorites={() => {
           setSelectedView('favorites');
@@ -158,10 +148,9 @@ export default function LibraryPage() {
                 <LibraryHeader
           selectedView={selectedView}
           selectedPlaylist={selectedPlaylist}
-          title={getCurrentTitle()}
-          count={getCurrentCount()}
-          icon={getCurrentIcon()}
-          iconColor={getIconColor()}
+          title={view.title}
+          count={view.count}
+          icon={view.icon}
           maxNameLength={MAX_PLAYLIST_NAME_LENGTH}
           isEditing={isEditing}
           editingName={editingName}
@@ -182,15 +171,12 @@ export default function LibraryPage() {
 
         <div className="p-1 flex-1 flex flex-col min-h-0">
                     <TrackList
-            tracks={getCurrentTracks()}
+            tracks={view.tracks}
             virtualize
             showQueueButton
             onRemove={
               selectedView === 'playlist' && selectedPlaylistId
-                ? (track) => {
-                    removeFromPlaylist(selectedPlaylistId, track.id);
-                    closeAddToPlaylist();
-                  }
+                ? (track) => removeFromPlaylist(selectedPlaylistId, track.id)
                 : undefined
             }
           />

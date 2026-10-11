@@ -6,16 +6,16 @@ const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   plugins: [react()],
-resolve: {
-  alias: {
-    '@': path.resolve(__dirname, './src'),
-    '@components': path.resolve(__dirname, './src/components'),
-    '@hooks': path.resolve(__dirname, './src/hooks'),
-    '@lib': path.resolve(__dirname, './src/lib'),
-    '@store': path.resolve(__dirname, './src/store'),
-    '@theme': path.resolve(__dirname, './src/theme'),
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@store': path.resolve(__dirname, './src/store'),
+      '@theme': path.resolve(__dirname, './src/theme'),
+    },
   },
-},
   server: {
     port: 1420,
     strictPort: true,

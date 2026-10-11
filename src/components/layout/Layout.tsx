@@ -44,19 +44,6 @@ export function Layout({ children }: LayoutProps) {
       ? currentTrack.artwork_url.replace('-large', '-t500x500')
       : currentTrack?.user?.avatar_url?.replace('-large', '-t500x500') || null;
 
-  const gradientDirections: Record<string, string> = {
-    'to-r': 'to right',
-    'to-br': 'to bottom right',
-    'to-b': 'to bottom',
-    'to-bl': 'to bottom left',
-    'to-l': 'to left',
-    'to-tl': 'to top left',
-    'to-t': 'to top',
-    'to-tr': 'to top right',
-  };
-
- 
-
   const [prevUrl, setPrevUrl] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(playerCoverUrl);
   const preloadRef = useRef<HTMLImageElement | null>(null);
@@ -64,17 +51,23 @@ export function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     if (currentUrl === playerCoverUrl) return;
-
     if (!playerCoverUrl) return;
 
-    if (!preloadRef.current) {
-      preloadRef.current = new Image();
-    }
-    preloadRef.current.crossOrigin = 'anonymous';
-    preloadRef.current.src = playerCoverUrl;
+    let cancelled = false;
+    const img = new Image();
+    preloadRef.current = img;
 
-    setPrevUrl(currentUrl);
-    setCurrentUrl(playerCoverUrl);
+    img.onload = () => {
+      if (cancelled) return;
+      setPrevUrl(currentUrl);
+      setCurrentUrl(playerCoverUrl);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      setPrevUrl(currentUrl);
+      setCurrentUrl(playerCoverUrl);
+    };
+    img.src = playerCoverUrl;
 
     if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => {
@@ -83,6 +76,7 @@ export function Layout({ children }: LayoutProps) {
     }, 800);
 
     return () => {
+      cancelled = true;
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -105,7 +99,6 @@ export function Layout({ children }: LayoutProps) {
                 backgroundPosition: 'center',
                 filter: `blur(${blur.amount}px) saturate(1.4)`,
                 transform: 'scale(1.02)',
-                transition: 'filter 200ms ease-out',
                 ['--blur-opacity' as string]: String(blur.opacity)
               }}
             />
@@ -121,7 +114,6 @@ export function Layout({ children }: LayoutProps) {
                 backgroundPosition: 'center',
                 filter: `blur(${blur.amount}px) saturate(1.4)`,
                 transform: 'scale(1.02)',
-                transition: 'filter 200ms ease-out',
                 ['--blur-opacity' as string]: String(blur.opacity)
               }}
             />

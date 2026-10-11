@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
+import { upgradeCoverUrl } from '@lib/format';
 import type { Playlist, Track } from '@store/types';
 
 interface Props {
@@ -12,12 +13,12 @@ interface Props {
 export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props) {
   const navigate = useNavigate();
   const coverUrl =
-    playlist.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
-    playlist.tracks[0]?.artwork_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
-    playlist.tracks[0]?.user?.avatar_url?.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '-t500x500$2') ||
+    upgradeCoverUrl(playlist.artwork_url, 't500x500') ||
+    upgradeCoverUrl(playlist.tracks[0]?.artwork_url, 't500x500') ||
+    upgradeCoverUrl(playlist.tracks[0]?.user?.avatar_url, 't500x500') ||
     null;
-  const title = playlist.title || playlist.name || 'без названия';
 
+  const title = playlist.name || 'без названия';
   const typeLabel = {
     album: 'альбом',
     ep: 'ep',
@@ -40,7 +41,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
           <img
             src={coverUrl}
             alt={title}
-            className="w-48 h-48 rounded-2xl object-cover border border-border-subtle shadow-2xl shadow-white/5"
+            className="w-48 h-48 rounded-2xl object-cover border border-border-subtle shadow-2xl"
           />
         ) : (
           <div className="w-48 h-48 rounded-2xl bg-bg-secondary flex items-center justify-center border border-border-subtle">
@@ -90,7 +91,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
           <button
             onClick={onPlayAll}
             disabled={!tracks.length}
-            className="px-6 py-2 bg-bg-secondary text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-text-secondary hover:text-bg-primary transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-secondary disabled:hover:text-text-primary"
+            className="px-6 py-2 bg-white/[0.08] text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-white/[0.14] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/[0.08]"
           >
             <Icon name="play" size={16} />
             слушать всё

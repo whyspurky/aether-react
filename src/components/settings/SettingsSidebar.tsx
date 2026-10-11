@@ -29,11 +29,11 @@ export function SettingsSidebar({ activeTab, zapretRunning, onChange }: Props) {
               key={tab.id}
               onClick={() => onChange(tab.id)}
               className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm overflow-hidden transition-colors duration-200 ${
-                isActive ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-primary'
+                isActive ? 'text-[var(--accent-primary)]' : 'text-text-tertiary hover:text-text-primary'
               }`}
             >
               <span
-                className={`absolute inset-0 bg-white/[0.08] origin-bottom transition-transform duration-300 ease-out ${
+                className={`absolute inset-0 bg-[var(--accent-muted)] origin-bottom transition-transform duration-300 ease-out ${
                   isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
                 }`}
               />

@@ -6,9 +6,9 @@ import { CustomProxyForm } from './CustomProxyForm';
 import { ZapretForm } from './ZapretForm';
 
 export function ProxySettings() {
-  const mode = useStore((s) => s.proxy?.mode ?? 'off');
-  const custom = useStore((s) => s.proxy?.custom);
-  const zapret = useStore((s) => s.proxy?.zapret);
+  const mode = useStore((s) => s.proxy.mode);
+  const custom = useStore((s) => s.proxy.custom);
+  const zapret = useStore((s) => s.proxy.zapret);
 
   const setProxyMode = useStore((s) => s.setProxyMode);
   const setCustomProxy = useStore((s) => s.setCustomProxy);
@@ -31,19 +31,19 @@ export function ProxySettings() {
 
       <ProxyModeSelector
         mode={mode}
-        zapretRunning={zapret?.status === 'running'}
+        zapretRunning={zapret.status === 'running'}
         onChange={setProxyMode}
       />
 
-      {mode === 'custom' && custom && (
+      {mode === 'custom' && (
         <CustomProxyForm config={custom} onChange={setCustomProxy} />
       )}
 
-      {mode === 'zapret' && zapret && (
+      {mode === 'zapret' && (
         <ZapretForm
-          batPath={zapret.batPath ?? ''}
-          folder={zapret.folder ?? ''}
-          status={zapret.status ?? 'unknown'}
+          batPath={zapret.batPath}
+          folder={zapret.folder}
+          status={zapret.status}
           onChangeBatPath={setZapretBatPath}
           onStatusChange={setZapretStatus}
         />

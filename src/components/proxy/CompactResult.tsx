@@ -1,3 +1,5 @@
+import { Icon } from '@components/ui/Icon';
+
 interface TestResult {
   ok: boolean;
   status: number;
@@ -14,7 +16,6 @@ export function CompactResult({ label, result }: Props) {
   if (!result) {
     return (
       <div className="flex items-center gap-1.5 justify-end">
-        <span className="text-text-tertiary">·</span>
         <span className="text-text-tertiary font-mono">{label}</span>
         <span className="text-text-tertiary font-mono text-[10px]">...</span>
       </div>
@@ -24,7 +25,7 @@ export function CompactResult({ label, result }: Props) {
   if (result.error) {
     return (
       <div className="flex items-center gap-1.5 justify-end">
-        <span className="text-red-400">✕</span>
+        <Icon name="alert-circle" size={10} className="text-red-400" />
         <span className="text-red-400 font-mono">{label}</span>
         <span className="text-red-400 font-mono text-[10px]">error</span>
       </div>
@@ -33,9 +34,11 @@ export function CompactResult({ label, result }: Props) {
 
   return (
     <div className="flex items-center gap-1.5 justify-end">
-      <span className={result.ok ? 'text-green-500' : 'text-red-400'}>
-        {result.ok ? '✓' : '✕'}
-      </span>
+      <Icon
+        name={result.ok ? 'check' : 'alert-circle'}
+        size={10}
+        className={result.ok ? 'text-green-500' : 'text-red-400'}
+      />
       <span className="text-text-secondary font-mono">{label}</span>
       <span className="text-text-tertiary font-mono text-[10px]">
         {result.status} · {result.time_ms}ms

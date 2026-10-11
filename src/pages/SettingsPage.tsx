@@ -11,19 +11,18 @@ import { SettingsTabAbout } from '@components/settings/SettingsTabAbout';
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
   const scrollRef = useSmoothScroll<HTMLElement>();
-  const zapretStatus = useStore((s) => s.proxy?.zapret?.status ?? 'unknown');
+  const zapretStatus = useStore((s) => s.proxy.zapret.status);
+  const setZapretStatus = useStore((s) => s.setZapretStatus);
 
   useEffect(() => {
-    const fetch = async () => {
+    if (activeTab !== 'proxy') return;
+    (async () => {
       try {
         const s = await api.zapretStatus();
-        useStore.getState().setZapretStatus(s);
+        setZapretStatus(s);
       } catch {}
-    };
-    fetch();
-    const interval = setInterval(fetch, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    })();
+  }, [setZapretStatus, activeTab]);
 
   return (
     <div className="h-full flex bg-bg-primary/40 rounded-2xl overflow-hidden border border-border-subtle">

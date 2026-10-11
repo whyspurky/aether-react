@@ -30,12 +30,12 @@ export interface Track {
 }
 
 export interface Playlist {
-  id: string;
+  id: string | number;
   name: string;
+  title?: string;
   tracks: Track[];
   artwork_url?: string;
   createdAt?: number;
-  title?: string;
   user?: User;
   track_count?: number;
   duration?: number;

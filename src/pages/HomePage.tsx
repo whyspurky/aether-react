@@ -4,6 +4,11 @@ import { PopularSection } from '@components/home/PopularSection';
 import { api } from '@lib/api';
 import { useStore } from '@store/store';
 
+const PAGE_SIZE = 20;
+const SCROLL_THRESHOLD_PX = 200;
+const MY_WAVE_ARTISTS = 5;
+const MY_WAVE_LIMIT = 6;
+
 export default function HomePage() {
   const popularTracks = useStore((s) => s.homePage.popularTracks);
   const myWaveTracks = useStore((s) => s.homePage.myWaveTracks);
@@ -18,7 +23,7 @@ export default function HomePage() {
   const setHomePageMyWaveLoaded = useStore((s) => s.setHomePageMyWaveLoaded);
   const addHomePagePopularTracks = useStore((s) => s.addHomePagePopularTracks);
 
-  const [popularOffset, setPopularOffset] = useState(20);
+  const [popularOffset, setPopularOffset] = useState(PAGE_SIZE);
   const [hasMorePopular, setHasMorePopular] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -27,11 +32,11 @@ export default function HomePage() {
   const loadPopular = useCallback(async () => {
     setHomePageLoadingPopular(true);
     try {
-      const tracks = await api.getPopular(20, 0);
+      const tracks = await api.getPopular(PAGE_SIZE, 0);
       setHomePagePopular(tracks);
       setHomePagePopularLoaded(true);
-      setPopularOffset(20);
-      setHasMorePopular(tracks.length === 20);
+      setPopularOffset(PAGE_SIZE);
+      setHasMorePopular(tracks.length === PAGE_SIZE);
     } catch {
     } finally {
       setHomePageLoadingPopular(false);
@@ -43,8 +48,8 @@ export default function HomePage() {
     try {
       const artists = [...new Set(history.map((t) => t.user?.username).filter(Boolean))] as string[];
       const tracks = artists.length
-        ? await api.getMyWave(artists.slice(0, 5), 6)
-        : await api.getPopular(6);
+        ? await api.getMyWave(artists.slice(0, MY_WAVE_ARTISTS), MY_WAVE_LIMIT)
+        : await api.getPopular(MY_WAVE_LIMIT);
 
       setHomePageMyWave(tracks);
       setHomePageMyWaveLoaded(true);
@@ -58,11 +63,11 @@ export default function HomePage() {
     if (isLoadingMore || !hasMorePopular) return;
     setIsLoadingMore(true);
     try {
-      const tracks = await api.getPopular(20, popularOffset);
+      const tracks = await api.getPopular(PAGE_SIZE, popularOffset);
       if (tracks.length) {
         addHomePagePopularTracks(tracks);
         setPopularOffset(popularOffset + tracks.length);
-        setHasMorePopular(tracks.length === 20);
+        setHasMorePopular(tracks.length === PAGE_SIZE);
       } else {
         setHasMorePopular(false);
       }
@@ -77,7 +82,7 @@ export default function HomePage() {
     if (isLoadingMore || !hasMorePopular) return;
 
     const el = scrollRef.current;
-    if (el.scrollWidth - (el.scrollLeft + el.clientWidth) < 200) loadMorePopular();
+    if (el.scrollWidth - (el.scrollLeft + el.clientWidth) < SCROLL_THRESHOLD_PX) loadMorePopular();
   }, [isLoadingMore, hasMorePopular, loadMorePopular]);
 
   useEffect(() => {

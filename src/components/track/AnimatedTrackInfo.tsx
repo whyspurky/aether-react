@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Track } from '@store/types';
+import { useDisplayTrack } from '@hooks/player/useDisplayTrack';
 
 interface AnimatedTrackInfoProps {
   track: Track | null;
@@ -76,35 +77,7 @@ export function MarqueeText({
 }
 
 export function AnimatedTrackInfo({ track, className = '', onTitleClick, onArtistClick }: AnimatedTrackInfoProps) {
-  const [displayTrack, setDisplayTrack] = useState<Track | null>(track);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    if (!track) {
-      setDisplayTrack(null);
-      setIsAnimating(false);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      return;
-    }
-
-    if (displayTrack?.id !== track.id) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setIsAnimating(true);
-
-      timerRef.current = setTimeout(() => {
-        setDisplayTrack(track);
-        setIsAnimating(false);
-        timerRef.current = null;
-      }, 200);
-    }
-  }, [track, displayTrack]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
+  const { displayTrack, isChanging } = useDisplayTrack(track);
 
   if (!displayTrack) {
     return (
@@ -121,7 +94,7 @@ export function AnimatedTrackInfo({ track, className = '', onTitleClick, onArtis
     <div className={`overflow-hidden ${className}`}>
       <div
         className={`transition-all duration-200 ease-out ${
-          isAnimating ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
+          isChanging ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
         }`}
       >
         <MarqueeText

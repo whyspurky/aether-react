@@ -5,17 +5,24 @@ interface SidebarProps {
   onNavigate: (path: string) => void;
 }
 
-const navItems = [
+const navItems: NavItem[] = [
   { id: 'home', label: 'главная', icon: 'home', path: '/' },
   { id: 'search', label: 'поиск', icon: 'search', path: '/search' },
   { id: 'library', label: 'библиотека', icon: 'library', path: '/library' },
   { id: 'player', label: 'плеер', icon: 'play', path: '/player' },
 ];
 
-const settingsItem = { id: 'settings', label: 'настройки', icon: 'settings', path: '/settings' };
+const settingsItem: NavItem = { id: 'settings', label: 'настройки', icon: 'settings', path: '/settings' };
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: string;
+  path: string;
+}
 
 interface NavButtonProps {
-  item: typeof navItems[number];
+  item: NavItem;
   isActive: boolean;
   onNavigate: (path: string) => void;
 }
@@ -25,13 +32,13 @@ function NavButton({ item, isActive, onNavigate }: NavButtonProps) {
     <button
       onClick={() => onNavigate(item.path)}
       className={`group relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden transition-colors duration-300 ${
-        isActive ? 'text-text-secondary' : 'text-text-tertiary hover:text-text-secondary'
+        isActive ? 'text-[var(--accent-primary)]' : 'text-text-tertiary hover:text-[var(--accent-primary)]'
       }`}
       aria-label={item.label}
     >
       {/* подсветка снизу вверх */}
       <span
-        className={`absolute inset-0 bg-bg-card/60 backdrop-blur-sm origin-bottom transition-transform duration-300 ease-out ${
+        className={`absolute inset-0 bg-[var(--accent-muted)] origin-bottom transition-transform duration-300 ease-out ${
           isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
         }`}
       />

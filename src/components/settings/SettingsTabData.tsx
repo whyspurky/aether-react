@@ -4,34 +4,44 @@ import { ConfirmModal } from '../ui/ConfirmModal';
 import { useStore } from '@store/store';
 import { clearTauriStorage } from '@lib/store/tauriStorage';
 
+type ConfirmKind = 'cache' | 'history' | 'favorites';
+
+const CONFIRM_MESSAGES: Record<ConfirmKind, { title: string; message: string }> = {
+  cache: {
+    title: 'очистка кеша',
+    message: 'вы уверены, что хотите полностью очистить кеш? будут удалены история, избранное и все плейлисты. настройки громкости сохранятся.',
+  },
+  history: {
+    title: 'очистка истории',
+    message: 'вы уверены, что хотите очистить историю прослушиваний?',
+  },
+  favorites: {
+    title: 'очистка избранного',
+    message: 'вы уверены, что хотите очистить избранное?',
+  },
+};
+
 export function SettingsTabData() {
   const clearHistory = useStore((s) => s.clearHistory);
   const clearFavorites = useStore((s) => s.clearFavorites);
+  const [confirm, setConfirm] = useState<ConfirmKind | null>(null);
 
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false);
-  const [showClearFavoritesConfirm, setShowClearFavoritesConfirm] = useState(false);
-
-  const handleClearCache = async () => {
-    await clearTauriStorage();
-
-    useStore.setState({
-      library: {
-        favorites: [],
-        history: [],
-        playlists: [],
-        currentPlaylist: null,
-      },
-    });
-
-  };
-
-  const handleClearHistory = () => {
-    clearHistory();
-  };
-
-  const handleClearFavorites = () => {
-    clearFavorites();
+  const handleConfirm = async () => {
+    if (confirm === 'cache') {
+      useStore.setState({
+        library: {
+          favorites: [],
+          history: [],
+          playlists: [],
+        },
+      });
+      await clearTauriStorage();
+    } else if (confirm === 'history') {
+      clearHistory();
+    } else if (confirm === 'favorites') {
+      clearFavorites();
+    }
+    setConfirm(null);
   };
 
   return (
@@ -39,7 +49,7 @@ export function SettingsTabData() {
       <div className="bg-bg-primary/40 rounded-2xl border border-border-subtle overflow-hidden">
               <div className="divide-y divide-border-subtle">
           <button
-            onClick={() => setShowClearHistoryConfirm(true)}
+            onClick={() => setConfirm('history')}
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.04] transition-colors group"
           >
             <div className="flex items-center gap-3">
@@ -55,8 +65,8 @@ export function SettingsTabData() {
           </button>
 
           <button
-            onClick={() => setShowClearFavoritesConfirm(true)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
+            onClick={() => setConfirm('favorites')}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.04] transition-colors group"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
@@ -71,8 +81,8 @@ export function SettingsTabData() {
           </button>
 
           <button
-            onClick={() => setShowClearConfirm(true)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-bg-secondary transition-colors group"
+            onClick={() => setConfirm('cache')}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.04] transition-colors group"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
@@ -89,39 +99,12 @@ export function SettingsTabData() {
       </div>
 
       <ConfirmModal
-        isOpen={showClearConfirm}
-        title="очистка кеша"
-        message="вы уверены, что хотите полностью очистить кеш? будут удалены история, избранное и все плейлисты. настройки громкости сохранятся."
+        isOpen={confirm !== null}
+        title={confirm ? CONFIRM_MESSAGES[confirm].title : ''}
+        message={confirm ? CONFIRM_MESSAGES[confirm].message : ''}
         confirmText="очистить"
-        onConfirm={() => {
-          setShowClearConfirm(false);
-          handleClearCache();
-        }}
-        onCancel={() => setShowClearConfirm(false)}
-      />
-
-      <ConfirmModal
-        isOpen={showClearHistoryConfirm}
-        title="очистка истории"
-        message="вы уверены, что хотите очистить историю прослушиваний?"
-        confirmText="очистить"
-        onConfirm={() => {
-          setShowClearHistoryConfirm(false);
-          handleClearHistory();
-        }}
-        onCancel={() => setShowClearHistoryConfirm(false)}
-      />
-
-      <ConfirmModal
-        isOpen={showClearFavoritesConfirm}
-        title="очистка избранного"
-        message="вы уверены, что хотите очистить избранное?"
-        confirmText="очистить"
-        onConfirm={() => {
-          setShowClearFavoritesConfirm(false);
-          handleClearFavorites();
-        }}
-        onCancel={() => setShowClearFavoritesConfirm(false)}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirm(null)}
       />
     </>
   );

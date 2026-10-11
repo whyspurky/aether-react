@@ -58,12 +58,12 @@ export function PlayerProgressBar({
         <div ref={trackRef} className="relative h-1.5 bg-[var(--accent-muted)] rounded-full">
           <div
             ref={fillRef}
-            className="absolute left-0 top-0 h-full bg-[var(--accent-primary)] rounded-full will-change-transform"
+            className="absolute left-0 top-0 h-full bg-[var(--accent-primary)] rounded-full"
             style={{ boxShadow: '0 0 10px var(--accent-muted)', width: '0%' }}
           />
           <div
             ref={knobRef}
-            className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-[var(--accent-primary)] rounded-full shadow-lg pointer-events-none will-change-transform transition-[box-shadow] ${
+            className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-[var(--accent-primary)] rounded-full shadow-lg pointer-events-none transition-[box-shadow] ${
               isDragging
                 ? 'opacity-100 scale-125'
                 : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-110'

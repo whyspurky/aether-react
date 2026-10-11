@@ -1,6 +1,14 @@
 import { api } from '@lib/api';
 import type { Track } from '../types';
 
+const QUEUE_MAX = 200;
+const PRELOAD_REMAINING = 3;
+const PRELOAD_ARTISTS = 5;
+const PRELOAD_POOL_MAX = 30;
+const RETRY_DELAY_MS = 1000;
+const PREV_RESTART_THRESHOLD = 3;
+const VOLUME_RUST_THROTTLE_MS = 100;
+
 export interface PlayerSlice {
   queue: {
     tracks: Track[];
@@ -21,6 +29,9 @@ export interface PlayerSlice {
     pendingSeek: number | null;
     shuffleHistory: number[];
   };
+  preload: {
+    isPreloading: boolean;
+  };
 
   addToQueue: (track: Track) => void;
   removeFromQueue: (trackId: number) => void;
@@ -29,7 +40,6 @@ export interface PlayerSlice {
   prevTrack: (manual?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
   setVolume: (volume: number) => void;
-  setVolumeRust: (volume: number) => Promise<void>;
   setPosition: (position: number) => void;
   setShuffle: (shuffle: boolean) => void;
   setRepeat: (repeat: 'none' | 'all' | 'one') => void;
@@ -38,6 +48,60 @@ export interface PlayerSlice {
 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+interface QueueSetup {
+  tracks: Track[];
+  index: number;
+  original: Track[] | null;
+}
+
+function computeQueue(
+  track: Track,
+  tracks: Track[],
+  index: number,
+  shuffleOn: boolean,
+  isSameQueue: boolean,
+): QueueSetup {
+  if (!shuffleOn || isSameQueue) {
+    return {
+      tracks,
+      index,
+      original: shuffleOn ? tracks : null,
+    };
+  }
+
+  const targetTrack = tracks[index] || track;
+  const others = tracks.filter((t) => t.id !== targetTrack.id);
+  return {
+    tracks: [targetTrack, ...shuffleArray(others)],
+    index: 0,
+    original: tracks,
+  };
+}
+
+function enrichTrack(track: Track, stream: { genre: string | null; playback_count: number | null }): Track {
+  if (!stream.genre && stream.playback_count === null) return track;
+  return {
+    ...track,
+    genre: stream.genre || undefined,
+    playback_count: stream.playback_count ?? undefined,
+  };
+}
+
+function shouldPreloadQueue(remaining: number, repeat: 'none' | 'all' | 'one'): boolean {
+  return remaining <= PRELOAD_REMAINING && repeat === 'none';
+}
+
+let lastVolumePush = 0;
 
 export const createPlayerSlice = (set: any, get: any) => ({
   queue: {
@@ -58,6 +122,9 @@ export const createPlayerSlice = (set: any, get: any) => ({
     duration: 0,
     pendingSeek: null,
     shuffleHistory: [] as number[],
+  },
+  preload: {
+    isPreloading: false,
   },
 
   addToQueue: (track: Track) =>
@@ -122,31 +189,16 @@ if (isCurrent) {
 
     const { player, queue: currentQueue } = get();
     const shuffleOn = player.shuffle;
-
     const isSameQueue = currentQueue.tracks === tracks;
 
-    let finalTracks = tracks;
-    let finalIndex = index;
-    let finalOriginal: Track[] | null = null;
-
-    if (shuffleOn && !isSameQueue) {
-      finalOriginal = tracks;
-
-      const targetTrack = tracks[index] || track;
-
-      const others = tracks.filter((t) => t.id !== targetTrack.id);
-      const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
-
-      finalTracks = [targetTrack, ...shuffledOthers];
-      finalIndex = 0;
-    }
+    const setup = computeQueue(track, tracks, index, shuffleOn, isSameQueue);
 
     set((s: any) => ({
       queue: {
-        tracks: finalTracks,
-        currentIndex: finalIndex,
+        tracks: setup.tracks,
+        currentIndex: setup.index,
         source,
-        originalTracks: shuffleOn ? finalOriginal : null,
+        originalTracks: setup.original,
       },
       player: {
         ...s.player,
@@ -163,23 +215,18 @@ if (isCurrent) {
     const isValid = () => get().player.currentTrack?.id === track.id;
 
     let started = false;
-    for (let attempt = 1; attempt <= 2 && !started; attempt++) {
+    const MAX_ATTEMPTS = 2;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !started; attempt++) {
       if (!isValid()) return;
 
       try {
         const stream = await api.getStreamUrl(track.id);
         if (!isValid()) return;
 
-        if (stream.genre || stream.playback_count !== null) {
+        const enriched = enrichTrack(track, stream);
+        if (enriched !== track) {
           set((s: any) => ({
-            player: {
-              ...s.player,
-              currentTrack: {
-                ...track,
-                genre: stream.genre || undefined,
-                playback_count: stream.playback_count ?? undefined,
-              },
-            },
+            player: { ...s.player, currentTrack: enriched },
           }));
         }
 
@@ -232,7 +279,7 @@ if (isCurrent) {
         }
 
         const remaining = get().queue.tracks.length - index - 1;
-        if (remaining <= 3 && get().player.repeat === 'none') {
+        if (shouldPreloadQueue(remaining, get().player.repeat)) {
           get().preloadMoreTracks().catch(() => {});
         }
 
@@ -244,8 +291,8 @@ if (isCurrent) {
           return;
         }
 
-        if (attempt < 2) {
-          await delay(1000);
+        if (attempt < MAX_ATTEMPTS) {
+          await delay(RETRY_DELAY_MS);
           continue;
         }
 
@@ -314,7 +361,7 @@ if (isCurrent) {
   prevTrack: async (manual = false) => {
     const { player } = get();
 
-    if (player.currentTrack && player.position > 3) {
+    if (player.currentTrack && player.position > PREV_RESTART_THRESHOLD) {
       try {
         await api.seekAudio(0);
       } catch {}
@@ -375,10 +422,11 @@ if (isCurrent) {
 
   setVolume: (volume: number) => {
     set((s: any) => ({ player: { ...s.player, volume } }));
-  },
 
-  setVolumeRust: async (volume: number) => {
-    await api.setVolume(volume);
+    const now = performance.now();
+    if (now - lastVolumePush < VOLUME_RUST_THROTTLE_MS) return;
+    lastVolumePush = now;
+    api.setVolume(volume).catch(() => {});
   },
 
   setPosition: (position: number) => {
@@ -408,8 +456,7 @@ if (isCurrent) {
       }
 
       const others = queue.tracks.filter((t: Track) => t.id !== current.id);
-      const shuffledOthers = [...others].sort(() => Math.random() - 0.5);
-      const shuffled = [current, ...shuffledOthers];
+      const shuffled = [current, ...shuffleArray(others)];
 
       set((s: any) => ({
         player: { ...s.player, shuffle: true },
@@ -469,14 +516,14 @@ if (isCurrent) {
   },
 
   preloadMoreTracks: async () => {
-    const { queue, preload, player, library } = get();
+    const { queue, player, library, preload } = get();
     if (preload.isPreloading || player.repeat === 'one') return;
 
     set((s: any) => ({ preload: { ...s.preload, isPreloading: true } }));
 
     try {
       const existing = new Set(queue.tracks.map((t: Track) => t.id));
-      let artists = get().getUserTopArtists(5);
+      let artists = get().getUserTopArtists(PRELOAD_ARTISTS);
 
       if (!artists.length && queue.tracks.length) {
         artists = [...new Set(queue.tracks.map((t: Track) => t.user?.username).filter(Boolean))] as string[];
@@ -487,10 +534,10 @@ if (isCurrent) {
       }
 
       let pool: Track[] = [];
-      for (const a of artists.slice(0, 5)) {
+      for (const a of artists.slice(0, PRELOAD_ARTISTS)) {
         const rel = await api.getRelatedTracks(queue.tracks, 15, [a]);
         pool.push(...rel);
-        if (pool.length > 30) break;
+        if (pool.length > PRELOAD_POOL_MAX) break;
       }
 
       if (!pool.length) {
@@ -526,9 +573,8 @@ if (isCurrent) {
           const originalTracks = s.queue.originalTracks
             ? [...s.queue.originalTracks, ...fresh]
             : null;
-          const max = 200;
-          if (tracks.length > max) {
-            const removed = tracks.length - max;
+          if (tracks.length > QUEUE_MAX) {
+            const removed = tracks.length - QUEUE_MAX;
             return {
               queue: {
                 ...s.queue,

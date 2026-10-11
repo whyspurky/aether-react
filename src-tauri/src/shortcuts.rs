@@ -1,4 +1,3 @@
-//shortcuts.rs
 use tauri::{App, Emitter};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
@@ -7,14 +6,20 @@ pub fn setup(app: &App) -> Result<(), String> {
 
     for (key, event) in [
         ("MediaPlayPause", "shortcut-playpause"),
-        ("MediaNextTrack", "shortcut-next"),
-        ("MediaPreviousTrack", "shortcut-prev"),
+        ("MediaTrackNext", "shortcut-next"),
+        ("MediaTrackPrevious", "shortcut-prev"),
     ] {
-        sc.register(key).map_err(|e| e.to_string())?;
+        if let Err(e) = sc.register(key) {
+            eprintln!("[shortcuts] не удалось зарегистрировать {}: {}", key, e);
+            continue;
+        }
+
         let h = app.handle().clone();
-        sc.on_shortcut(key, move |_, _, _| {
+        if let Err(e) = sc.on_shortcut(key, move |_, _, _| {
             let _ = h.emit(event, ());
-        }).map_err(|e| e.to_string())?;
+        }) {
+            eprintln!("[shortcuts] не удалось подписаться на {}: {}", key, e);
+        }
     }
 
     Ok(())

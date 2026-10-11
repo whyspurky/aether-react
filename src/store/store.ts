@@ -21,7 +21,6 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
       name: 'aether-storage',
       version: 6,
       storage: createJSONStorage(() => tauriStorage),
-      onRehydrateStorage: () => () => {},
       migrate: (persisted: any, version) => {
         if (version < 2) {
           if (!persisted.proxy) {
@@ -63,13 +62,6 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
         }
 
         if (version < 4) {
-          if (!persisted.blur) {
-            persisted.blur = {
-              enabled: true,
-              amount: 60,
-              opacity: 0.25,
-            };
-          }
           if (persisted.blur) {
             delete persisted.blur.mode;
             delete persisted.blur.color1;
@@ -134,6 +126,8 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
             duration: t.duration,
             artwork_url: t.artwork_url,
             permalink_url: t.permalink_url,
+            genre: t.genre,
+            playback_count: t.playback_count,
           })),
           currentIndex: s.queue.currentIndex,
           source: s.queue.source,
