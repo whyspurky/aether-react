@@ -1,19 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'url';
 import path from 'path';
 
 const host = process.env.TAURI_DEV_HOST;
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@components': path.resolve(__dirname, './src/components'),
-      '@hooks': path.resolve(__dirname, './src/hooks'),
-      '@lib': path.resolve(__dirname, './src/lib'),
-      '@store': path.resolve(__dirname, './src/store'),
-      '@theme': path.resolve(__dirname, './src/theme'),
+      '@': path.resolve(dirname, './src'),
+      '@components': path.resolve(dirname, './src/components'),
+      '@hooks': path.resolve(dirname, './src/hooks'),
+      '@lib': path.resolve(dirname, './src/lib'),
+      '@store': path.resolve(dirname, './src/store'),
+      '@theme': path.resolve(dirname, './src/theme'),
     },
   },
   server: {
@@ -34,7 +36,7 @@ export default defineConfig({
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
     target: ['es2021', 'chrome100', 'safari13'],
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    chunkSizeWarningLimit: 1000,
   },
 }); 
