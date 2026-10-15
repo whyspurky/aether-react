@@ -40,7 +40,7 @@ export const amoledTheme: Theme = {
   name: 'amoled',
   colors: {
     background: {
-      primary: '#0F0F0F',
+      primary: '#000000',
       secondary: '#1A1A1A',
       tertiary: '#262626',
       card: '#181818',

@@ -107,12 +107,6 @@
     background: var(--accent-primary);
     transform: scaleX(1.2);
   }
-  *::-webkit-scrollbar:horizontal {
-    height: 4px;
-  }
-  *::-webkit-scrollbar:horizontal::-webkit-scrollbar-thumb:hover {
-    transform: scaleY(1.2);
-  }
 
   input[type="range"] {
     -webkit-appearance: none;

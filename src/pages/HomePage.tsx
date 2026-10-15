@@ -1,4 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { HomeGreeting } from '@components/home/HomeGreeting';
+import { HomeStats } from '@components/home/HomeStats';
+import { HomeTopArtists } from '@components/home/HomeTopArtists';
 import { MyWaveSection } from '@components/home/MyWaveSection';
 import { PopularSection } from '@components/home/PopularSection';
 import { api } from '@lib/api';
@@ -48,7 +51,7 @@ export default function HomePage() {
     try {
       const artists = [...new Set(history.map((t) => t.user?.username).filter(Boolean))] as string[];
       const tracks = artists.length
-        ? await api.getMyWave(artists.slice(0, MY_WAVE_ARTISTS), MY_WAVE_LIMIT)
+        ? await api.getMyWave(artists.slice(0, MY_WAVE_ARTISTS))
         : await api.getPopular(MY_WAVE_LIMIT);
 
       setHomePageMyWave(tracks);
@@ -105,13 +108,23 @@ export default function HomePage() {
   };
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="flex gap-4">
-        <MyWaveSection
-          tracks={myWaveTracks}
-          isLoading={isLoadingWave}
-          onPlay={handlePlayWave}
-        />
+    <div>
+      <div className="space-y-6 pb-4">
+        <HomeGreeting />
+
+        <div className="flex gap-4">
+          <MyWaveSection
+            tracks={myWaveTracks}
+            isLoading={isLoadingWave}
+            onPlay={handlePlayWave}
+          />
+
+          <div className="flex-1 min-w-0 space-y-4">
+            <HomeTopArtists />
+            <HomeStats />
+          </div>
+        </div>
+
         <PopularSection
           tracks={popularTracks}
           isLoading={isLoadingPopular}

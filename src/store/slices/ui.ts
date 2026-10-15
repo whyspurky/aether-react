@@ -24,6 +24,7 @@ export interface UiSlice {
     opacity: number;
   };
   customPresets: CustomPreset[];
+  hideBindsWarning: boolean;
 
   setThemeId: (id: string) => void;
   setBlurEnabled: (enabled: boolean) => void;
@@ -34,6 +35,7 @@ export interface UiSlice {
   applyCustomPreset: (id: string) => void;
   deleteCustomPreset: (id: string) => void;
   renameCustomPreset: (id: string, name: string) => void;
+  setHideBindsWarning: (hide: boolean) => void;
 }
 
 export const createUiSlice = (set: any, get: any) => ({
@@ -44,6 +46,7 @@ export const createUiSlice = (set: any, get: any) => ({
     opacity: BLUR_OPACITY_DEFAULT,
   },
   customPresets: [],
+  hideBindsWarning: false,
 
   setThemeId: (id: string) => set({ themeId: id }),
   setBlurEnabled: (enabled: boolean) =>
@@ -88,4 +91,6 @@ export const createUiSlice = (set: any, get: any) => ({
       ),
     });
   },
+
+  setHideBindsWarning: (hide: boolean) => set({ hideBindsWarning: hide }),
 });

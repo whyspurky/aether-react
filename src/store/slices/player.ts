@@ -39,8 +39,7 @@ export interface PlayerSlice {
   nextTrack: (manual?: boolean) => Promise<void>;
   prevTrack: (manual?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
-  setVolume: (volume: number) => void;
-  setPosition: (position: number) => void;
+  setVolume: (volume: number, force?: boolean) => void;  setPosition: (position: number) => void;
   setShuffle: (shuffle: boolean) => void;
   setRepeat: (repeat: 'none' | 'all' | 'one') => void;
   getUserTopArtists: (limit?: number) => string[];
@@ -102,6 +101,9 @@ function shouldPreloadQueue(remaining: number, repeat: 'none' | 'all' | 'one'): 
 }
 
 let lastVolumePush = 0;
+let lastTogglePlayAt = 0;
+
+const TOGGLE_PLAY_DEBOUNCE_MS = 100;
 
 export const createPlayerSlice = (set: any, get: any) => ({
   queue: {
@@ -180,6 +182,9 @@ if (isCurrent) {
     if (state.player.isLoading && state.player.currentTrack?.id === track.id) {
       return;
     }
+
+    // фиксируем клик по треку (5 баллов)
+    get().addTrackClick({ user: track.user, genre: track.genre });
 
     try { await api.muteAudio(); } catch {}
     try { await api.stopAudio(); } catch {}
@@ -393,6 +398,10 @@ if (isCurrent) {
   },
 
   togglePlay: async () => {
+    const now = performance.now();
+    if (now - lastTogglePlayAt < TOGGLE_PLAY_DEBOUNCE_MS) return;
+    lastTogglePlayAt = now;
+
     const { isPlaying, isLoading, isAudioReady, currentTrack, position } = get().player;
 
     if (isLoading) return;
@@ -420,8 +429,14 @@ if (isCurrent) {
     }
   },
 
-  setVolume: (volume: number) => {
+  setVolume: (volume: number, force = false) => {
     set((s: any) => ({ player: { ...s.player, volume } }));
+
+    if (force) {
+      lastVolumePush = performance.now();
+      api.setVolume(volume).catch(() => {});
+      return;
+    }
 
     const now = performance.now();
     if (now - lastVolumePush < VOLUME_RUST_THROTTLE_MS) return;

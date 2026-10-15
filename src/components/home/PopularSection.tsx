@@ -1,4 +1,4 @@
-import { RefObject } from 'react';
+import type { RefObject } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { TrackCard } from '../track/TrackCard';
 import { HorizontalScroll } from '../ui/HorizontalScroll';
@@ -9,7 +9,7 @@ interface Props {
   isLoading: boolean;
   isLoadingMore: boolean;
   hasMore: boolean;
-  scrollRef: RefObject<HTMLDivElement>;
+  scrollRef: RefObject<HTMLDivElement | null>;
 }
 
 const TITLE_WIDTHS = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-4/5', 'w-3/5', 'w-11/12'];

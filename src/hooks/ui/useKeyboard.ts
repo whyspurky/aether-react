@@ -1,34 +1,18 @@
 import { useEffect } from 'react';
-import { useStore } from '@store/store';
+import { dispatchPlayerAction } from '@hooks/app/useGlobalBinds';
 
 export function useKeyboard() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      console.log('[keyboard]', e.code, e.key);
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
       if (target.isContentEditable) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      const s = useStore.getState();
 
       if (e.code === 'Space') {
         if (e.repeat) return;
         e.preventDefault();
-        if (!s.player.isLoading) void s.togglePlay();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        s.nextTrack(true);
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        s.prevTrack(true);
-      } else if (e.code === 'ArrowUp') {
-        e.preventDefault();
-        const next = Math.min(100, s.player.volume + 5);
-        s.setVolume(next);
-      } else if (e.code === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.max(0, s.player.volume - 5);
-        s.setVolume(next);
+        dispatchPlayerAction('playpause');
       }
     };
 

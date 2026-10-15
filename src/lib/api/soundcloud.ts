@@ -17,14 +17,25 @@ export const soundcloudApi = {
     return data?.collection || [];
   },
 
+
+
   searchUsers: async (query: string, offset = 0, limit = 50): Promise<User[]> => {
     const data = await invokeCmd<any>('search_users', { query, limit, offset });
-    return data?.collection || [];
+    const users: User[] = data?.collection || [];
+    return users.filter((u) => (u.track_count ?? 0) > 0);
   },
 
   searchPlaylists: async (query: string, limit = 10, offset = 0): Promise<Playlist[]> => {
     const data = await invokeCmd<any>('search_playlists', { query, limit, offset });
     return data?.collection || [];
+  },
+
+  searchSuggestions: async (query: string, limit = 10): Promise<string[]> => {
+    const data = await invokeCmd<any>('search_suggestions', { query, limit });
+    const collection = data?.collection || [];
+    return collection
+      .map((item: any) => item.query)
+      .filter((s: any): s is string => typeof s === 'string' && s.length > 0);
   },
 
   getUserTracks: async (userId: number): Promise<Track[]> => {
@@ -111,7 +122,7 @@ export const soundcloudApi = {
     return unique.slice(0, limit);
   },
 
-  getMyWave: async (historyArtists: string[], limit = 20): Promise<Track[]> => {
+  getMyWave: async (historyArtists: string[]): Promise<Track[]> => {
     if (!historyArtists.length) return [];
     const data = await invokeCmd<any>('get_my_wave', { historyArtists: historyArtists.slice(0, 5) });
     return data?.collection || [];

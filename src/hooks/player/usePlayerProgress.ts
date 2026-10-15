@@ -119,6 +119,17 @@ export function usePlayerProgress({
 
         endedRef.current = true;
         progressRef.current = d;
+
+        // фиксируем завершение трека
+        const current = useStore.getState().player.currentTrack;
+        if (current) {
+          useStore.getState().addTrackCompleted({
+            user: current.user,
+            duration: current.duration,
+            genre: current.genre,
+          });
+        }
+
         onTrackEnd();
         return;
       }

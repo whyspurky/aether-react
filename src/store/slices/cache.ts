@@ -1,6 +1,10 @@
 import type { Track, User, Playlist } from '../types';
 
 export interface CacheSlice {
+  searchHistory: string[];
+  addSearchHistory: (query: string) => void;
+  removeSearchHistory: (query: string) => void;
+  clearSearchHistory: () => void;
   searchPage: {
     query: string;
     filter: 'tracks' | 'artists' | 'playlists';
@@ -62,7 +66,24 @@ export interface CacheSlice {
   addHomePagePopularTracks: (tracks: Track[]) => void;
 }
 
-export const createCacheSlice = (set: any, get: any) => ({
+const SEARCH_HISTORY_MAX = 10;
+
+export const createCacheSlice = (set: any) => ({
+  searchHistory: [] as string[],
+
+  addSearchHistory: (query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    set((s: any) => ({
+      searchHistory: [q, ...s.searchHistory.filter((h: string) => h !== q)].slice(0, SEARCH_HISTORY_MAX),
+    }));
+  },
+
+  removeSearchHistory: (query: string) =>
+    set((s: any) => ({ searchHistory: s.searchHistory.filter((h: string) => h !== query) })),
+
+  clearSearchHistory: () => set({ searchHistory: [] }),
+
   searchPage: {
     query: '',
     filter: 'tracks' as const,

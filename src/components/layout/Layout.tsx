@@ -9,11 +9,26 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+function buildCoverCandidates(url: string): string[] {
+  // базовая часть без размера
+  const base = url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '');
+  const ext = url.match(/\.(jpg|jpeg|png|webp)$/i)?.[0] || '.jpg';
+
+  // если оригинал начинается с http и не имеет _large — используем как есть
+  return [
+    `${base}-original${ext}`,
+    `${base}-t500x500${ext}`,
+    `${base}-t300x300${ext}`,
+    url,
+  ];
+}
+
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const mainRef = useSmoothScroll<HTMLElement>();
   const location = useLocation();
   const currentTrack = useStore((s) => s.player.currentTrack);
+  const blur = useStore((s) => s.blur);
 
   const isPlayerPage = location.pathname === '/player';
   const hasTrack = !!currentTrack;
@@ -28,9 +43,7 @@ export function Layout({ children }: LayoutProps) {
       setPlayerBarExiting(false);
       return;
     }
-
     if (!playerBarMounted) return;
-
     setPlayerBarExiting(true);
     const t = setTimeout(() => {
       setPlayerBarMounted(false);
@@ -38,36 +51,40 @@ export function Layout({ children }: LayoutProps) {
     }, 150);
     return () => clearTimeout(t);
   }, [shouldShow, playerBarMounted]);
-  const blur = useStore((s) => s.blur);
-  const playerCoverUrl =
-    currentTrack?.artwork_url
-      ? currentTrack.artwork_url.replace('-large', '-t500x500')
-      : currentTrack?.user?.avatar_url?.replace('-large', '-t500x500') || null;
+
+  const rawCover = currentTrack?.artwork_url || currentTrack?.user?.avatar_url || null;
+  const candidates = rawCover ? buildCoverCandidates(rawCover) : [];
 
   const [prevUrl, setPrevUrl] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState<string | null>(playerCoverUrl);
+  const [currentUrl, setCurrentUrl] = useState<string | null>(candidates[0] || null);
   const preloadRef = useRef<HTMLImageElement | null>(null);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (currentUrl === playerCoverUrl) return;
-    if (!playerCoverUrl) return;
+    if (!candidates.length) return;
+    if (currentUrl === candidates[0]) return;
 
     let cancelled = false;
-    const img = new Image();
-    preloadRef.current = img;
 
-    img.onload = () => {
-      if (cancelled) return;
-      setPrevUrl(currentUrl);
-      setCurrentUrl(playerCoverUrl);
+    const tryLoad = (index: number) => {
+      if (cancelled || index >= candidates.length) return;
+
+      const img = new Image();
+      preloadRef.current = img;
+
+      img.onload = () => {
+        if (cancelled) return;
+        setPrevUrl(currentUrl);
+        setCurrentUrl(candidates[index]);
+      };
+      img.onerror = () => {
+        if (cancelled) return;
+        tryLoad(index + 1);
+      };
+      img.src = candidates[index];
     };
-    img.onerror = () => {
-      if (cancelled) return;
-      setPrevUrl(currentUrl);
-      setCurrentUrl(playerCoverUrl);
-    };
-    img.src = playerCoverUrl;
+
+    tryLoad(0);
 
     if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
     timeoutRef.current = window.setTimeout(() => {
@@ -82,11 +99,10 @@ export function Layout({ children }: LayoutProps) {
         timeoutRef.current = null;
       }
     };
-  }, [playerCoverUrl]);
+  }, [candidates[0]]);
 
   return (
     <div className="h-full flex flex-col pt-10 bg-bg-primary p-2 relative">
-      {/* блюр обложки — отдельный слой */}
       {blur.enabled && (
         <>
           {prevUrl && (
@@ -98,8 +114,7 @@ export function Layout({ children }: LayoutProps) {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: `blur(${blur.amount}px) saturate(1.4)`,
-                transform: 'scale(1.02)',
-                ['--blur-opacity' as string]: String(blur.opacity)
+                ['--blur-opacity' as string]: String(blur.opacity),
               }}
             />
           )}
@@ -113,8 +128,7 @@ export function Layout({ children }: LayoutProps) {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 filter: `blur(${blur.amount}px) saturate(1.4)`,
-                transform: 'scale(1.02)',
-                ['--blur-opacity' as string]: String(blur.opacity)
+                ['--blur-opacity' as string]: String(blur.opacity),
               }}
             />
           )}

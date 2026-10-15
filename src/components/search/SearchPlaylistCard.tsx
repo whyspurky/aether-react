@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
+import { useStore } from '@store/store';
+import { api } from '@lib/api';
 import type { Playlist } from '@store/types';
 
 interface Props {
@@ -20,6 +22,8 @@ function upgradeCover(url: string | undefined | null): string | undefined {
 
 export function SearchPlaylistCard({ playlist }: Props) {
   const navigate = useNavigate();
+  const importPlaylist = useStore((s) => s.importPlaylist);
+  const libraryPlaylists = useStore((s) => s.library.playlists);
 
   const coverUrl =
     upgradeCover(playlist.artwork_url) ||
@@ -29,6 +33,19 @@ export function SearchPlaylistCard({ playlist }: Props) {
 
   const title = (playlist as any).title || playlist.name || 'без названия';
   const typeLabel = TYPE_LABELS[playlist.playlist_type || 'playlist'];
+
+  const isImported = libraryPlaylists.some((p) => String(p.id) === String(playlist.id));
+
+  const handleImport = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isImported) return;
+
+    try {
+      const tracks = await api.getPlaylistTracks(String(playlist.id));
+      const cover = upgradeCover(playlist.artwork_url);
+      importPlaylist(title, tracks, cover);
+    } catch {}
+  };
 
   return (
     <div
@@ -52,10 +69,23 @@ export function SearchPlaylistCard({ playlist }: Props) {
         </p>
       </div>
 
+      <button
+        onClick={handleImport}
+        disabled={isImported}
+        className={`p-1.5 rounded-md transition-all flex-shrink-0 ${
+          isImported
+            ? 'text-[var(--accent-primary)] cursor-default'
+            : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)] opacity-0 group-hover:opacity-100'
+        }`}
+        aria-label={isImported ? 'уже в библиотеке' : 'добавить в библиотеку'}
+      >
+        <Icon name={isImported ? 'check' : 'plus'} size={16} />
+      </button>
+
       <Icon
         name="chevron-right"
         size={16}
-        className="text-text-tertiary group-hover:text-text-secondary transition-colors"
+        className="text-text-tertiary group-hover:text-text-secondary transition-colors flex-shrink-0"
       />
     </div>
   );

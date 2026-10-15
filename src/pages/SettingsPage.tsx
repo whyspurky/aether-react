@@ -7,6 +7,7 @@ import { SettingsSidebar, type SettingsTab } from '@components/settings/Settings
 import { SettingsTabData } from '@components/settings/SettingsTabData';
 import { SettingsTabAppearance } from '@components/settings/SettingsTabAppearance';
 import { SettingsTabAbout } from '@components/settings/SettingsTabAbout';
+import { SettingsTabBinds } from '@components/settings/SettingsTabBinds';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
@@ -37,6 +38,7 @@ export default function SettingsPage() {
           {activeTab === 'data' && <SettingsTabData />}
           {activeTab === 'appearance' && <SettingsTabAppearance />}
           {activeTab === 'proxy' && <ProxySettings />}
+          {activeTab === 'binds' && <SettingsTabBinds />}
           {activeTab === 'about' && <SettingsTabAbout />}
         </div>
       </main>

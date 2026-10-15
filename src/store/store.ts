@@ -6,20 +6,24 @@ import { createUiSlice, type UiSlice } from './slices/ui';
 import { createCacheSlice, type CacheSlice } from './slices/cache';
 import { createLibrarySlice, type LibrarySlice } from './slices/library';
 import { createPlayerSlice, type PlayerSlice } from './slices/player';
+import { createGlobalBindsSlice, type GlobalBindsSlice } from './slices/globalBinds';
+import { createStatsSlice, type StatsSlice } from './slices/stats';
 
-export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice>()(
+export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice & GlobalBindsSlice & StatsSlice>()(
   persist(
     (set, get) => ({
       ...createProxySlice(set),
       ...createUiSlice(set, get),
-      ...createCacheSlice(set, get),
+      ...createCacheSlice(set),
       ...createLibrarySlice(set),
       ...createPlayerSlice(set, get),
+      ...createGlobalBindsSlice(set),
+      ...createStatsSlice(set),
     }),
 
     {
       name: 'aether-storage',
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         if (version < 2) {
@@ -88,9 +92,32 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           }
         }
 
+        if (version < 7) {
+          if (!persisted.globalBinds) {
+            persisted.globalBinds = {
+              playpause: '',
+              next: '',
+              prev: '',
+              volumeUp: '',
+              volumeDown: '',
+            };
+          }
+          if (persisted.globalBindsEnabled === undefined) {
+            persisted.globalBindsEnabled = false;
+          }
+        }
+
         return persisted;
       },
       partialize: (s) => ({
+        searchHistory: s.searchHistory,
+        globalBinds: s.globalBinds,
+        globalBindsEnabled: s.globalBindsEnabled,
+        artistScores: s.artistScores,
+        genreScores: s.genreScores,
+        tracksPlayedCount: s.tracksPlayedCount,
+        tracksCompletedCount: s.tracksCompletedCount,
+        totalListenedMs: s.totalListenedMs,
         library: {
           favorites: s.library.favorites,
           history: s.library.history,
@@ -110,6 +137,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           opacity: s.blur.opacity,
         },
         customPresets: s.customPresets,
+        hideBindsWarning: s.hideBindsWarning,
         proxy: {
           mode: s.proxy.mode,
           custom: s.proxy.custom,

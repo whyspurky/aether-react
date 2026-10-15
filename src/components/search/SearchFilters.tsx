@@ -5,8 +5,6 @@ export type FilterType = 'tracks' | 'artists' | 'playlists';
 interface Props {
   filter: FilterType;
   onChange: (filter: FilterType) => void;
-  canPlayAll: boolean;
-  onPlayAll: () => void;
 }
 
 const FILTERS: { id: FilterType; label: string; icon: string }[] = [
@@ -15,9 +13,9 @@ const FILTERS: { id: FilterType; label: string; icon: string }[] = [
   { id: 'playlists', label: 'плейлисты', icon: 'folder' },
 ];
 
-export function SearchFilters({ filter, onChange, canPlayAll, onPlayAll }: Props) {
+export function SearchFilters({ filter, onChange }: Props) {
   return (
-    <div className="flex items-center justify-between mt-3">
+    <div className="flex items-center justify-center mt-3">
       <div className="flex gap-2">
         {FILTERS.map((f) => (
           <button
@@ -34,16 +32,6 @@ export function SearchFilters({ filter, onChange, canPlayAll, onPlayAll }: Props
           </button>
         ))}
       </div>
-
-      {filter === 'tracks' && canPlayAll && (
-        <button
-          onClick={onPlayAll}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-white/[0.08] text-text-primary hover:bg-white/[0.12] transition-all duration-200"
-        >
-          <Icon name="play" size={14} />
-          слушать всё
-        </button>
-      )}
     </div>
   );
 }

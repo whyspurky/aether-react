@@ -5,6 +5,13 @@ interface SidebarProps {
   onNavigate: (path: string) => void;
 }
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: string;
+  path: string;
+}
+
 const navItems: NavItem[] = [
   { id: 'home', label: 'главная', icon: 'home', path: '/' },
   { id: 'search', label: 'поиск', icon: 'search', path: '/search' },
@@ -13,13 +20,6 @@ const navItems: NavItem[] = [
 ];
 
 const settingsItem: NavItem = { id: 'settings', label: 'настройки', icon: 'settings', path: '/settings' };
-
-interface NavItem {
-  id: string;
-  label: string;
-  icon: string;
-  path: string;
-}
 
 interface NavButtonProps {
   item: NavItem;
@@ -31,19 +31,29 @@ function NavButton({ item, isActive, onNavigate }: NavButtonProps) {
   return (
     <button
       onClick={() => onNavigate(item.path)}
-      className={`group relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden transition-colors duration-300 ${
-        isActive ? 'text-[var(--accent-primary)]' : 'text-text-tertiary hover:text-[var(--accent-primary)]'
+      className={`group relative w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 active:scale-[0.92] ${
+        isActive
+          ? 'text-[var(--accent-primary)]'
+          : 'text-text-tertiary hover:text-[var(--accent-primary)]'
       }`}
       aria-label={item.label}
     >
-      {/* подсветка снизу вверх */}
+      {/* accent glow при активной */}
       <span
-        className={`absolute inset-0 bg-[var(--accent-muted)] origin-bottom transition-transform duration-300 ease-out ${
-          isActive ? 'scale-y-100' : 'scale-y-0 group-hover:scale-y-100'
+        className={`absolute inset-0 rounded-xl transition-all duration-300 ${
+          isActive
+            ? 'bg-[var(--accent-muted)] scale-100 opacity-100'
+            : 'bg-[var(--accent-muted)] scale-75 opacity-0 group-hover:scale-100 group-hover:opacity-100'
         }`}
       />
 
-      {/* иконка поверх подсветки */}
+      {/* левая accent полоска */}
+      <span
+        className={`absolute left-0 top-1/2 -translate-y-1/2 w-[2px] rounded-r-full bg-[var(--accent-primary)] transition-all duration-300 ${
+          isActive ? 'h-5 opacity-100' : 'h-0 opacity-0'
+        }`}
+      />
+
       <Icon
         name={item.icon}
         size={20}

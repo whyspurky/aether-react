@@ -1,65 +1,54 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '@lib/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '@store/store';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
-import type { Track, User, Playlist } from '@store/types';
+import { useSearchPage } from '@hooks/search/useSearchPage';
+import type { Track } from '@store/types';
 import { SearchInput } from '@components/search/SearchInput';
-import { SearchFilters, type FilterType } from '@components/search/SearchFilters';
+import { SearchFilters } from '@components/search/SearchFilters';
+import { SearchHistory } from '@components/search/SearchHistory';
 import { SearchTrackItem } from '@components/search/SearchTrackItem';
 import { SearchArtistCard } from '@components/search/SearchArtistCard';
 import { SearchPlaylistCard } from '@components/search/SearchPlaylistCard';
 import { SearchSkeletons } from '@components/search/SearchSkeletons';
-import { SearchEmpty } from '@components/search/SearchEmpty';
-
-const DEBOUNCE_MS = 200;
-const TRACKS_PER_PAGE = 20;
-const ARTISTS_PER_PAGE = 30;
-const PLAYLISTS_PER_PAGE = 20;
 
 export default function SearchPage() {
-  const sp = useStore((s) => s.searchPage);
-  const setSearchPage = useStore((s) => s.setSearchPage);
-  const setSearchCache = useStore((s) => s.setSearchCache);
-  const resetSearchPage = useStore((s) => s.resetSearchPage);
-
-  const [query, setQuery] = useState(sp.query);
-  const [debouncedQuery, setDebouncedQuery] = useState(sp.query);
-  const [filter, setFilter] = useState<FilterType>(sp.filter);
-  const [tracks, setTracks] = useState<Track[]>(sp.cache.tracks.items);
-  const [artists, setArtists] = useState<User[]>(sp.cache.artists.items);
-  const [playlists, setPlaylists] = useState<Playlist[]>(sp.cache.playlists.items);
-  const [isLoading, setIsLoading] = useState(false);
-
   const smoothRef = useSmoothScroll<HTMLDivElement>();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const lastElementRef = useRef<HTMLDivElement | null>(null);
-
-  const isLoadingRef = useRef(false);
-  const hasMoreRef = useRef(true);
-  const offsetRef = useRef(0);
-  const debouncedQueryRef = useRef(sp.query);
-  const filterRef = useRef<FilterType>(sp.filter);
-
-  useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
-  useEffect(() => { debouncedQueryRef.current = debouncedQuery; }, [debouncedQuery]);
-  useEffect(() => { filterRef.current = filter; }, [filter]);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     smoothRef(node);
     containerRef.current = node;
   }, [smoothRef]);
 
+  const {
+    query,
+    setQuery,
+    filter,
+    setFilter,
+    debouncedQuery,
+    tracks,
+    artists,
+    playlists,
+    isLoading,
+    hasMore,
+    sentinelRef,
+  } = useSearchPage();
+
+  const setSearchPage = useStore((s) => s.setSearchPage);
   const playTrack = useStore((s) => s.playTrack);
   const addToQueue = useStore((s) => s.addToQueue);
+  const searchHistory = useStore((s) => s.searchHistory);
+  const removeSearchHistory = useStore((s) => s.removeSearchHistory);
+
+  const [inputFocused, setInputFocused] = useState(false);
+  const [historyClosing, setHistoryClosing] = useState(false);
+  const [historyMounted, setHistoryMounted] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  useEffect(() => {
-    if (containerRef.current && sp.scrollTop > 0) {
-      containerRef.current.scrollTop = sp.scrollTop;
+    const st = useStore.getState().searchPage;
+    if (containerRef.current && st.scrollTop > 0) {
+      containerRef.current.scrollTop = st.scrollTop;
     }
   }, []);
 
@@ -70,147 +59,38 @@ export default function SearchPage() {
     };
   }, [setSearchPage]);
 
-  const performSearch = useCallback(async (tab: FilterType, newOffset: number, reset: boolean, q: string) => {
-    if (!q || isLoadingRef.current) return;
-    if (!reset && !hasMoreRef.current) return;
-
-    setIsLoading(true);
-    isLoadingRef.current = true;
-
-    try {
-      if (tab === 'tracks') {
-        const results = await api.searchTracks(q, TRACKS_PER_PAGE, newOffset);
-        const fresh = results.filter((t) => t?.id);
-        const prev = reset ? [] : useStore.getState().searchPage.cache.tracks.items;
-        const next = [...prev, ...fresh];
-        const nextHasMore = fresh.length === TRACKS_PER_PAGE;
-        const nextOffset = newOffset + fresh.length;
-
-        setTracks(next);
-        hasMoreRef.current = nextHasMore;
-        offsetRef.current = nextOffset;
-
-        setSearchCache('tracks', { items: next, offset: nextOffset, hasMore: nextHasMore, loaded: true });
-        setSearchPage({ query: q });
-      } else if (tab === 'artists') {
-        const results = await api.searchUsers(q, newOffset, ARTISTS_PER_PAGE);
-        const prev = reset ? [] : useStore.getState().searchPage.cache.artists.items;
-        const next = [...prev, ...results];
-        const nextHasMore = results.length === ARTISTS_PER_PAGE;
-        const nextOffset = newOffset + results.length;
-
-        setArtists(next);
-        hasMoreRef.current = nextHasMore;
-        offsetRef.current = nextOffset;
-
-        setSearchCache('artists', { items: next, offset: nextOffset, hasMore: nextHasMore, loaded: true });
-        setSearchPage({ query: q });
-      } else {
-        const items = await api.searchPlaylists(q, PLAYLISTS_PER_PAGE, newOffset);
-        const prev = reset ? [] : useStore.getState().searchPage.cache.playlists.items;
-        const next = [...prev, ...items];
-        const nextHasMore = items.length === PLAYLISTS_PER_PAGE;
-        const nextOffset = newOffset + items.length;
-
-        setPlaylists(next);
-        hasMoreRef.current = nextHasMore;
-        offsetRef.current = nextOffset;
-
-        setSearchCache('playlists', { items: next, offset: nextOffset, hasMore: nextHasMore, loaded: true });
-        setSearchPage({ query: q });
+  useEffect(() => {
+    if (!inputFocused) return;
+    const onClick = (e: MouseEvent) => {
+      if (!headerRef.current?.contains(e.target as Node)) {
+        setInputFocused(false);
       }
-    } catch {
-    } finally {
-      setIsLoading(false);
-      isLoadingRef.current = false;
-    }
-  }, [setSearchPage, setSearchCache]);
-
-  useEffect(() => {
-    if (!debouncedQuery) {
-      resetSearchPage();
-      setTracks([]);
-      setArtists([]);
-      setPlaylists([]);
-      return;
-    }
-
-    resetSearchPage();
-    setTracks([]);
-    setArtists([]);
-    setPlaylists([]);
-    hasMoreRef.current = true;
-    offsetRef.current = 0;
-    if (containerRef.current) containerRef.current.scrollTop = 0;
-    performSearch(filterRef.current, 0, true, debouncedQuery);
-  }, [debouncedQuery]);
-
-  useEffect(() => {
-    if (!debouncedQuery) return;
-
-    const cache = useStore.getState().searchPage.cache;
-
-    if (filter === 'tracks') {
-      const c = cache.tracks;
-      setTracks(c.items);
-      hasMoreRef.current = c.hasMore;
-      offsetRef.current = c.offset;
-      if (!c.loaded) performSearch('tracks', 0, true, debouncedQuery);
-      else if (containerRef.current) containerRef.current.scrollTop = 0;
-    } else if (filter === 'artists') {
-      const c = cache.artists;
-      setArtists(c.items);
-      hasMoreRef.current = c.hasMore;
-      offsetRef.current = c.offset;
-      if (!c.loaded) performSearch('artists', 0, true, debouncedQuery);
-      else if (containerRef.current) containerRef.current.scrollTop = 0;
-    } else {
-      const c = cache.playlists;
-      setPlaylists(c.items);
-      hasMoreRef.current = c.hasMore;
-      offsetRef.current = c.offset;
-      if (!c.loaded) performSearch('playlists', 0, true, debouncedQuery);
-      else if (containerRef.current) containerRef.current.scrollTop = 0;
-    }
-  }, [filter, debouncedQuery]);
-
-  useEffect(() => {
-    const el = lastElementRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          hasMoreRef.current &&
-          !isLoadingRef.current &&
-          debouncedQueryRef.current
-        ) {
-          performSearch(filterRef.current, offsetRef.current, false, debouncedQueryRef.current);
-        }
-      },
-      { threshold: 0.1, rootMargin: '0px 0px 200px 0px' }
-    );
-
-    observer.observe(el);
-
-    return () => {
-      observer.disconnect();
     };
-  }, [performSearch]);
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [inputFocused]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== 'Tab') return;
+      if (inputFocused) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      const el = document.querySelector<HTMLInputElement>('input[data-search-input]');
+      if (!el) return;
+      e.preventDefault();
+      el.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [inputFocused]);
 
   const handlePlay = useCallback(async (track: Track) => {
     const t = useStore.getState().searchPage.cache.tracks.items;
     const index = t.findIndex((x) => x.id === track.id);
     const queue = t.slice(index >= 0 ? index : 0);
     if (!queue.length) return;
-    await playTrack(track, queue, 0, debouncedQueryRef.current);
-  }, [playTrack]);
-
-  const handlePlayAll = useCallback(async () => {
-    const t = useStore.getState().searchPage.cache.tracks.items;
-    if (!t.length) return;
-    await playTrack(t[0], t, 0, `${debouncedQueryRef.current} (все)`);
+    await playTrack(track, queue, 0, useStore.getState().searchPage.query);
   }, [playTrack]);
 
   const handleAddToQueue = useCallback((track: Track, e: React.MouseEvent) => {
@@ -226,12 +106,28 @@ export default function SearchPage() {
       ? !artists.length
       : !playlists.length);
 
+  const showHistory = inputFocused && !query && searchHistory.length > 0;
+
+  useEffect(() => {
+    if (showHistory) {
+      setHistoryMounted(true);
+      setHistoryClosing(false);
+      return;
+    }
+    if (!historyMounted) return;
+    setHistoryClosing(true);
+    const timer = setTimeout(() => {
+      setHistoryMounted(false);
+      setHistoryClosing(false);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [showHistory, historyMounted]);
+
   return (
     <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden">
-      <div className="sticky top-0 z-10 rounded-2xl overflow-hidden">
-        {/* сильный блюр-стекло под всю панель */}
+      <div ref={headerRef} className="sticky top-0 z-30">
         <div
-          className="absolute inset-0 bg-bg-primary/50 pointer-events-none"
+          className="absolute inset-0 bg-bg-primary/50 pointer-events-none rounded-2xl overflow-hidden"
           style={{
             backdropFilter: 'blur(40px) saturate(1.5)',
             WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
@@ -241,21 +137,29 @@ export default function SearchPage() {
         <div className="relative p-4">
           <SearchInput
             value={query}
-            onChange={(v) => { setQuery(v); setSearchPage({ query: v }); }}
-          />
-          <SearchFilters
+            onChange={setQuery}
             filter={filter}
-            onChange={(f) => { setFilter(f); setSearchPage({ filter: f }); }}
-            canPlayAll={tracks.length > 0}
-            onPlayAll={handlePlayAll}
+            onFocusChange={setInputFocused}
           />
+          <SearchFilters filter={filter} onChange={setFilter} />
+
+          {historyMounted && (
+            <div className={`mt-2 ${historyClosing ? 'animate-menu-exit' : 'animate-menu-enter'}`}>
+              <SearchHistory
+                items={searchHistory}
+                onSelect={(v) => {
+                  setQuery(v);
+                  setInputFocused(false);
+                }}
+                onRemove={removeSearchHistory}
+              />
+            </div>
+          )}
         </div>
       </div>
 
       <div className="p-4 scrollbar-hidden">
-        {!debouncedQuery ? (
-          <SearchEmpty />
-        ) : showSkeletons ? (
+        {!debouncedQuery ? null : showSkeletons ? (
           <SearchSkeletons filter={filter} />
         ) : filter === 'tracks' ? (
           <>
@@ -276,27 +180,33 @@ export default function SearchPage() {
               </div>
             )}
 
-            {!hasMoreRef.current && tracks.length > 0 && (
+            {tracks.length > 0 && (
+              <div ref={sentinelRef} className="h-1" />
+            )}
+
+            {!hasMore && tracks.length > 0 && (
               <div className="text-center py-8 text-text-tertiary text-sm">
                 вы достигли конца результатов
               </div>
             )}
-
-            <div ref={lastElementRef} className="h-1" />
           </>
         ) : filter === 'artists' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-content-fade-in">
             {artists.map((artist) => (
               <SearchArtistCard key={artist.id} artist={artist} />
             ))}
-            <div ref={lastElementRef} className="h-1 col-span-full" />
+            {artists.length > 0 && (
+              <div ref={sentinelRef} className="h-1 col-span-full" />
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-content-fade-in">
             {playlists.map((pl) => (
               <SearchPlaylistCard key={pl.id} playlist={pl} />
             ))}
-            <div ref={lastElementRef} className="h-1 col-span-full" />
+            {playlists.length > 0 && (
+              <div ref={sentinelRef} className="h-1 col-span-full" />
+            )}
           </div>
         )}
       </div>

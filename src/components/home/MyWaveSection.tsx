@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { MyWaveTrackItem } from './MyWaveTrackItem';
 import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
@@ -16,6 +17,26 @@ const SKELETON_WIDTHS = Array.from({ length: 6 }, () => ({
 
 export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
   const scrollRef = useSmoothScroll<HTMLDivElement>();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // не даём скроллу "просачиваться" на страницу когда внутренний скролл активен
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const canScrollDown = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const canScrollUp = el.scrollTop > 0;
+      const goingDown = e.deltaY > 0;
+
+      if ((goingDown && canScrollDown) || (!goingDown && canScrollUp)) {
+        e.stopPropagation();
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: true });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   const renderSkeletons = () =>
     SKELETON_WIDTHS.map(({ title, artist }, i) => {
@@ -52,8 +73,11 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
           </div>
 
           <div
-            ref={scrollRef}
-            className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden"
+            ref={(node) => {
+              scrollRef(node);
+              containerRef.current = node;
+            }}
+            className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden overscroll-contain"
             style={{ marginBottom: '-1rem', paddingBottom: '1rem' }}
           >
             {isLoading ? (
