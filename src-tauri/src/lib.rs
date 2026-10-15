@@ -1,8 +1,7 @@
 mod api;
 mod audio;
-mod shortcuts;
 mod zapret;
-
+mod global_binds;
 use audio::AppState;
 use tauri::Manager;
 
@@ -35,15 +34,13 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(prevent_default())
         .setup(|app| {
             let state = AppState::new();
             *state.app_handle.lock().unwrap() = Some(app.handle().clone());
             app.manage(state);
-
-            if let Err(e) = shortcuts::setup(app) {
-                eprintln!("shortcuts: {e}");
-            }
 
             Ok(())
         })
@@ -57,6 +54,7 @@ pub fn run() {
             api::soundcloud::search_tracks,
             api::soundcloud::search_users,
             api::soundcloud::search_playlists,
+            api::soundcloud::search_suggestions,
             api::soundcloud::get_user,
             api::soundcloud::get_user_tracks,
             api::soundcloud::get_user_popular_tracks,
@@ -68,6 +66,10 @@ pub fn run() {
             api::soundcloud::get_popular,
             api::soundcloud::get_my_wave,
             api::soundcloud::fetch_url,
+
+            // binds
+            global_binds::register_global_binds,
+            global_binds::unregister_global_binds,
 
             // stream
             api::stream::get_stream_url,
@@ -109,4 +111,25 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+ 
+#[cfg(debug_assertions)]
+fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_prevent_default::Builder::new()
+        .with_flags(tauri_plugin_prevent_default::Flags::empty())
+        .build()
+}
+
+#[cfg(not(debug_assertions))]
+fn prevent_default() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri_plugin_prevent_default::Builder::new()
+        .platform(
+            tauri_plugin_prevent_default::PlatformOptions::new()
+                .browser_accelerator_keys(false)
+                .default_context_menus(false)
+                .default_script_dialogs(false)
+                .general_autofill(true)
+                .password_autosave(false),
+        )
+        .build()
 }

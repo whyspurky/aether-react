@@ -145,6 +145,7 @@ pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Val
     }
 }
 
+
 #[tauri::command]
 pub async fn search_playlists(query: String, limit: u32, offset: u32) -> Result<Value, String> {
     let url = format!(
@@ -381,5 +382,14 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
 
 #[tauri::command]
 pub async fn fetch_url(url: String) -> Result<Value, String> {
+    fetch_retry(&url).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_suggestions(query: String, limit: u32) -> Result<Value, String> {
+    let url = format!(
+        "{}/search/queries?client_id={}&q={}&limit={}",
+        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit
+    );
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
