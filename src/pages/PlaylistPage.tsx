@@ -5,19 +5,16 @@ import { Icon } from '@components/ui/Icon';
 import { PlaylistHeader } from '@components/playlist/PlaylistHeader';
 import { api } from '@lib/api';
 import { useStore } from '@store/store';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import type { Playlist, Track } from '@store/types';
 
 export function PlaylistPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const scrollRef = useSmoothScroll<HTMLDivElement>();
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const setRefs = useCallback((el: HTMLDivElement | null) => {
-    scrollRef(el);
     rootRef.current = el;
-  }, [scrollRef]);
+  }, []);
 
   const cached = useStore((s) => (id ? s.playlistPage.cache[id] : undefined));
   const setPlaylistCache = useStore((s) => s.setPlaylistCache);

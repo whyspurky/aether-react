@@ -22,7 +22,6 @@ export default function LibraryPage() {
   const clearFavorites = useStore((s) => s.clearFavorites);
   const clearHistory = useStore((s) => s.clearHistory);
 
- 
   const [selectedView, setSelectedView] = useState<LibraryView>('favorites');
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | number | null>(null);
   const selectedPlaylist = useStore((s) =>
@@ -41,8 +40,6 @@ export default function LibraryPage() {
     setShowSettingsMenu(false);
   }, [selectedView, selectedPlaylistId]);
 
- 
-  
   const view = useMemo(() => {
     if (selectedView === 'favorites') {
       return {
@@ -118,7 +115,6 @@ export default function LibraryPage() {
     setSelectedView('playlist');
   };
 
-
   const handleClearConfirm = () => {
     if (confirmClear === 'favorites') clearFavorites();
     else if (confirmClear === 'history') clearHistory();
@@ -126,9 +122,8 @@ export default function LibraryPage() {
     setShowSettingsMenu(false);
   };
 
-
   return (
-    <div className="h-full flex">
+    <div className="h-full flex gap-2">
       <LibrarySidebar
         selectedView={selectedView}
         playlists={playlists}
@@ -144,8 +139,8 @@ export default function LibraryPage() {
         onCreateClick={() => setShowCreateModal(true)}
       />
 
-      <main className="flex-1 h-full overflow-y-auto flex flex-col">
-                <LibraryHeader
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
+        <LibraryHeader
           selectedView={selectedView}
           selectedPlaylist={selectedPlaylist}
           title={view.title}
@@ -169,8 +164,8 @@ export default function LibraryPage() {
           }}
         />
 
-        <div className="p-1 flex-1 flex flex-col min-h-0">
-                    <TrackList
+        <div className="p-1 flex-1 min-h-0">
+          <TrackList
             tracks={view.tracks}
             virtualize
             showQueueButton
@@ -181,7 +176,7 @@ export default function LibraryPage() {
             }
           />
         </div>
-      </main>
+      </div>
 
       <CreatePlaylistModal
         isOpen={showCreateModal}

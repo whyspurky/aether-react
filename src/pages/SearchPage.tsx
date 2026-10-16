@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from '@store/store';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { useSearchPage } from '@hooks/search/useSearchPage';
 import type { Track } from '@store/types';
 import { SearchInput } from '@components/search/SearchInput';
@@ -12,14 +11,12 @@ import { SearchPlaylistCard } from '@components/search/SearchPlaylistCard';
 import { SearchSkeletons } from '@components/search/SearchSkeletons';
 
 export default function SearchPage() {
-  const smoothRef = useSmoothScroll<HTMLDivElement>();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
-    smoothRef(node);
     containerRef.current = node;
-  }, [smoothRef]);
+  }, []);
 
   const {
     query,
@@ -124,7 +121,7 @@ export default function SearchPage() {
   }, [showHistory, historyMounted]);
 
   return (
-    <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden">
+    <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden overscroll-contain">
       <div ref={headerRef} className="sticky top-0 z-30">
         <div
           className="absolute inset-0 bg-bg-primary/50 pointer-events-none rounded-2xl overflow-hidden"

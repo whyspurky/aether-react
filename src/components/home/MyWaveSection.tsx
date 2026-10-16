@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { MyWaveTrackItem } from './MyWaveTrackItem';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import type { Track } from '@store/types';
 
 interface Props {
@@ -16,7 +15,6 @@ const SKELETON_WIDTHS = Array.from({ length: 6 }, () => ({
 }));
 
 export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
-  const scrollRef = useSmoothScroll<HTMLDivElement>();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // не даём скроллу "просачиваться" на страницу когда внутренний скролл активен
@@ -73,10 +71,7 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
           </div>
 
           <div
-            ref={(node) => {
-              scrollRef(node);
-              containerRef.current = node;
-            }}
+            ref={containerRef}
             className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden overscroll-contain"
             style={{ marginBottom: '-1rem', paddingBottom: '1rem' }}
           >

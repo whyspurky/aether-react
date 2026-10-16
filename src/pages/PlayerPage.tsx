@@ -8,7 +8,6 @@ import { VolumeControl } from '@components/player/VolumeControl';
 import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { MarqueeText } from '@components/track/AnimatedTrackInfo';
 import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import { usePlayerControlsLayout } from '@hooks/player/usePlayerControlsLayout';
@@ -34,7 +33,7 @@ export default function PlayerPage() {
   const setVolume = useStore((s) => s.setVolume);
   const removeFromQueue = useStore((s) => s.removeFromQueue);
   const navigate = useNavigate();
-  const queueScrollRef = useSmoothScroll<HTMLDivElement>();
+  const queueScrollRef = useRef<HTMLDivElement | null>(null);
   const favorites = useStore((s) => s.library.favorites);
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);

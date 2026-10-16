@@ -3,18 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { PlayerBar } from '../player/PlayerBar';
 import { useStore } from '@store/store';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 function buildCoverCandidates(url: string): string[] {
-  // базовая часть без размера
   const base = url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '');
   const ext = url.match(/\.(jpg|jpeg|png|webp)$/i)?.[0] || '.jpg';
 
-  // если оригинал начинается с http и не имеет _large — используем как есть
   return [
     `${base}-original${ext}`,
     `${base}-t500x500${ext}`,
@@ -25,7 +22,6 @@ function buildCoverCandidates(url: string): string[] {
 
 export function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
-  const mainRef = useSmoothScroll<HTMLElement>();
   const location = useLocation();
   const currentTrack = useStore((s) => s.player.currentTrack);
   const blur = useStore((s) => s.blur);
@@ -143,7 +139,6 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex-1 min-w-0 relative noise-overlay">
           <div className="absolute inset-0 rounded-2xl border border-border-subtle bg-bg-secondary/30 overflow-hidden">
             <main
-              ref={mainRef}
               key={location.pathname}
               className={`absolute inset-0 p-4 animate-page-in scrollbar-hidden ${
                 isPlayerPage

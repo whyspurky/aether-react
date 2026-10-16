@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { TrackList } from '../track/TrackList';
 import { ArtistEmpty } from './ArtistEmpty';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import type { Track } from '@store/types';
 
 interface Props {
@@ -10,17 +9,11 @@ interface Props {
 
 export function ArtistRepostsTab({ reposts }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const setSmoothRef = useSmoothScroll<HTMLDivElement>();
-
-  const setRefs = (node: HTMLDivElement | null) => {
-    setSmoothRef(node);
-    scrollRef.current = node;
-  };
 
   if (!reposts.length) return <ArtistEmpty text="нет репостов" />;
 
   return (
-    <div ref={setRefs} className="h-full w-full overflow-auto">
+    <div ref={scrollRef} className="h-full w-full overflow-auto overscroll-contain">
       <TrackList
         tracks={reposts}
         virtualize

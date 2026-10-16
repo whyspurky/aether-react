@@ -1,9 +1,8 @@
-import { useRef, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import type { Track } from '@store/types';
 import { formatMs, getCoverUrl } from '@lib/format';
@@ -18,11 +17,8 @@ interface TrackListProps {
   onRemove?: (track: Track) => void;
 }
 
-const ITEM_HEIGHT = 60;
+const ITEM_HEIGHT = 64;
 const ITEM_GAP_PX = 4;
-const SMOOTH_DURATION = 300;
-
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 export function TrackList({
   tracks,
@@ -47,62 +43,43 @@ export function TrackList({
   const internalRef = useRef<HTMLDivElement | null>(null);
   const isExternal = !!scrollRef;
 
-  const smoothRef = useSmoothScroll<HTMLDivElement>({ sensitivity: 1.5, duration: SMOOTH_DURATION });
-
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     if (isExternal) return;
-    smoothRef(node);
     internalRef.current = node;
-  }, [smoothRef, isExternal]);
+  }, [isExternal]);
 
-  const scrollElementRef: React.RefObject<HTMLElement | null> = isExternal && scrollRef ? scrollRef : internalRef;
+  const scrollElementRef: React.RefObject<HTMLElement | null> =
+    isExternal && scrollRef ? scrollRef : internalRef;
 
-  const scrollingRef = useRef<number | undefined>(undefined);
-  const rafRef = useRef<number | null>(null);
-
-  const scrollToFn = useCallback((offset: number) => {
-    const el = scrollElementRef.current;
+  // не даём скроллу "просачиваться" на страницу
+  useEffect(() => {
+    const el = internalRef.current;
     if (!el) return;
+    if (isExternal) return;
 
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
+    const onWheel = (e: WheelEvent) => {
+      const canScrollDown = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const canScrollUp = el.scrollTop > 0;
+      const goingDown = e.deltaY > 0;
 
-    const start = el.scrollTop;
-    const startTime = (scrollingRef.current = Date.now());
-
-    const run = () => {
-      if (scrollingRef.current !== startTime) return;
-      const now = Date.now();
-      const elapsed = now - startTime;
-      const progress = easeOutCubic(Math.min(elapsed / SMOOTH_DURATION, 1));
-      const interpolated = start + (offset - start) * progress;
-
-      el.scrollTop = interpolated;
-
-      if (elapsed < SMOOTH_DURATION) {
-        rafRef.current = requestAnimationFrame(run);
-      } else {
-        rafRef.current = null;
+      if ((goingDown && canScrollDown) || (!goingDown && canScrollUp)) {
+        e.stopPropagation();
       }
     };
-    rafRef.current = requestAnimationFrame(run);
-  }, [scrollElementRef]);
+
+    el.addEventListener('wheel', onWheel, { passive: true });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [isExternal]);
 
   const virtualizer = useVirtualizer({
     count: tracks.length,
     getScrollElement: () => scrollElementRef.current,
     estimateSize: () => ITEM_HEIGHT,
-    overscan: 5,
-    scrollToFn,
+    overscan: 12,
+    useFlushSync: false,
+    directDomUpdates: true,
+    directDomUpdatesMode: 'transform',
   });
-
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
 
   const handlePlay = (track: Track, index: number) => {
     if (onTrackClick) {
@@ -233,8 +210,8 @@ export function TrackList({
   if (virtualize) {
     const inner = (
       <div
+        ref={virtualizer.containerRef}
         style={{
-          height: virtualizer.getTotalSize(),
           width: '100%',
           position: 'relative',
         }}
@@ -249,7 +226,6 @@ export function TrackList({
               top: 0,
               left: 0,
               width: '100%',
-              transform: `translateY(${virtualRow.start}px)`,
             }}
           >
             {renderItem(tracks[virtualRow.index], virtualRow.index)}
@@ -263,7 +239,7 @@ export function TrackList({
     }
 
     return (
-      <div ref={setRefs} className="h-full w-full overflow-auto">
+      <div ref={setRefs} className="h-full w-full overflow-auto overscroll-contain scrollbar-hidden">
         {inner}
       </div>
     );
@@ -272,7 +248,9 @@ export function TrackList({
   return (
     <div className="w-full">
       {tracks.map((_, index) => (
-        <div key={tracks[index].id} className="w-full">{renderItem(tracks[index], index)}</div>
+        <div key={tracks[index].id} className="w-full">
+          {renderItem(tracks[index], index)}
+        </div>
       ))}
     </div>
   );
