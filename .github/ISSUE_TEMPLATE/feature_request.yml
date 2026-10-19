@@ -1,0 +1,41 @@
+name: фича
+description: новая возможность или улучшение
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: какую проблему решает
+      description: что неудобно сейчас
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: как предлагаешь
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: альтернативы
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: область
+      options:
+        - плеер
+        - поиск
+        - библиотека
+        - артисты и плейлисты
+        - настройки
+        - обход блокировок
+        - другое
+    validations:
+      required: true

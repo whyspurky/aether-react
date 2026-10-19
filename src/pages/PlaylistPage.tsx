@@ -95,7 +95,7 @@ const title = playlist.title || playlist.name || 'без названия';
 
   if (isLoading || !playlist) {
     return (
-      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
+      <div ref={setRefs} className="flex-1 min-h-0 overflow-y-auto bg-bg-primary/40">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
@@ -117,7 +117,7 @@ const title = playlist.title || playlist.name || 'без названия';
   }
 
   return (
-    <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
+    <div ref={setRefs} className="flex-1 min-h-0 overflow-y-auto bg-bg-primary/40">
       <div className="p-6">
         <button
           onClick={() => navigate(-1)}

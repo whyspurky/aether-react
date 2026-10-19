@@ -34,3 +34,8 @@ Desktop.ini
 vite.config.ts.timestamp-*.mjs
 
 docs/context/
+docs/ai/
+
+.aiignore
+
+AGENTS.md

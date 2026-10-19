@@ -1,13 +1,13 @@
 # aether
 
 десктопный музыкальный плеер для прослушивания треков из soundcloud
-написан на *tauri 2* на *rust* плюс *react 18* на *typescript*
+написан на *tauri 2* на *rust* плюс *react 19* на *typescript*
 
 встроенный *zapret* плюс поддержка юзерских прокси для работы в регионах с ограничениями
 
 ## стек
 
-*фронт* это react 18, typescript, tailwind css, zustand, react router, vite
+*фронт* это react 19, typescript, tailwind css, zustand, react router, vite
 
 *бэк* это tauri 2, rust, rodio, reqwest
 

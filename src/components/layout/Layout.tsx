@@ -140,10 +140,10 @@ export function Layout({ children }: LayoutProps) {
           <div className="absolute inset-0 rounded-2xl border border-border-subtle bg-bg-secondary/30 overflow-hidden">
             <main
               key={location.pathname}
-              className={`absolute inset-0 p-4 animate-page-in scrollbar-hidden ${
+              className={`absolute inset-0 p-4 animate-page-in scrollbar-hidden flex flex-col ${
                 isPlayerPage
                   ? 'overflow-hidden pb-0'
-                  : `overflow-auto ${playerBarMounted ? 'pb-[65px]' : 'pb-4'}`
+                  : `overflow-hidden ${playerBarMounted ? 'pb-[65px]' : 'pb-4'}`
               }`}
             >
               {children}

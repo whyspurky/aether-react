@@ -1,5 +1,5 @@
+import { useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { upgradeCoverUrl } from '@lib/format';
 import type { Playlist } from '@store/types';
 
@@ -22,7 +22,7 @@ export function LibrarySidebar({
   onSelectPlaylist,
   onCreateClick,
 }: Props) {
-  const playlistsScrollRef = useSmoothScroll<HTMLDivElement>();
+  const playlistsScrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <aside className="w-20 flex-shrink-0 flex flex-col items-center gap-2 p-2 bg-bg-secondary/20 backdrop-blur-sm">
@@ -63,7 +63,7 @@ export function LibrarySidebar({
       {playlists.length > 0 && (
         <div
           ref={playlistsScrollRef}
-          className="w-14 rounded-2xl border border-border-subtle bg-white/[0.03] p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden"
+          className="w-14 rounded-2xl border border-border-subtle bg-white/[0.03] p-1 flex flex-col items-center gap-1 overflow-y-auto overflow-x-hidden scrollbar-hidden"
           style={{ maxHeight: '100%', flex: '0 1 auto' }}
         >
           {playlists.map((playlist) => {

@@ -1,5 +1,10 @@
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
-
-[build]
-rustc-wrapper = "C:\\Users\\pavlo\\.cargo\\bin\\sccache.exe"
+# sccache и lld держим локально, в ~/.cargo/config.toml
+# в репозитории их нет, иначе ci и чужие машины падают на несуществующем пути
+#
+# пример локального конфига:
+#
+# [target.x86_64-pc-windows-msvc]
+# rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+#
+# [build]
+# rustc-wrapper = "C:\\Users\\<user>\\.cargo\\bin\\sccache.exe"

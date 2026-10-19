@@ -104,16 +104,25 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
       <Icon
         name="search"
         size={20}
-        className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-[var(--accent-primary)] transition-colors z-20 pointer-events-none"
+        className={`absolute left-4 top-1/2 -translate-y-1/2 z-20 pointer-events-none transition-colors duration-200 ${
+          isFocused ? 'text-[var(--accent-primary)]' : 'text-text-tertiary'
+        }`}
       />
       <div
-        className={`relative py-3.5 pl-12 pr-4 bg-white/[0.04] border border-border-subtle rounded-xl text-lg transition-all duration-200 ${
-          isFocused ? 'border-border-visible bg-white/[0.07]' : ''
+        className={`relative py-3.5 pl-12 pr-4 rounded-2xl text-lg transition-all duration-200 border ${
+          isFocused
+            ? 'border-[var(--accent-primary)]/40 shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]'
+            : 'border-white/[0.06] hover:border-white/[0.12]'
         }`}
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--bg-primary) 50%, transparent)',
+          backdropFilter: 'blur(20px) saturate(1.5)',
+          WebkitBackdropFilter: 'blur(20px) saturate(1.5)',
+        }}
       >
         <div className="flex items-center whitespace-pre overflow-hidden h-6 text-lg pointer-events-none">
           {!value ? (
-            <span className="text-text-tertiary">исполнители, треки</span>
+            <span className="text-text-tertiary">поиск треков, артистов...</span>
           ) : (
             <>
               <span className="text-text-primary">{value}</span>
@@ -149,7 +158,7 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
               setTopSuggestion(null);
               inputRef.current?.focus();
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-white/[0.06] transition-all z-20"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)] transition-all duration-200 z-20"
             aria-label="очистить"
           >
             <Icon name="x" size={16} />

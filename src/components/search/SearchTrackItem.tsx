@@ -6,11 +6,12 @@ import type { Track } from '@store/types';
 
 interface Props {
   track: Track;
+  index?: number;
   onPlay: (track: Track) => void;
   onAddToQueue: (track: Track, e: React.MouseEvent) => void;
 }
 
-export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
+export function SearchTrackItem({ track, index = 0, onPlay, onAddToQueue }: Props) {
   const navigate = useNavigate();
   const { openTrackMenu } = useTrackContextMenu();
 
@@ -30,6 +31,10 @@ export function SearchTrackItem({ track, onPlay, onAddToQueue }: Props) {
         openTrackMenu(track, e);
       }}
       className="group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] w-full"
+      style={{
+        animation: 'contentFadeIn 0.25s ease-out backwards',
+        animationDelay: `${Math.min(index, 15) * 25}ms`,
+      }}
     >
       {coverUrl ? (
         <img src={coverUrl} className="w-12 h-12 rounded-md object-cover flex-shrink-0" alt="" />

@@ -1,0 +1,73 @@
+name: баг
+description: что-то не работает
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        перед созданием проверь `md/BUGS.md` и существующие issues
+        если client_id протух, это известное ограничение, см `md/BUGS.md`
+
+  - type: textarea
+    id: what
+    attributes:
+      label: что происходит
+      description: симптом и что ожидалось
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: как повторить
+      placeholder: |
+        1. открыть ...
+        2. нажать ...
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: версия aether
+      placeholder: 0.1.2
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: windows
+      placeholder: windows 11 23h2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: proxy
+    attributes:
+      label: режим обхода
+      options:
+        - выключен
+        - zapret
+        - свой прокси
+        - vpn
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: логи
+      description: терминал tauri dev, консоль webview, хвост ошибки
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: скриншоты и прочее
+    validations:
+      required: false

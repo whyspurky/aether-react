@@ -13,7 +13,10 @@ export function ArtistTracksTab({ tracks }: Props) {
   if (!tracks.length) return <ArtistEmpty text="у этого артиста нет треков" />;
 
   return (
-    <div ref={scrollRef} className="h-full w-full overflow-auto overscroll-contain">
+    <div
+      ref={scrollRef}
+      className="flex-1 min-h-0 w-full overflow-auto overscroll-contain scrollbar-hidden"
+    >
       <TrackList
         tracks={tracks}
         virtualize

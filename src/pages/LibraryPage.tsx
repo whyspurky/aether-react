@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
-import { CreatePlaylistModal } from '@components/library/CreatePlaylistModal';
+import { useState, useEffect, useMemo, useRef } from 'react';import { CreatePlaylistModal } from '@components/library/CreatePlaylistModal';
 import { LibrarySidebar } from '@components/library/LibrarySidebar';
 import { LibraryHeader } from '@components/library/LibraryHeader';
 import { TrackList } from '@components/track/TrackList';
@@ -12,6 +11,7 @@ type LibraryView = 'favorites' | 'history' | 'playlist';
 const MAX_PLAYLIST_NAME_LENGTH = 16;
 
 export default function LibraryPage() {
+  const tracksScrollRef = useRef<HTMLDivElement>(null);
   const favorites = useStore((s) => s.library.favorites);
   const history = useStore((s) => s.library.history);
   const playlists = useStore((s) => s.library.playlists);
@@ -123,7 +123,7 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="h-full flex gap-2">
+    <div className="flex-1 min-h-0 flex gap-2">
       <LibrarySidebar
         selectedView={selectedView}
         playlists={playlists}
@@ -164,10 +164,12 @@ export default function LibraryPage() {
           }}
         />
 
-        <div className="p-1 flex-1 min-h-0">
+        <div ref={tracksScrollRef} className="p-1 flex-1 min-h-0 overflow-auto scrollbar-hidden overscroll-contain">
           <TrackList
+            key={selectedView === 'playlist' ? `playlist-${selectedPlaylistId}` : selectedView}
             tracks={view.tracks}
             virtualize
+            scrollRef={tracksScrollRef}
             showQueueButton
             onRemove={
               selectedView === 'playlist' && selectedPlaylistId

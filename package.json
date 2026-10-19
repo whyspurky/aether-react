@@ -2,6 +2,7 @@
   "name": "aether-desktop",
   "private": true,
   "version": "0.1.2",
+  "engines": { "node": ">=20" },
   "type": "module",
   "scripts": {
     "dev": "vite",

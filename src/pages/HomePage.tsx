@@ -108,7 +108,7 @@ export default function HomePage() {
   };
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 overflow-auto scrollbar-hidden overscroll-contain">
       <div className="space-y-6 pb-4">
         <HomeGreeting />
 

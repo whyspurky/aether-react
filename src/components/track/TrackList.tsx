@@ -119,7 +119,11 @@ export function TrackList({
         className={`group flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-[var(--accent-muted)] ${
           isCurrent ? 'bg-[var(--accent-muted)]' : ''
         }`}
-        style={{ marginBottom: ITEM_GAP_PX }}
+        style={{
+          marginBottom: ITEM_GAP_PX,
+          animation: 'contentFadeIn 0.2s ease-out backwards',
+          animationDelay: `${Math.min(index, 15) * 25}ms`,
+        }}
       >
         {showNumber && (
           <div className="w-8 text-center text-sm text-text-tertiary">

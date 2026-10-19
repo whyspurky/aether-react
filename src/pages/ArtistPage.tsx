@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { api } from '@lib/api';
 import { useStore } from '@store/store';
 import type { User, Track, Playlist } from '@store/types';
-import { useSmoothScroll } from '@hooks/ui/useSmoothScroll';
 import { ArtistHeader } from '@components/artist/ArtistHeader';
 import { ArtistTabs } from '@components/artist/ArtistTabs';
 import { ArtistAllTab } from '@components/artist/ArtistAllTab';
@@ -17,13 +16,7 @@ type Tab = 'all' | 'tracks' | 'playlists' | 'reposts';
 export function ArtistPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const scrollRef = useSmoothScroll<HTMLDivElement>();
   const rootRef = useRef<HTMLDivElement | null>(null);
-
-  const setRefs = useCallback((el: HTMLDivElement | null) => {
-    scrollRef(el);
-    rootRef.current = el;
-  }, [scrollRef]);
 
   const cached = useStore((s) => (id ? s.artistPage.cache[id] : undefined));
   const setArtistCache = useStore((s) => s.setArtistCache);
@@ -108,7 +101,7 @@ export function ArtistPage() {
 
   if (isLoading || !artist) {
     return (
-      <div ref={setRefs} className="h-full overflow-y-auto bg-bg-primary/40">
+      <div ref={rootRef} className="flex-1 min-h-0 overflow-y-auto bg-bg-primary/40">
         {isLoading ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
@@ -131,8 +124,8 @@ export function ArtistPage() {
 
   return (
     <div
-      ref={setRefs}
-      className={`h-full bg-bg-primary/40 flex flex-col ${
+      ref={rootRef}
+      className={`flex-1 min-h-0 bg-bg-primary/40 flex flex-col ${
         activeTab === 'all' ? 'overflow-y-auto custom-scrollbar-hidden' : 'overflow-hidden'
       }`}
     >
@@ -153,26 +146,26 @@ export function ArtistPage() {
       />
 
       <div className={`px-6 py-1 ${activeTab === 'all' ? '' : 'flex-1 min-h-0 flex flex-col'}`}>
-        {activeTab === 'all' && (
+        <div className={activeTab === 'all' ? 'contents' : 'hidden'}>
           <ArtistAllTab
             popularTracks={popularTracks}
             tracks={tracks}
             reposts={reposts}
             relatedArtists={relatedArtists}
           />
-        )}
+        </div>
 
-        {activeTab === 'tracks' && (
+        <div className={activeTab === 'tracks' ? 'contents' : 'hidden'}>
           <ArtistTracksTab tracks={tracks} />
-        )}
+        </div>
 
-        {activeTab === 'reposts' && (
+        <div className={activeTab === 'reposts' ? 'contents' : 'hidden'}>
           <ArtistRepostsTab reposts={reposts} />
-        )}
+        </div>
 
-        {activeTab === 'playlists' && (
+        <div className={activeTab === 'playlists' ? 'contents' : 'hidden'}>
           <ArtistPlaylistsTab playlists={playlists} />
-        )}
+        </div>
       </div>
     </div>
   );

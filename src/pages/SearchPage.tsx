@@ -121,17 +121,21 @@ export default function SearchPage() {
   }, [showHistory, historyMounted]);
 
   return (
-    <div ref={setRefs} className="h-full overflow-auto scrollbar-hidden overscroll-contain">
-      <div ref={headerRef} className="sticky top-0 z-30">
+    <div
+      ref={setRefs}
+      className="flex-1 min-h-0 overflow-auto scrollbar-hidden overscroll-contain"
+    >
+      <div ref={headerRef} className="sticky top-0 z-30 px-4 pt-4 pb-2">
         <div
-          className="absolute inset-0 bg-bg-primary/50 pointer-events-none rounded-2xl overflow-hidden"
+          className="absolute inset-x-4 top-4 bottom-2 pointer-events-none rounded-3xl overflow-hidden border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
           style={{
-            backdropFilter: 'blur(40px) saturate(1.5)',
-            WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
+            backgroundColor: 'color-mix(in srgb, var(--bg-primary) 65%, transparent)',
+            backdropFilter: 'blur(120px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(120px) saturate(1.8)',
           }}
         />
 
-        <div className="relative p-4">
+        <div className="relative p-3">
           <SearchInput
             value={query}
             onChange={setQuery}
@@ -160,11 +164,12 @@ export default function SearchPage() {
           <SearchSkeletons filter={filter} />
         ) : filter === 'tracks' ? (
           <>
-            <div className="space-y-1 animate-content-fade-in">
-              {tracks.map((track) => (
+            <div className="space-y-1">
+              {tracks.map((track, index) => (
                 <SearchTrackItem
                   key={track.id}
                   track={track}
+                  index={index}
                   onPlay={handlePlay}
                   onAddToQueue={handleAddToQueue}
                 />

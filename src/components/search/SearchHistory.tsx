@@ -10,12 +10,19 @@ export function SearchHistory({ items, onSelect, onRemove }: Props) {
   if (!items.length) return null;
 
   return (
-    <div className="bg-bg-primary/95 backdrop-blur-2xl rounded-2xl border border-border-subtle shadow-2xl overflow-hidden">
+    <div
+      className="rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden animate-menu-enter"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--bg-primary) 55%, transparent)',
+        backdropFilter: 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+      }}
+    >
       <div className="py-1 max-h-[360px] overflow-y-auto scrollbar-hidden">
         {items.map((item) => (
           <div
             key={item}
-            className="group flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer"
+            className="group flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onSelect(item)}
           >
@@ -27,7 +34,7 @@ export function SearchHistory({ items, onSelect, onRemove }: Props) {
                 e.stopPropagation();
                 onRemove(item);
               }}
-              className="p-1 rounded-md text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-text-primary hover:bg-white/[0.06] transition-all"
+              className="p-1 rounded-md text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-text-primary hover:bg-white/[0.08] transition-all"
               aria-label="удалить"
             >
               <Icon name="x" size={14} />

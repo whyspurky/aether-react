@@ -40,7 +40,7 @@
 
 **aether** это полноценное десктопное приложение для прослушивания музыки на SoundCloud
 
-написано на **Tauri 2** + **React 18** — работает нативно, потребляет минимум ресурсов и не тормозит
+написано на **Tauri 2** + **React 19** - работает нативно, потребляет минимум ресурсов и не тормозит
 
 ---
 
@@ -150,6 +150,14 @@ aether работает напрямую благодаря встроенном
 
 подробнее в [документации](./docs)
 
+## документация
+
+- [архитектура и гайды](./docs/public/index.md)
+- [changelog](./md/CHANGELOG.md)
+- [roadmap](./md/ROADMAP.md)
+- [известные баги](./md/BUGS.md)
+- [contributing](./CONTRIBUTING.md)
+
 ## обратная связь
 
 | сообщество | [Telegram канал](https://t.me/aether_player) |
@@ -170,21 +178,22 @@ Pull requests приветствуются
 
 ### требования
 
-- node js 18+
-- rust 1.75+
+- node js 20+
+- rust stable
 
 ### запуск
 
 ```bash
 git clone https://github.com/whyspurky/aether-react.git
 cd aether-react
-npm install
-npm run tauri dev
+npm ci
+npm run tauri:dev
+```
 
 ### production сборка
 
 ```bash
-npm run tauri build
+npm run tauri:build
 ```
 
 артефакты появятся в `src-tauri/target/release/bundle/`
@@ -192,8 +201,8 @@ npm run tauri build
 ### проверки
 
 ```bash
-npx tsc --noEmit        
-cargo check             
+npm run check        
+cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
 </details>
@@ -205,7 +214,7 @@ cargo check
 | компонент | технология |
 | :--- | :--- |
 | оболочка | Tauri 2 на Rust |
-| фронт | React 18, Vite 5, Tailwind CSS 3 |
+| фронт | React 19, Vite 8, Tailwind CSS 3 |
 | стейт | Zustand |
 | роутинг | React router 6 |
 | аудио | Rodio на Rust |
