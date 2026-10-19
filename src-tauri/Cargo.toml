@@ -43,7 +43,7 @@ bytes = "1.12.1"
 url = "2"
 tauri-plugin-dialog = "2.8.0"
 tauri-plugin-opener = "2"
-zip = "8.6.0"
+zip = "9.0.4"
 dirs = "7.0.0"
 tauri-plugin-store = { version = "2.5.0" }
 
