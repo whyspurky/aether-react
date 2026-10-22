@@ -1,0 +1,13 @@
+{
+  "name": "aether-context-bundle",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Re-enables tool-result trimming so large file reads and build logs stop eating the context window",
+  "dsh": {
+    "bundle": {
+      "label": "aether context",
+      "description": "Trims oversized tool results before compaction",
+      "patch": "cordis.patch.yml"
+    }
+  }
+}

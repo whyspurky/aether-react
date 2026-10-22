@@ -1,0 +1,6 @@
+- id: tool-result-pruner
+  disabled: false
+  config:
+    thresholdChars: 8192
+    headChars: 4096
+    tailChars: 1024

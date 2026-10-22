@@ -39,3 +39,6 @@ docs/ai/
 .aiignore
 
 AGENTS.md
+
+bat/logs/
+.dev-webview/
