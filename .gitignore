@@ -40,5 +40,7 @@ docs/ai/
 
 AGENTS.md
 
-bat/logs/
+bat/
 .dev-webview/
+
+.dsh-bindles/
