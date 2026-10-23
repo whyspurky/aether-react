@@ -41,47 +41,74 @@ export function SearchFilters({ filter, onChange }: Props) {
 
     update();
     window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+
+    // пересчёт после смены шрифта или анимации лейаута
+    const observer =
+      typeof ResizeObserver !== 'undefined' && containerRef.current
+        ? new ResizeObserver(update)
+        : null;
+    if (observer && containerRef.current) observer.observe(containerRef.current);
+
+    return () => {
+      window.removeEventListener('resize', update);
+      observer?.disconnect();
+    };
   }, [filter]);
 
-  return (
-    <div className="flex items-center justify-center mt-3">
-      <div
-        ref={containerRef}
-        className="relative flex gap-1 p-1 rounded-full border border-white/[0.06]"
-        style={{
-          backgroundColor: 'color-mix(in srgb, var(--bg-primary) 50%, transparent)',
-          backdropFilter: 'blur(12px) saturate(1.5)',
-          WebkitBackdropFilter: 'blur(12px) saturate(1.5)',
-        }}
-      >
-        {/* подвижная подсветка */}
-        <div
-          className="absolute top-1 bottom-1 rounded-full bg-[var(--accent-muted)] pointer-events-none"
-          style={{
-            left: indicator.left,
-            width: indicator.width,
-            transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent)',
-          }}
-        />
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const index = FILTERS.findIndex((f) => f.id === filter);
+    const step = e.key === 'ArrowRight' ? 1 : -1;
+    const next = FILTERS[(index + step + FILTERS.length) % FILTERS.length];
+    onChange(next.id);
+    buttonsRef.current[next.id]?.focus();
+  };
 
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            ref={(el) => { buttonsRef.current[f.id] = el; }}
-            onClick={() => onChange(f.id)}
-            className={`relative z-10 flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${
-              filter === f.id
-                ? 'text-[var(--accent-primary)]'
-                : 'text-text-tertiary hover:text-text-primary'
-            }`}
-          >
-            <Icon name={f.icon} size={14} />
-            {f.label}
-          </button>
-        ))}
-      </div>
+  return (
+    <div
+      ref={containerRef}
+      role="tablist"
+      aria-label="тип результатов поиска"
+      className="relative flex items-center gap-1"
+    >
+      {/* подвижная подсветка */}
+      <div
+        className="absolute inset-y-0 rounded-full bg-[var(--accent-muted)] pointer-events-none"
+        style={{
+          left: indicator.left,
+          width: indicator.width,
+          transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent-primary) 30%, transparent)',
+        }}
+      />
+
+      {FILTERS.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          role="tab"
+          aria-selected={filter === f.id}
+          tabIndex={filter === f.id ? 0 : -1}
+          ref={(el) => {
+            buttonsRef.current[f.id] = el;
+          }}
+          onClick={(e) => {
+            onChange(f.id);
+            // после клика мышью фильтры не должны висеть из-за focus-within
+            if (e.detail > 0) e.currentTarget.blur();
+          }}
+          onKeyDown={handleKeyDown}
+          className={`relative z-10 flex items-center gap-2 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_35%,transparent)] ${
+            filter === f.id
+              ? 'text-[var(--accent-primary)]'
+              : 'text-text-tertiary hover:text-text-primary'
+          }`}
+        >
+          <Icon name={f.icon} size={14} />
+          {f.label}
+        </button>
+      ))}
     </div>
   );
 }

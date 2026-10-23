@@ -75,20 +75,37 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
     return () => clearTimeout(timer);
   }, [value, isFocused, filter, fetchSuggestions]);
 
+  const clear = () => {
+    onChange('');
+    setTopSuggestion(null);
+    inputRef.current?.focus();
+  };
+
+  const acceptSuggestion = () => {
+    if (!topSuggestion) return;
+    onChange(topSuggestion);
+    setTopSuggestion(null);
+    inputRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Tab' && topSuggestion) {
       e.preventDefault();
-      onChange(topSuggestion);
-      setTopSuggestion(null);
+      acceptSuggestion();
       return;
     }
     if (e.key === 'Escape') {
+      e.preventDefault();
       if (value) {
         onChange('');
         setTopSuggestion(null);
-        e.preventDefault();
         return;
       }
+      setTopSuggestion(null);
+      inputRef.current?.blur();
+      return;
+    }
+    if (e.key === 'Enter') {
       setTopSuggestion(null);
       inputRef.current?.blur();
     }
@@ -98,6 +115,7 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
     topSuggestion && topSuggestion.toLowerCase().startsWith(value.toLowerCase())
       ? topSuggestion.slice(value.length)
       : '';
+  const showHint = isFocused && !!suffix;
 
   return (
     <div className="relative group">
@@ -108,35 +126,17 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
           isFocused ? 'text-[var(--accent-primary)]' : 'text-text-tertiary'
         }`}
       />
+
       <div
-        className={`relative py-3.5 pl-12 pr-4 rounded-2xl text-lg transition-all duration-200 border ${
+        className={`relative rounded-2xl border transition-all duration-200 ${
           isFocused
-            ? 'border-[var(--accent-primary)]/40 shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]'
+            ? 'border-[color-mix(in_srgb,var(--accent-primary)_40%,transparent)] shadow-[0_0_0_4px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)]'
             : 'border-white/[0.06] hover:border-white/[0.12]'
         }`}
         style={{
-          backgroundColor: 'color-mix(in srgb, var(--bg-primary) 50%, transparent)',
-          backdropFilter: 'blur(20px) saturate(1.5)',
-          WebkitBackdropFilter: 'blur(20px) saturate(1.5)',
+          backgroundColor: 'var(--bg-primary)',
         }}
       >
-        <div className="flex items-center whitespace-pre overflow-hidden h-6 text-lg pointer-events-none">
-          {!value ? (
-            <span className="text-text-tertiary">поиск треков, артистов...</span>
-          ) : (
-            <>
-              <span className="text-text-primary">{value}</span>
-              <span
-                className={`transition-opacity duration-150 ${
-                  suffix && isFocused ? 'opacity-70' : 'opacity-0'
-                }`}
-                style={{ color: 'var(--text-tertiary)' }}
-              >
-                {suffix}
-              </span>
-            </>
-          )}
-        </div>
         <input
           ref={inputRef}
           type="text"
@@ -146,24 +146,44 @@ export function SearchInput({ value, onChange, filter, onFocusChange }: Props) {
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onKeyDown={handleKeyDown}
-          className="absolute inset-0 py-3.5 pl-12 pr-12 bg-transparent text-transparent caret-text-primary text-lg outline-none"
+          placeholder="поиск треков, артистов, плейлистов"
+          aria-label="поиск"
           autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          className={`w-full h-[52px] pl-12 bg-transparent text-lg text-text-primary placeholder:text-text-tertiary outline-none ${
+            showHint ? 'pr-48' : 'pr-14'
+          }`}
         />
-        {value && (
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              onChange('');
-              setTopSuggestion(null);
-              inputRef.current?.focus();
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)] transition-all duration-200 z-20"
-            aria-label="очистить"
-          >
-            <Icon name="x" size={16} />
-          </button>
-        )}
+
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1.5">
+          {showHint && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={acceptSuggestion}
+              aria-label={`дополнить запрос: ${topSuggestion}`}
+              className="flex items-center gap-1.5 max-w-[120px] pl-2 pr-1.5 py-1 rounded-lg text-xs text-text-tertiary border border-white/[0.08] bg-white/[0.04] hover:text-text-secondary hover:border-white/[0.16] transition-colors duration-150"
+            >
+              <span className="truncate">{suffix}</span>
+              <kbd className="px-1 py-0.5 rounded border border-white/[0.1] text-[10px] uppercase leading-none shrink-0">
+                tab
+              </kbd>
+            </button>
+          )}
+
+          {value && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={clear}
+              aria-label="очистить запрос"
+              className="p-1.5 rounded-lg text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)] transition-all duration-200"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

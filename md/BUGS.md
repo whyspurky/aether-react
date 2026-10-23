@@ -4,7 +4,6 @@
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | p1 | протух client_id: поиск отдаёт пустой список без причины | `src-tauri/src/api/client.rs`, `soundcloud.rs` | открыт |
 | 2 | p1 | общий timeout 10 с рубит progressive, hls и zip zapret | `src-tauri/src/api/client.rs` | открыт |
-| 3 | p1 | поиск теряет запрос, если предыдущий в полёте | `src/hooks/search/useSearchPage.ts` | открыт |
 | 4 | p1 | паника при старте без аудиоустройства | `src-tauri/src/audio/state.rs` | открыт |
 | 5 | p2 | seek всегда с hint aac, progressive mp3 начинает с нуля | `src-tauri/src/audio/engine.rs` | открыт |
 | 6 | p2 | два окна пишут один store и играют одновременно | нет single-instance | открыт |

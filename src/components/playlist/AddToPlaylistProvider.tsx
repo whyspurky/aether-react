@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useRef } from 'react';
 import { AddToPlaylistMenu } from './AddToPlaylistMenu';
+import type { AddToPlaylistAnchor } from './AddToPlaylistMenu';
 import type { Track } from '@store/types';
 
 interface ContextValue {
-  open: (track: Track, anchor: HTMLElement, source?: string) => void;
+  open: (track: Track, anchor: AddToPlaylistAnchor, source?: string) => void;
   close: () => void;
   openTrackId: number | null;
   openSource: string | null;
@@ -19,7 +20,7 @@ const Ctx = createContext<ContextValue>({
 export const useAddToPlaylist = () => useContext(Ctx);
 
 export function AddToPlaylistProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<{ track: Track; anchor: HTMLElement; source?: string } | null>(null);
+  const [state, setState] = useState<{ track: Track; anchor: AddToPlaylistAnchor; source?: string } | null>(null);
   const [closing, setClosing] = useState(false);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -32,7 +33,7 @@ export function AddToPlaylistProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const open = useCallback((track: Track, anchor: HTMLElement, source?: string) => {
+  const open = useCallback((track: Track, anchor: AddToPlaylistAnchor, source?: string) => {
     clearTimer();
 
     const current = stateRef.current;

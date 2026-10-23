@@ -16,9 +16,9 @@ export interface CacheSlice {
     scrollTop: number;
     isFresh: boolean;
     cache: {
-      tracks: { items: Track[]; offset: number; hasMore: boolean; loaded: boolean };
-      artists: { items: User[]; offset: number; hasMore: boolean; loaded: boolean };
-      playlists: { items: Playlist[]; offset: number; hasMore: boolean; loaded: boolean };
+      tracks: { items: Track[]; offset: number; hasMore: boolean; loaded: boolean; query: string };
+      artists: { items: User[]; offset: number; hasMore: boolean; loaded: boolean; query: string };
+      playlists: { items: Playlist[]; offset: number; hasMore: boolean; loaded: boolean; query: string };
     };
   };
   artistPage: {
@@ -53,7 +53,13 @@ export interface CacheSlice {
   resetSearchPage: () => void;
   setSearchCache: (
     tab: 'tracks' | 'artists' | 'playlists',
-    patch: Partial<{ items: Track[] | User[] | Playlist[]; offset: number; hasMore: boolean; loaded: boolean }>
+    patch: Partial<{
+      items: Track[] | User[] | Playlist[];
+      offset: number;
+      hasMore: boolean;
+      loaded: boolean;
+      query: string;
+    }>
   ) => void;
   setArtistCache: (id: string, data: Partial<CacheSlice['artistPage']['cache'][string]>) => void;
   setPlaylistCache: (id: string, data: Partial<CacheSlice['playlistPage']['cache'][string]>) => void;
@@ -95,9 +101,9 @@ export const createCacheSlice = (set: any) => ({
     scrollTop: 0,
     isFresh: false,
     cache: {
-      tracks: { items: [], offset: 0, hasMore: true, loaded: false },
-      artists: { items: [], offset: 0, hasMore: true, loaded: false },
-      playlists: { items: [], offset: 0, hasMore: true, loaded: false },
+      tracks: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
+      artists: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
+      playlists: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
     },
   },
   artistPage: {
@@ -122,23 +128,28 @@ export const createCacheSlice = (set: any) => ({
     searchPage: {
       ...s.searchPage,
       query: '',
-      filter: 'tracks',
       tracks: [],
       artists: [],
       playlists: [],
       offset: 0,
       hasMore: true,
       cache: {
-        tracks: { items: [], offset: 0, hasMore: true, loaded: false },
-        artists: { items: [], offset: 0, hasMore: true, loaded: false },
-        playlists: { items: [], offset: 0, hasMore: true, loaded: false },
+        tracks: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
+        artists: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
+        playlists: { items: [], offset: 0, hasMore: true, loaded: false, query: '' },
       },
     },
   })),
 
   setSearchCache: (
     tab: 'tracks' | 'artists' | 'playlists',
-    patch: Partial<{ items: Track[] | User[] | Playlist[]; offset: number; hasMore: boolean; loaded: boolean }>
+    patch: Partial<{
+      items: Track[] | User[] | Playlist[];
+      offset: number;
+      hasMore: boolean;
+      loaded: boolean;
+      query: string;
+    }>
   ) =>
     set((s: any) => ({
       searchPage: {

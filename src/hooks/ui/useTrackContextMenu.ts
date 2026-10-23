@@ -30,7 +30,8 @@ export function useTrackContextMenu() {
         {
           label: 'добавить в плейлист',
           icon: 'folder',
-          onClick: () => openAddToPlaylist(track, anchor),
+          // позиционируем по точке, где открылось меню, а не по краю строки
+          onClick: () => openAddToPlaylist(track, { x, y }),
         },
         ...(options?.onRemove
           ? [

@@ -5,9 +5,11 @@ import { useStore } from '@store/store';
 import { upgradeCoverUrl } from '@lib/format';
 import type { Track } from '@store/types';
 
+export type AddToPlaylistAnchor = HTMLElement | { x: number; y: number };
+
 interface Props {
   track: Track;
-  anchorEl: HTMLElement | null;
+  anchorEl: AddToPlaylistAnchor | null;
   onClose: () => void;
   isClosing: boolean;
 }
@@ -29,18 +31,29 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
   useLayoutEffect(() => {
     if (!anchorEl || !menuRef.current) return;
 
-    const rect = anchorEl.getBoundingClientRect();
     const menuRect = menuRef.current.getBoundingClientRect();
     const menuH = menuRect.height || MENU_MAX_HEIGHT;
 
     let top: number;
-    if (rect.bottom + OFFSET + menuH <= window.innerHeight) {
-      top = rect.bottom + OFFSET;
+    let left: number;
+
+    if (anchorEl instanceof HTMLElement) {
+      const rect = anchorEl.getBoundingClientRect();
+      left = rect.left;
+      if (rect.bottom + OFFSET + menuH <= window.innerHeight) {
+        top = rect.bottom + OFFSET;
+      } else {
+        top = Math.max(OFFSET, rect.top - OFFSET - menuH);
+      }
     } else {
-      top = Math.max(OFFSET, rect.top - OFFSET - menuH);
+      // открытие из контекстного меню: считаем от точки клика
+      left = anchorEl.x;
+      top = anchorEl.y;
+      if (top + menuH > window.innerHeight - OFFSET) {
+        top = Math.max(OFFSET, anchorEl.y - menuH);
+      }
     }
 
-    let left = rect.left;
     if (left + MENU_WIDTH > window.innerWidth - OFFSET) {
       left = window.innerWidth - MENU_WIDTH - OFFSET;
     }
@@ -54,7 +67,7 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
       const target = e.target as Node;
       if (menuRef.current?.contains(target)) return;
 
-      if (anchorEl?.contains(target)) return;
+      if (anchorEl instanceof HTMLElement && anchorEl.contains(target)) return;
 
       onClose();
     };
