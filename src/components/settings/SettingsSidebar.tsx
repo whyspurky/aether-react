@@ -1,6 +1,6 @@
 import { Icon } from '@components/ui/Icon';
 
-export type SettingsTab = 'data' | 'appearance' | 'proxy' | 'binds' | 'about';
+export type SettingsTab = 'data' | 'audio' | 'appearance' | 'proxy' | 'binds' | 'about';
 
 interface Props {
   activeTab: SettingsTab;
@@ -10,6 +10,7 @@ interface Props {
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'data', label: 'данные', icon: 'database' },
+  { id: 'audio', label: 'аудио', icon: 'audio-lines' },
   { id: 'appearance', label: 'внешний вид', icon: 'palette' },
   { id: 'binds', label: 'бинды', icon: 'command' },
   { id: 'proxy', label: 'прокси', icon: 'shield' },

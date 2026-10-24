@@ -4,6 +4,7 @@ import { api } from '@lib/api';
 import { ProxySettings } from '@components/proxy/ProxySettings';
 import { SettingsSidebar, type SettingsTab } from '@components/settings/SettingsSidebar';
 import { SettingsTabData } from '@components/settings/SettingsTabData';
+import { SettingsTabAudio } from '@components/settings/SettingsTabAudio';
 import { SettingsTabAppearance } from '@components/settings/SettingsTabAppearance';
 import { SettingsTabAbout } from '@components/settings/SettingsTabAbout';
 import { SettingsTabBinds } from '@components/settings/SettingsTabBinds';
@@ -35,6 +36,7 @@ export default function SettingsPage() {
       <main ref={scrollRef} className="flex-1 overflow-auto p-6 scrollbar-hidden overscroll-contain">
         <div key={activeTab} className="max-w-2xl mx-auto animate-page-in">
           {activeTab === 'data' && <SettingsTabData />}
+          {activeTab === 'audio' && <SettingsTabAudio />}
           {activeTab === 'appearance' && <SettingsTabAppearance />}
           {activeTab === 'proxy' && <ProxySettings />}
           {activeTab === 'binds' && <SettingsTabBinds />}
