@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { ConfirmModal } from '@components/ui/ConfirmModal';
 import { useStore } from '@store/store';
 import { api } from '@lib/api';
 import type { AudioQuality } from '@store/types';
+import type { AudioSection } from './SettingsSidebar';
 
 const QUALITY_OPTIONS: { id: AudioQuality; label: string; hint: string }[] = [
   { id: 'best', label: 'максимальное', hint: 'самый высокий доступный битрейт' },
@@ -105,9 +106,134 @@ function RoadmapRow({
   );
 }
 
+function DeviceSelect({
+  devices,
+  value,
+  onChange,
+}: {
+  devices: { name: string; isDefault: boolean }[];
+  value: string;
+  onChange: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = value || 'системное по умолчанию';
+  const known = !value || devices.some((device) => device.name === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const pick = (name: string) => {
+    onChange(name);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="устройство вывода звука"
+        onClick={() => setOpen((next) => !next)}
+        className="flex w-full items-center gap-2.5 rounded-xl border border-border-subtle bg-white/[0.04] px-3 py-2.5 text-left text-sm text-text-primary outline-none transition-colors hover:border-border-visible focus-visible:border-[var(--accent-primary)]"
+      >
+        <Icon name="volume-2" size={15} className="flex-shrink-0 text-text-tertiary" />
+        <span className="min-w-0 flex-1 truncate">{selected}</span>
+        <Icon
+          name="chevron-right"
+          size={14}
+          className={`flex-shrink-0 text-text-tertiary transition-transform duration-200 ${
+            open ? 'rotate-90' : ''
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="список устройств вывода"
+          className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-xl border border-border-subtle bg-bg-card/95 p-1 shadow-2xl backdrop-blur-xl animate-menu-enter"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!value}
+            onClick={() => pick('')}
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+              !value
+                ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                : 'text-text-secondary hover:bg-white/[0.05]'
+            }`}
+          >
+            <span className="min-w-0 flex-1 truncate">системное по умолчанию</span>
+            {!value && <Icon name="check" size={13} className="flex-shrink-0" />}
+          </button>
+
+          {value && !known && (
+            <button
+              type="button"
+              role="option"
+              aria-selected
+              onClick={() => pick(value)}
+              className="flex w-full items-center gap-2 rounded-lg bg-[var(--accent-muted)] px-2.5 py-2 text-left text-sm text-[var(--accent-primary)]"
+            >
+              <span className="min-w-0 flex-1 truncate">{value}</span>
+              <Icon name="check" size={13} className="flex-shrink-0" />
+            </button>
+          )}
+
+          <div className="max-h-56 overflow-auto scrollbar-hidden">
+            {devices.map((device, index) => {
+              const active = device.name === value;
+              return (
+                <button
+                  key={`${device.name}-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => pick(device.name)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                    active
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                      : 'text-text-secondary hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {device.name}
+                    {device.isDefault && (
+                      <span className="ml-1.5 text-[10px] text-text-tertiary">
+                        по умолчанию
+                      </span>
+                    )}
+                  </span>
+                  {active && <Icon name="check" size={13} className="flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type ClearScope = 'temp' | 'offline' | 'all' | null;
 
-export function SettingsTabAudio() {
+export function SettingsTabAudio({ section }: { section: AudioSection }) {
   const offline = useStore((s) => s.offline);
   const setCacheEnabled = useStore((s) => s.setCacheEnabled);
   const setAudioQuality = useStore((s) => s.setAudioQuality);
@@ -145,8 +271,18 @@ export function SettingsTabAudio() {
   };
 
   const toggleCache = async (next: boolean) => {
+    if (next === offline.cacheEnabled) return;
     setCacheEnabled(next);
     if (!next) {
+      await api.stopAudio();
+      useStore.setState((s: any) => ({
+        player: {
+          ...s.player,
+          isPlaying: false,
+          isAudioReady: false,
+          position: 0,
+        },
+      }));
       await api.trackClearCache('temp');
       await refreshCache();
     }
@@ -179,9 +315,9 @@ export function SettingsTabAudio() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div
-        className={`relative overflow-hidden rounded-2xl border p-5 transition-colors ${
+        className={`relative overflow-hidden rounded-2xl border p-5 transition-colors ${section === 'cache' ? 'order-1' : 'hidden'} ${
           enabled ? '' : 'border-border-subtle bg-bg-primary/40'
         }`}
         style={
@@ -304,7 +440,7 @@ export function SettingsTabAudio() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40">
+      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-1' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="volume-2" size={16} className="text-text-secondary" />
@@ -326,8 +462,8 @@ export function SettingsTabAudio() {
               className="w-full appearance-none rounded-xl border border-border-subtle bg-white/[0.04] px-3 py-2.5 pr-9 text-sm text-text-primary outline-none transition-colors hover:border-border-visible focus:border-[var(--accent-primary)]"
             >
               <option value="">системное по умолчанию</option>
-              {devices.map((device) => (
-                <option key={device.name} value={device.name}>
+              {devices.map((device, index) => (
+                <option key={`${device.name}-${index}`} value={device.name}>
                   {device.name}
                   {device.isDefault ? ' (по умолчанию)' : ''}
                 </option>
@@ -347,7 +483,7 @@ export function SettingsTabAudio() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40">
+      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-3' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="audio-lines" size={16} className="text-text-secondary" />
@@ -379,11 +515,7 @@ export function SettingsTabAudio() {
         </div>
       </div>
 
-      <div
-        className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 transition-opacity ${
-          enabled ? '' : 'opacity-50'
-        }`}
-      >
+      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-2' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="sparkles" size={16} className="text-text-secondary" />
@@ -391,7 +523,7 @@ export function SettingsTabAudio() {
           <div>
             <p className="text-sm text-text-primary">качество</p>
             <p className="mt-0.5 text-xs text-text-tertiary">
-              применяется при следующей загрузке трека
+              применяется и к потоку, и к загрузке в кэш
             </p>
           </div>
         </div>
@@ -403,13 +535,12 @@ export function SettingsTabAudio() {
               <button
                 key={option.id}
                 type="button"
-                disabled={!enabled}
                 onClick={() => setAudioQuality(option.id)}
                 className={`group relative flex min-h-[64px] items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                   active
                     ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
                     : 'border-border-subtle bg-white/[0.02] hover:border-border-visible hover:bg-white/[0.04]'
-                } ${enabled ? '' : 'cursor-not-allowed'}`}
+                }`}
               >
                 <span>
                   <span
@@ -436,7 +567,7 @@ export function SettingsTabAudio() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40">
+      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'cache' ? 'order-2' : 'hidden'}`}>
         <div className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
@@ -445,7 +576,7 @@ export function SettingsTabAudio() {
             <div>
               <p className="text-sm text-text-primary">сохранять прослушанное</p>
               <p className="mt-0.5 text-xs text-text-tertiary">
-                каждый запущенный трек остаётся в офлайн-кэше
+                каждый запущенный трек остаётся в постоянном офлайн-кэше
               </p>
             </div>
           </div>
@@ -481,7 +612,7 @@ export function SettingsTabAudio() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40">
+      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'cache' ? 'order-3' : 'hidden'}`}>
         <div className="border-b border-border-subtle px-5 py-4">
           <p className="text-sm text-text-primary">хранилище</p>
           <p className="mt-0.5 text-xs text-text-tertiary">
