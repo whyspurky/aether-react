@@ -1,10 +1,10 @@
 pub mod client;
 pub mod hls;
+pub mod quality;
 pub mod soundcloud;
 pub mod stream;
 
 pub use client::http;
-pub use stream::download_hls_track;
 
 pub const CLIENT_ID: &str = "dkevB9EsY4jIoSm8RfddPNUKyn6hurXF";
 pub const BASE_URL: &str = "https://api-v2.soundcloud.com";

@@ -8,8 +8,10 @@ import { createLibrarySlice, type LibrarySlice } from './slices/library';
 import { createPlayerSlice, type PlayerSlice } from './slices/player';
 import { createGlobalBindsSlice, type GlobalBindsSlice } from './slices/globalBinds';
 import { createStatsSlice, type StatsSlice } from './slices/stats';
+import { createOfflineSlice, type OfflineSlice } from './slices/offline';
+import { createAudioSlice, type AudioSlice } from './slices/audio';
 
-export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice & GlobalBindsSlice & StatsSlice>()(
+export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice & GlobalBindsSlice & StatsSlice & OfflineSlice & AudioSlice>()(
   persist(
     (set, get) => ({
       ...createProxySlice(set),
@@ -19,11 +21,13 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
       ...createPlayerSlice(set, get),
       ...createGlobalBindsSlice(set),
       ...createStatsSlice(set),
+      ...createOfflineSlice(set, get),
+      ...createAudioSlice(set),
     }),
 
     {
       name: 'aether-storage',
-      version: 7,
+      version: 10,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         if (version < 2) {
@@ -107,8 +111,55 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           }
         }
 
+        if (version < 8) {
+          if (!persisted.offline) {
+            persisted.offline = {
+              cacheEnabled: true,
+              quality: 'best',
+              autoSave: false,
+              cacheLimitMb: 2048,
+            };
+          } else {
+            if (!persisted.offline.quality) persisted.offline.quality = 'best';
+            if (persisted.offline.autoSave === undefined) persisted.offline.autoSave = false;
+            if (!persisted.offline.cacheLimitMb) persisted.offline.cacheLimitMb = 2048;
+          }
+        }
+
+        if (version < 9) {
+          if (!persisted.offline) {
+            persisted.offline = {
+              cacheEnabled: true,
+              quality: 'best',
+              autoSave: false,
+              cacheLimitMb: 2048,
+            };
+          } else {
+            if (persisted.offline.cacheEnabled === undefined) {
+              persisted.offline.cacheEnabled = true;
+            }
+            if (!persisted.offline.cacheEnabled) {
+              persisted.offline.autoSave = false;
+            }
+          }
+        }
+
+        if (version < 10) {
+          if (!persisted.audio) {
+            persisted.audio = { outputDevice: '' };
+          }
+        }
+
         return persisted;
       },
+      merge: (persisted: any, current: any) => ({
+        ...current,
+        ...persisted,
+        // offline хранит entries и progress только в памяти, из стора приходят настройки
+        offline: { ...current.offline, ...(persisted?.offline ?? {}) },
+        player: { ...current.player, ...(persisted?.player ?? {}) },
+        audio: { ...current.audio, ...(persisted?.audio ?? {}) },
+      }),
       partialize: (s) => ({
         searchHistory: s.searchHistory,
         globalBinds: s.globalBinds,
@@ -146,8 +197,17 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
             folder: s.proxy.zapret.folder,
           },
         },
+        offline: {
+          cacheEnabled: s.offline.cacheEnabled,
+          quality: s.offline.quality,
+          autoSave: s.offline.autoSave,
+          cacheLimitMb: s.offline.cacheLimitMb,
+        },
+        audio: {
+          outputDevice: s.audio.outputDevice,
+        },
         queue: {
-          tracks: s.queue.tracks.map((t) => ({
+          tracks: s.queue.tracks.map((t: any) => ({
             id: t.id,
             title: t.title,
             user: t.user,

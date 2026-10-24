@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useStore } from '@store/store';
+import { CacheIndicator } from './CacheIndicator';
 import type { Track } from '@store/types';
 import { useDisplayTrack } from '@hooks/player/useDisplayTrack';
 
@@ -78,6 +80,9 @@ export function MarqueeText({
 
 export function AnimatedTrackInfo({ track, className = '', onTitleClick, onArtistClick }: AnimatedTrackInfoProps) {
   const { displayTrack, isChanging } = useDisplayTrack(track);
+  const cacheEntry = useStore((s) =>
+    displayTrack ? s.offline.entries[displayTrack.id] : undefined
+  );
 
   if (!displayTrack) {
     return (
@@ -97,11 +102,15 @@ export function AnimatedTrackInfo({ track, className = '', onTitleClick, onArtis
           isChanging ? 'opacity-0 translate-x-8' : 'opacity-100 translate-x-0'
         }`}
       >
-        <MarqueeText
-          text={title}
-          className="text-sm font-medium text-text-primary"
-          onClick={onTitleClick}
-        />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CacheIndicator entry={cacheEntry} />
+          <MarqueeText
+            text={title}
+            className="min-w-0 flex-1 text-sm font-medium text-text-primary"
+            style={{ width: 'auto' }}
+            onClick={onTitleClick}
+          />
+        </div>
         <div className="text-xs text-text-tertiary truncate">
           {onArtistClick && displayTrack.user?.id ? (
             <span

@@ -11,6 +11,7 @@ export function useColdStartPrefetch() {
 
       const track = s.player.currentTrack;
       if (!track) return;
+      if (!s.offline.cacheEnabled) return;
       if (s.queue.currentIndex < 0) return;
       if (s.player.isAudioReady) return;
 
@@ -19,9 +20,12 @@ export function useColdStartPrefetch() {
 
       (async () => {
         try {
-          const stream = await api.getStreamUrl(track.id);
-          if (!stream?.url) return;
-          await api.prefetchAudio(stream.url, track.id);
+          const quality = useStore.getState().offline.quality;
+          await api.trackEnsureCached(track.id, {
+            quality,
+            durationMs: track.duration,
+            offline: false,
+          });
         } catch {}
       })();
     });

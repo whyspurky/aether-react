@@ -1,23 +1,83 @@
+use std::fs::File;
+use std::io::{BufReader, Cursor, Read, Seek};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::State;
-use bytes::Bytes;
-use crate::audio::state::AppState;
-use crate::api::http;
-use rodio::Source;
-use tauri::Emitter;
 
-fn is_hls_url(url: &str) -> bool {
-    url.contains(".m3u8") || url.contains("/hls/")
+use bytes::Bytes;
+use rodio::Source;
+use tauri::{Emitter, State};
+
+use crate::audio::state::{AppState, PlaybackSource};
+
+trait ReadSeek: Read + Seek + Send + Sync {}
+impl<T: Read + Seek + Send + Sync> ReadSeek for T {}
+type BoxedSource = Box<dyn ReadSeek>;
+
+fn detect_hint_prefix(head: &[u8]) -> &'static str {
+    if head.len() >= 3 && &head[..3] == b"ID3" {
+        return "mp3";
+    }
+    if head.len() >= 8 && &head[4..8] == b"ftyp" {
+        return "aac";
+    }
+    if head.len() >= 4 && &head[..4] == b"OggS" {
+        return "ogg";
+    }
+    if head.len() >= 4 && &head[..4] == b"fLaC" {
+        return "flac";
+    }
+    if head.len() >= 4 && &head[..4] == b"RIFF" {
+        return "wav";
+    }
+    if head.len() >= 2 && head[0] == 0xff && (head[1] & 0xe0) == 0xe0 {
+        // adts aac не имеет layer bits, mp3 имеет
+        return if head[1] & 0x06 == 0 { "aac" } else { "mp3" };
+    }
+    "mp3"
+}
+
+fn detect_hint(path: &Path) -> &'static str {
+    let mut buf = [0u8; 16];
+    let Ok(mut file) = File::open(path) else {
+        return "mp3";
+    };
+    let Ok(n) = file.read(&mut buf) else {
+        return "mp3";
+    };
+    detect_hint_prefix(&buf[..n])
+}
+
+fn build_decoder(source: PlaybackSource) -> Result<rodio::Decoder<BoxedSource>, String> {
+    let (data, hint): (BoxedSource, &'static str) = match source {
+        PlaybackSource::File(path) => {
+            let file = File::open(&path).map_err(|e| format!("open audio file: {e}"))?;
+            (Box::new(BufReader::new(file)), detect_hint(&path))
+        }
+        PlaybackSource::Bytes(bytes) => {
+            let hint = detect_hint_prefix(&bytes[..bytes.len().min(16)]);
+            (Box::new(Cursor::new(bytes)), hint)
+        }
+    };
+
+    rodio::Decoder::builder()
+        .with_data(data)
+        .with_hint(hint)
+        .with_gapless(true)
+        .build()
+        .map_err(|e| format!("decoding error: {e}"))
 }
 
 fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
     let pos = state.playback.lock().unwrap().position().as_secs_f64();
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
-        let _ = app.emit("playback:state", serde_json::json!({
-            "state": name,
-            "position": pos,
-            "real_offset_ms": real_offset_ms,
-        }));
+        let _ = app.emit(
+            "playback:state",
+            serde_json::json!({
+                "state": name,
+                "position": pos,
+                "real_offset_ms": real_offset_ms,
+            }),
+        );
     }
 }
 
@@ -36,7 +96,7 @@ fn ensure_tick_running(state: &AppState) {
     let playback = state.playback.clone();
     let app_handle = state.app_handle.clone();
 
-    let handle = tokio::spawn(async move {
+    let handle = tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -71,10 +131,13 @@ fn ensure_tick_running(state: &AppState) {
             };
 
             if let Some(app) = app_opt {
-                let _ = app.emit("position-tick", serde_json::json!({
-                    "position": pos,
-                    "track_id": track_id,
-                }));
+                let _ = app.emit(
+                    "position-tick",
+                    serde_json::json!({
+                        "position": pos,
+                        "track_id": track_id,
+                    }),
+                );
             }
         }
     });
@@ -82,73 +145,12 @@ fn ensure_tick_running(state: &AppState) {
     *tick = Some(handle);
 }
 
-pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) -> Result<PlaybackSync, String> {
-    println!("[engine] play_async START url={}", &url[..url.len().min(120)]);
-
-    let cached = {
-        let mut slot = state.prefetch_slot.lock().unwrap();
-        match slot.as_ref() {
-            Some((cached_id, _)) if *cached_id == track_id => {
-                println!("[engine] используем prefetched трек {}", track_id);
-                slot.take().map(|(_, bytes)| bytes)
-            }
-            Some((cached_id, _)) => {
-                println!("[engine] слот содержит чужой трек {} (нужен {}), очищаем", cached_id, track_id);
-                slot.take();
-                None
-            }
-            None => None,
-        }
-    };
-
-    let bytes = if let Some(bytes) = cached {
-        bytes
-    } else if is_hls_url(&url) {
-        println!("[engine] качаем hls полностью");
-        let start = std::time::Instant::now();
-        let r = Bytes::from(crate::api::download_hls_track(&url).await?);
-        println!("[engine] hls готово {} байт за {:?}", r.len(), start.elapsed());
-        let secs = state.playback.lock().unwrap().duration_ms as f64 / 1000.0;
-        if secs > 0.0 {
-            let kbps = (r.len() as f64 * 8.0) / secs / 1000.0;
-            println!("[engine] >>> HLS bitrate ≈ {:.0} kbps ({} KB за {:.1} сек)", kbps, r.len() / 1024, secs);
-        }
-        r
-    } else {
-        println!("[engine] качаем progressive");
-        let start = std::time::Instant::now();
-
-        let resp = http().get(&url).send().await
-            .map_err(|e| {
-                println!("[engine] http error: {} ({:?})", e, start.elapsed());
-                format!("http error {}", e)
-            })?;
-
-        println!("[engine] status={} ({:?})", resp.status(), start.elapsed());
-
-        if !resp.status().is_success() {
-            return Err(format!("http {}", resp.status()));
-        }
-
-        let bytes = resp.bytes().await
-            .map_err(|e| {
-                println!("[engine] bytes error: {} ({:?})", e, start.elapsed());
-                format!("failed to get bytes {}", e)
-            })?;
-
-        println!("[engine] получено {} байт за {:?}", bytes.len(), start.elapsed());
-        bytes
-    };
-
-    println!("[engine] создаём decoder");
-    let cursor = std::io::Cursor::new(bytes.clone());
-    let hint = if is_hls_url(&url) { "aac" } else { "mp3" };
-    let source = rodio::Decoder::builder()
-        .with_data(cursor)
-        .with_hint(hint)
-        .with_gapless(true)
-        .build()
-        .map_err(|e| format!("decoding error {}", e))?;
+fn start_source(
+    source: PlaybackSource,
+    track_id: u64,
+    state: State<'_, AppState>,
+) -> Result<PlaybackSync, String> {
+    let decoder = build_decoder(source.clone())?;
 
     let vol = {
         let pb = state.playback.lock().unwrap();
@@ -160,23 +162,40 @@ pub async fn play_async(url: String, track_id: u64, state: State<'_, AppState>) 
         let player = state.player.lock().unwrap();
         player.stop();
         player.clear();
-        player.append(source);
+        player.append(decoder);
         player.set_volume(vol);
         player.play();
     }
 
-    state.playback.lock().unwrap().start(bytes, track_id);
-    
+    state.playback.lock().unwrap().start(source, track_id);
+
     let real_offset_ms = started.elapsed().as_millis() as u64;
     let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
 
     ensure_tick_running(&state);
     emit_state(&state, "playing", real_offset_ms);
-    println!("[engine] play_async OK offset={}ms", real_offset_ms);
 
-    Ok(PlaybackSync { position_sec, real_offset_ms })
+    Ok(PlaybackSync {
+        position_sec,
+        real_offset_ms,
+    })
 }
 
+pub fn play_file(
+    path: PathBuf,
+    track_id: u64,
+    state: State<'_, AppState>,
+) -> Result<PlaybackSync, String> {
+    start_source(PlaybackSource::File(path), track_id, state)
+}
+
+pub fn play_bytes(
+    bytes: Bytes,
+    track_id: u64,
+    state: State<'_, AppState>,
+) -> Result<PlaybackSync, String> {
+    start_source(PlaybackSource::Bytes(bytes), track_id, state)
+}
 
 pub fn pause(state: State<AppState>) -> Result<(), String> {
     let player = state.player.lock().unwrap();
@@ -206,7 +225,10 @@ pub fn resume(state: State<AppState>) -> Result<PlaybackSync, String> {
 
     ensure_tick_running(&state);
     emit_state(&state, "playing", real_offset_ms);
-    Ok(PlaybackSync { position_sec, real_offset_ms })
+    Ok(PlaybackSync {
+        position_sec,
+        real_offset_ms,
+    })
 }
 
 pub fn stop(state: State<AppState>) -> Result<(), String> {
@@ -220,12 +242,10 @@ pub fn stop(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
-
 pub fn get_position(state: State<AppState>) -> Result<f64, String> {
     let pb = state.playback.lock().unwrap();
     Ok(pb.position().as_secs_f64())
 }
-
 
 pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
     let effective = state.playback.lock().unwrap().set_volume(volume);
@@ -239,14 +259,12 @@ pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
 }
 
 pub fn mute_audio(state: State<AppState>) -> Result<(), String> {
-    println!("[engine] muting audio");
     state.playback.lock().unwrap().mute();
     state.player.lock().unwrap().set_volume(0.0);
     Ok(())
 }
 
 pub fn unmute_audio(state: State<AppState>) -> Result<(), String> {
-    println!("[engine] unmuting audio");
     let vol = {
         let mut pb = state.playback.lock().unwrap();
         pb.unmute();
@@ -261,13 +279,15 @@ pub fn set_track_duration(duration_ms: u32, state: State<AppState>) -> Result<()
     Ok(())
 }
 
-
 pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String> {
-    let (bytes, max_sec) = {
+    let (source, max_sec) = {
         let pb = state.playback.lock().unwrap();
-        let b = pb.bytes.clone().ok_or("no track loaded cannot seek")?;
+        let source = pb
+            .source
+            .clone()
+            .ok_or("no track loaded cannot seek")?;
         let max = (pb.duration_ms as f64) / 1000.0;
-        (b, max)
+        (source, max)
     };
 
     if max_sec <= 0.0 {
@@ -275,14 +295,7 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
     }
 
     let target = seconds.clamp(0.0, max_sec);
-
-    let cursor = std::io::Cursor::new(bytes);
-    let mut decoder = rodio::Decoder::builder()
-        .with_data(cursor)
-        .with_hint("aac")
-        .with_gapless(true)
-        .build()
-        .map_err(|e| format!("decoder error {}", e))?;
+    let mut decoder = build_decoder(source)?;
 
     let mut actual = Duration::ZERO;
     if target > 0.05 {
@@ -328,67 +341,4 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
         position_sec: actual.as_secs_f64(),
         real_offset_ms,
     })
-}
-
-pub async fn prefetch_track(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
-    println!("[prefetch] вызван prefetch_track track_id={}", track_id);
-
-    if let Some(h) = state.prefetch_task.lock().unwrap().take() {
-        h.abort();
-    }
-
-    let slot = state.prefetch_slot.clone();
-    let task_slot = state.prefetch_task.clone();
-    let current_id = state.prefetch_current_id.clone();
-    let url_clone = url.clone();
-
-    // маркер текущего таска, чтобы не обнулить чужой slot при завершении
-    let my_id: u128 = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    *current_id.lock().unwrap() = my_id;
-
-    let handle = tokio::spawn(async move {
-        println!("[prefetch] старт {}", &url_clone[..url_clone.len().min(80)]);
-        let start = std::time::Instant::now();
-
-        let result = if is_hls_url(&url_clone) {
-            crate::api::download_hls_track(&url_clone).await.map(Bytes::from)
-        } else {
-            match http().get(&url_clone).send().await {
-                Ok(r) if r.status().is_success() => {
-                    r.bytes().await.map_err(|e| e.to_string())
-                }
-                Ok(r) => Err(format!("http {}", r.status())),
-                Err(e) => Err(e.to_string()),
-            }
-        };
-
-        // проверяем что мы всё ещё "текущий" таск
-        let still_current = *current_id.lock().unwrap() == my_id;
-        if !still_current {
-            println!("[prefetch] таск устарел, отбрасываем результат");
-            return;
-        }
-
-        match result {
-            Ok(bytes) => {
-                println!("[prefetch] готово {} байт за {:?}", bytes.len(), start.elapsed());
-                println!("[prefetch] сохраняю в слот track_id={}", track_id);
-                *slot.lock().unwrap() = Some((track_id, bytes));
-            }
-            Err(e) => {
-                println!("[prefetch] ошибка: {}", e);
-            }
-        }
-
-        // обнуляем task_slot только если это всё ещё наш таск
-        if *current_id.lock().unwrap() == my_id {
-            *task_slot.lock().unwrap() = None;
-        }
-    });
-
-    *state.prefetch_task.lock().unwrap() = Some(handle);
-    Ok(())
 }

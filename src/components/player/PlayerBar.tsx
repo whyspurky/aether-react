@@ -3,6 +3,7 @@ import { Icon } from '@components/ui/Icon';
 import { VolumeControl } from './VolumeControl';
 import { AnimatedTrackInfo } from '../track/AnimatedTrackInfo';
 import { useStore } from '@store/store';
+import { api } from '@lib/api';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
@@ -34,6 +35,12 @@ export function PlayerBar() {
   const favorites = useStore((s) => s.library.favorites);
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);
+  const offlineEntry = useStore((s) =>
+    s.player.currentTrack ? s.offline.entries[s.player.currentTrack.id] : undefined
+  );
+  const offlineProgress = useStore((s) =>
+    s.player.currentTrack ? s.offline.progress[s.player.currentTrack.id] : undefined
+  );
   const { open: openAddToPlaylist } = useAddToPlaylist();
 
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -175,6 +182,64 @@ export function PlayerBar() {
               size={16}
               className={isFav ? 'fill-current' : ''}
             />
+          </button>
+        )}
+
+        {currentTrack && (
+          <button
+            onClick={() => {
+              const state = useStore.getState();
+              if (offlineEntry?.offline) {
+                void api
+                  .trackRemoveCached(currentTrack.id, true)
+                  .then(() => {
+                    state.removeCacheEntry(currentTrack.id);
+                    state.refreshCacheSizes();
+                  })
+                  .catch(() => {});
+                return;
+              }
+              void api
+                .trackEnsureCached(currentTrack.id, {
+                  quality: state.offline.quality,
+                  durationMs: currentTrack.duration,
+                  offline: true,
+                })
+                .then((result) => {
+                  state.setCacheEntry(result.entry);
+                  state.refreshCacheSizes();
+                })
+                .catch(() => {});
+            }}
+            className={`flex-shrink-0 p-1.5 rounded-md transition-all duration-200 ${
+              offlineEntry?.offline
+                ? 'text-[var(--accent-primary)]'
+                : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+            }`}
+            aria-label={
+              offlineEntry?.offline
+                ? 'убрать из офлайн'
+                : offlineEntry
+                  ? 'в кэше, сохранить офлайн'
+                  : 'сохранить офлайн'
+            }
+          >
+            {offlineProgress !== undefined && offlineProgress < 1 ? (
+              <span className="text-[10px] tabular-nums">
+                {Math.round(offlineProgress * 100)}%
+              </span>
+            ) : (
+              <Icon
+                name={
+                  offlineEntry?.offline
+                    ? 'check-circle'
+                    : offlineEntry
+                      ? 'database'
+                      : 'download-cloud'
+                }
+                size={16}
+              />
+            )}
           </button>
         )}
       </div>

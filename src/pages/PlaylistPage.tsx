@@ -26,6 +26,9 @@ export function PlaylistPage() {
   const [isLoading, setIsLoading] = useState(!cached);
 
   const playTrack = useStore((s) => s.playTrack);
+  const offline = useStore((s) => s.offline);
+  const scope = id ? `playlist:${id}` : 'playlist';
+  const bulk = offline.bulk?.scope === scope ? offline.bulk : null;
 
   useEffect(() => {
     if (!id) return;
@@ -83,6 +86,22 @@ export function PlaylistPage() {
     };
   }, [id]);
 
+  const handleSaveOffline = () => {
+    if (!tracks.length) return;
+    if (bulk?.phase === 'running') {
+      api.trackBulkCancel();
+      return;
+    }
+    api
+      .trackBulkStart(
+        scope,
+        tracks.map((track) => ({ trackId: track.id, durationMs: track.duration })),
+        offline.quality
+      )
+      .then(() => useStore.getState().refreshCache())
+      .catch(() => {});
+  };
+
   const handleImport = () => {
     if (!playlist) return;
 const title = playlist.title || playlist.name || 'без названия';
@@ -132,6 +151,8 @@ const title = playlist.title || playlist.name || 'без названия';
           tracks={tracks}
           onPlayAll={() => tracks.length && playTrack(tracks[0], tracks, 0)}
           onImport={handleImport}
+          onSaveOffline={handleSaveOffline}
+          bulk={bulk}
         />
 
         {tracks.length ? (

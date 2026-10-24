@@ -3,6 +3,7 @@ import { soundcloudApi } from './soundcloud';
 import { proxyApi } from './proxy';
 import { zapretApi } from './zapret';
 import { globalBindsApi } from './globalBinds';
+import { trackCacheApi } from './trackCache';
 
 export const api = {
   ...playerApi,
@@ -10,6 +11,7 @@ export const api = {
   ...proxyApi,
   ...zapretApi,
   ...globalBindsApi,
+  ...trackCacheApi,
 };
 
 if (typeof window !== 'undefined') {

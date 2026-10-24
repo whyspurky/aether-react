@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@store/store';
 import { api } from '@lib/api';
 import { ProxySettings } from '@components/proxy/ProxySettings';
-import { SettingsSidebar, type SettingsTab } from '@components/settings/SettingsSidebar';
+import { SettingsSidebar, type AudioSection, type SettingsTab } from '@components/settings/SettingsSidebar';
 import { SettingsTabData } from '@components/settings/SettingsTabData';
 import { SettingsTabAudio } from '@components/settings/SettingsTabAudio';
 import { SettingsTabAppearance } from '@components/settings/SettingsTabAppearance';
@@ -11,6 +11,7 @@ import { SettingsTabBinds } from '@components/settings/SettingsTabBinds';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('data');
+  const [audioSection, setAudioSection] = useState<AudioSection>('playback');
   const scrollRef = useRef<HTMLElement>(null);
   const zapretStatus = useStore((s) => s.proxy.zapret.status);
   const setZapretStatus = useStore((s) => s.setZapretStatus);
@@ -29,14 +30,16 @@ export default function SettingsPage() {
     <div className="flex-1 min-h-0 flex bg-bg-primary/40 rounded-2xl overflow-hidden border border-border-subtle">
       <SettingsSidebar
         activeTab={activeTab}
+        audioSection={audioSection}
+        onAudioSectionChange={setAudioSection}
         zapretRunning={zapretStatus === 'running'}
         onChange={setActiveTab}
       />
 
       <main ref={scrollRef} className="flex-1 overflow-auto p-6 scrollbar-hidden overscroll-contain">
-        <div key={activeTab} className="max-w-2xl mx-auto animate-page-in">
+        <div key={`${activeTab}-${audioSection}`} className="max-w-2xl mx-auto animate-page-in">
           {activeTab === 'data' && <SettingsTabData />}
-          {activeTab === 'audio' && <SettingsTabAudio />}
+          {activeTab === 'audio' && <SettingsTabAudio section={audioSection} />}
           {activeTab === 'appearance' && <SettingsTabAppearance />}
           {activeTab === 'proxy' && <ProxySettings />}
           {activeTab === 'binds' && <SettingsTabBinds />}

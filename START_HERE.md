@@ -24,7 +24,7 @@
 | :--- | :--- | :--- |
 | кнопка, отступ, hover, цвет, шрифт, вид, анимация | нужный компонент в `src/components`, `src/index.css`, `src/theme/themes.ts` | стор, rust, другие страницы |
 | страница, лейаут, скролл, player bar | `src/pages/*.tsx`, его компоненты, `src/components/layout/Layout.tsx`, `src/index.css` | `src-tauri`, стор целиком |
-| не играет, seek, очередь, пауза, громкость, prefetch, позиция | `docs/ai/skills/aether-audio/SKILL.md`, `src-tauri/src/audio/{engine,state,mod}.rs`, `src/store/slices/player.ts`, `src/hooks/player/usePlayerProgress.ts`, `src/lib/api/player.ts` | ui, `src-tauri/src/api/soundcloud.rs` |
+| не играет, seek, очередь, пауза, громкость, prefetch, позиция | `docs/ai/skills/aether-audio/SKILL.md`, `src-tauri/src/audio/{engine,state,mod}.rs`, `src-tauri/src/track_cache/{state,commands}.rs`, `src/store/slices/player.ts`, `src/hooks/player/usePlayerProgress.ts`, `src/lib/api/player.ts` | ui, `src-tauri/src/api/soundcloud.rs` |
 | пустой поиск, 401, 429, hls, формат, client_id, не качается звук | `docs/ai/skills/aether-soundcloud/SKILL.md`, `src-tauri/src/api/{mod,client}.rs`, `src-tauri/src/api/stream.rs`, `src-tauri/src/api/hls.rs` или `src-tauri/src/api/soundcloud.rs`, `src/lib/api/soundcloud.ts` | `src-tauri/src/audio`, компоненты |
 | тема, blur, accent, пресеты, настройки внешнего вида | `src/theme/themes.ts`, `src/hooks/ui/useTheme.ts`, `src/components/settings/SettingsTabAppearance.tsx`, `src/index.css` | rust |
 | persist, настройки не сохраняются, очередь после перезапуска | `src/store/store.ts`, `src/lib/store/tauriStorage.ts`, нужный slice, `src-tauri/src/lib.rs` | страницы |
@@ -49,7 +49,7 @@
 - порядок локов: сначала playback, потом player
 - `position-tick` каждые 100 мс с `{ position, track_id }`
 - после seek `seek_skip_tick = 3` и 400 мс блокировки на фронте
-- prefetch-слот очищается при чужом `track_id`
+- аудио играет из файла: `track_ensure_cached` кладет в temp или offline, `play_cached` открывает путь
 - длительность приходит через `set_track_duration` после старта
 - persist только через `save_store` / `load_store` / `clear_store`
 - accent через css переменные, `title=` не используем

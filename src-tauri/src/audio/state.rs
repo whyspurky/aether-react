@@ -1,7 +1,15 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
 use bytes::Bytes;
-use tokio::task::JoinHandle;
+use tauri::async_runtime::JoinHandle;
+
+#[derive(Clone)]
+pub enum PlaybackSource {
+    File(PathBuf),
+    Bytes(Bytes),
+}
 
 pub struct Playback {
     pub is_playing: bool,
@@ -11,7 +19,7 @@ pub struct Playback {
     pub base_offset: Duration,
     pub play_start: Option<Instant>,
     pub duration_ms: u32,
-    pub bytes: Option<Bytes>,
+    pub source: Option<PlaybackSource>,
     // пропуск tick'ов после seek (3 = 300ms), чтобы rodio успел перемотать
     pub seek_skip_tick: u32,
     pub current_track_id: u64,
@@ -27,7 +35,7 @@ impl Playback {
             base_offset: Duration::ZERO,
             play_start: None,
             duration_ms: 0,
-            bytes: None,
+            source: None,
             seek_skip_tick: 0,
             current_track_id: 0,
         }
@@ -43,8 +51,8 @@ impl Playback {
         if max.is_zero() { pos } else { pos.min(max) }
     }
 
-    pub fn start(&mut self, bytes: Bytes, track_id: u64) {
-        self.bytes = Some(bytes);
+    pub fn start(&mut self, source: PlaybackSource, track_id: u64) {
+        self.source = Some(source);
         self.current_track_id = track_id;
         self.base_offset = Duration::ZERO;
         self.play_start = Some(Instant::now());
@@ -80,7 +88,7 @@ impl Playback {
     }
 
     pub fn stop(&mut self) {
-        self.bytes = None;
+        self.source = None;
         self.base_offset = Duration::ZERO;
         self.play_start = None;
         self.is_playing = false;
@@ -108,15 +116,53 @@ pub struct AppState {
     pub playback: Arc<Mutex<Playback>>,
     // underscore: важно держать sink живым, иначе звук отваливается
     pub _sink_handle: Arc<Mutex<rodio::MixerDeviceSink>>,
-    pub prefetch_slot: Arc<Mutex<Option<(u64, Bytes)>>>,
-    pub prefetch_task: Arc<Mutex<Option<JoinHandle<()>>>>,
-    pub prefetch_current_id: Arc<Mutex<u128>>,
     pub app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
     pub tick_task: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub volume_channel: Arc<Mutex<Option<tauri::ipc::Channel<u32>>>>,
 }
 
+pub fn output_devices() -> Result<Vec<(String, bool)>, String> {
+    let outputs = rodio::speakers::available_outputs().map_err(|e| e.to_string())?;
+    Ok(outputs
+        .into_iter()
+        .map(|output| (output.to_string(), output.is_default()))
+        .collect())
+}
+
 impl AppState {
+    pub fn set_output_device(&self, name: Option<&str>) -> Result<String, String> {
+        let wanted = name.unwrap_or("").trim();
+        let (sink, label) = if wanted.is_empty() || wanted == "default" {
+            let sink = rodio::DeviceSinkBuilder::open_default_sink()
+                .map_err(|e| format!("default output: {e}"))?;
+            (sink, "default".to_string())
+        } else {
+            let outputs = rodio::speakers::available_outputs().map_err(|e| e.to_string())?;
+            let output = outputs
+                .into_iter()
+                .find(|output| output.to_string() == wanted)
+                .ok_or_else(|| format!("устройство вывода не найдено: {wanted}"))?;
+            let label = output.to_string();
+            let sink = rodio::speakers::SpeakersBuilder::new()
+                .device(output)
+                .map_err(|e| e.to_string())?
+                .default_config()
+                .map_err(|e| e.to_string())?
+                .open_mixer()
+                .map_err(|e| e.to_string())?;
+            (sink, label)
+        };
+
+        let player = rodio::Player::connect_new(sink.mixer());
+        let mut sink_guard = self._sink_handle.lock().unwrap();
+        let mut player_guard = self.player.lock().unwrap();
+        player_guard.stop();
+        *player_guard = player;
+        *sink_guard = sink;
+        self.playback.lock().unwrap().stop();
+        Ok(label)
+    }
+
     pub fn new() -> Self {
         let sink_handle = rodio::DeviceSinkBuilder::open_default_sink()
             .expect("failed to open default audio sink");
@@ -125,9 +171,6 @@ impl AppState {
             _sink_handle: Arc::new(Mutex::new(sink_handle)),
             player: Arc::new(Mutex::new(player)),
             playback: Arc::new(Mutex::new(Playback::new())),
-            prefetch_slot: Arc::new(Mutex::new(None)),
-            prefetch_task: Arc::new(Mutex::new(None)),
-            prefetch_current_id: Arc::new(Mutex::new(0)),
             app_handle: Arc::new(Mutex::new(None)),
             tick_task: Arc::new(Mutex::new(None)),
             volume_channel: Arc::new(Mutex::new(None)),

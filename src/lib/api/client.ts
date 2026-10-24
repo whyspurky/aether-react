@@ -11,7 +11,6 @@ export async function invokeCmd<T>(cmd: string, args?: Record<string, unknown>):
   }
 }
 
-// для страниц, которым нужен код ошибки, а не тихий null
 export async function invokeCmdStrict<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   try {
     return await invoke<T>(cmd, args);

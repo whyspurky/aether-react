@@ -1,4 +1,5 @@
 import { api } from '@lib/api';
+import type { PlaybackSync } from '@lib/api/player';
 import type { Track } from '../types';
 
 const QUEUE_MAX = 200;
@@ -218,6 +219,9 @@ if (isCurrent) {
     }));
 
     const isValid = () => get().player.currentTrack?.id === track.id;
+    const cacheEnabled = get().offline?.cacheEnabled ?? true;
+    const quality = get().offline?.quality ?? 'best';
+    const autoSave = cacheEnabled && (get().offline?.autoSave ?? false);
 
     let started = false;
     const MAX_ATTEMPTS = 2;
@@ -225,17 +229,57 @@ if (isCurrent) {
       if (!isValid()) return;
 
       try {
-        const stream = await api.getStreamUrl(track.id);
-        if (!isValid()) return;
+        let sync: PlaybackSync | null = null;
 
-        const enriched = enrichTrack(track, stream);
-        if (enriched !== track) {
-          set((s: any) => ({
-            player: { ...s.player, currentTrack: enriched },
-          }));
+        if (!cacheEnabled) {
+          const offlineEntry = get().offline.entries[track.id];
+          if (offlineEntry?.offline) {
+            try {
+              sync = await api.playCached(track.id);
+            } catch {
+              sync = null;
+            }
+          }
+
+          if (!sync) {
+            const played = await api.playStream(track.id, quality);
+            if (!isValid()) {
+              await api.stopAudio();
+              return;
+            }
+            sync = played.sync;
+            if (played.stream) {
+              const enriched = enrichTrack(track, played.stream);
+              if (enriched !== track) {
+                set((s: any) => ({
+                  player: { ...s.player, currentTrack: enriched },
+                }));
+              }
+            }
+          }
+        } else {
+          const cached = await api.trackEnsureCached(track.id, {
+            quality,
+            durationMs: track.duration,
+            offline: autoSave,
+          });
+          if (!isValid()) return;
+
+          if (cached.entry && (cacheEnabled || cached.entry.offline)) {
+            get().setCacheEntry(cached.entry);
+          }
+          if (cached.stream) {
+            const enriched = enrichTrack(track, cached.stream);
+            if (enriched !== track) {
+              set((s: any) => ({
+                player: { ...s.player, currentTrack: enriched },
+              }));
+            }
+          }
+
+          sync = await api.playCached(track.id);
         }
 
-        const sync = await api.playAudio(stream.url, track.id);
         if (sync) {
           set((s: any) => ({
             player: {
@@ -269,19 +313,23 @@ if (isCurrent) {
 
         started = true;
         get().addToHistory(track);
+        api.trackMarkPlayed(track.id).catch(() => {});
 
         const nextIdx = index + 1;
         const nextTrack = tracks[nextIdx];
-        if (nextTrack?.id) {
+        if (cacheEnabled && nextTrack?.id) {
           (async () => {
             try {
               if (!isValid()) return;
-              const nextStream = await api.getStreamUrl(nextTrack.id);
-              if (!isValid()) return;
-              await api.prefetchAudio(nextStream.url, nextTrack.id);
+              await api.trackPreload(
+                [{ trackId: nextTrack.id, durationMs: nextTrack.duration }],
+                quality
+              );
             } catch {}
           })();
         }
+
+        get().refreshCacheSizes?.();
 
         const remaining = get().queue.tracks.length - index - 1;
         if (shouldPreloadQueue(remaining, get().player.repeat)) {

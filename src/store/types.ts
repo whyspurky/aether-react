@@ -94,6 +94,49 @@ export interface ArtistSectionMeta {
   cursor?: string | null;
 }
 
+export type AudioQuality = 'best' | 'high' | 'medium' | 'low';
+
+export interface StreamInfo {
+  url: string;
+  genre: string | null;
+  playback_count: number | null;
+  preset: string;
+  protocol: string;
+  bitrate: number | null;
+  quality: AudioQuality;
+}
+
+export interface TrackCacheEntry {
+  trackId: number;
+  path: string;
+  quality: AudioQuality;
+  preset: string;
+  bitrate: number | null;
+  source: string;
+  offline: boolean;
+  size: number;
+  durationMs: number | null;
+}
+
+export interface EnsureCachedResult {
+  entry: TrackCacheEntry;
+  stream: StreamInfo | null;
+}
+
+export interface CacheSizes {
+  temp: number;
+  offline: number;
+}
+
+export interface BulkCacheStatus {
+  scope: string;
+  phase: 'running' | 'done' | 'cancelled';
+  total: number;
+  done: number;
+  failed: number;
+  skipped: number;
+}
+
 export type ProxyMode = 'off' | 'builtin' | 'custom' | 'zapret';
 
 export type CustomProxyType = 'socks5' | 'http' | 'https';

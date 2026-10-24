@@ -2,16 +2,18 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { upgradeCoverUrl } from '@lib/format';
 import { playlistTypeLabel } from '@lib/playlist';
-import type { Playlist, Track } from '@store/types';
+import type { BulkCacheStatus, Playlist, Track } from '@store/types';
 
 interface Props {
   playlist: Playlist;
   tracks: Track[];
   onPlayAll: () => void;
   onImport: () => void;
+  onSaveOffline: () => void;
+  bulk: BulkCacheStatus | null;
 }
 
-export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props) {
+export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport, onSaveOffline, bulk }: Props) {
   const navigate = useNavigate();
   const coverUrl =
     upgradeCoverUrl(playlist.artwork_url, 't500x500') ||
@@ -21,6 +23,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
 
   const title = (playlist as any).title || playlist.name || 'без названия';
   const typeLabel = playlistTypeLabel(playlist);
+  const bulkRunning = bulk?.phase === 'running';
 
   const formatDuration = (ms: number | undefined) => {
     if (!ms) return '';
@@ -84,7 +87,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
           )}
         </div>
 
-        <div className="flex items-center gap-2 mt-5">
+        <div className="flex flex-wrap items-center gap-2 mt-5">
           <button
             onClick={onPlayAll}
             disabled={!tracks.length}
@@ -101,6 +104,19 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
           >
             <Icon name="plus" size={16} />
             в библиотеку
+          </button>
+
+          <button
+            onClick={onSaveOffline}
+            disabled={!tracks.length}
+            className={`px-6 py-2 bg-transparent border rounded-full font-medium flex items-center gap-2 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed ${
+              bulkRunning
+                ? 'border-[var(--accent-primary)] text-[var(--accent-primary)]'
+                : 'border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-visible'
+            }`}
+          >
+            <Icon name={bulkRunning ? 'loader-circle' : 'download-cloud'} size={16} />
+            {bulkRunning && bulk ? `${bulk.done}/${bulk.total}` : 'скачать офлайн'}
           </button>
         </div>
       </div>

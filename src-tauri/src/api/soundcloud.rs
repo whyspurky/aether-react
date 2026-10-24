@@ -62,12 +62,15 @@ pub async fn proxy_set_custom(
     username: String,
     password: String,
 ) -> Result<(), String> {
-    apply_proxy(Some(ProxyConfig { kind, host, port, username, password }))
+    let config = ProxyConfig { kind, host, port, username, password };
+    apply_proxy(Some(config.clone()))?;
+    crate::track_cache::http::apply_proxy(Some(config))
 }
 
 #[tauri::command]
 pub async fn proxy_clear() -> Result<(), String> {
-    apply_proxy(None)
+    apply_proxy(None)?;
+    crate::track_cache::http::apply_proxy(None)
 }
 
 #[tauri::command]

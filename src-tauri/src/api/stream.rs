@@ -1,6 +1,7 @@
 use std::time::Duration;
 use serde_json::Value;
 
+use super::quality::{bitrate_from_preset, AudioQuality, SelectedStream};
 use super::ApiError;
 use super::client::{fetch_retry, fetch_json_retry};
 use super::{add_client_id, BASE_URL, CLIENT_ID};
@@ -53,102 +54,219 @@ async fn resolve_progressive_variant(t: &Value, auth: &str) -> Option<String> {
     Some(su.to_string())
 }
 
-async fn resolve_stream(data: &Value) -> Result<String, ApiError> {
-    let media = data.get("media").ok_or_else(|| ApiError::Other("трек недоступен".into()))?;
-    let transcodings = media.get("transcodings")
+struct Candidate {
+    raw: Value,
+    preset: String,
+    protocol: String,
+    bitrate: Option<u32>,
+    encrypted: bool,
+}
+
+fn candidates(data: &Value) -> Vec<Candidate> {
+    let Some(transcodings) = data
+        .get("media")
+        .and_then(|m| m.get("transcodings"))
         .and_then(|t| t.as_array())
-        .ok_or_else(|| ApiError::Other("нет форматов".into()))?;
+    else {
+        return Vec::new();
+    };
 
-    let auth = data.get("track_authorization").and_then(|t| t.as_str()).unwrap_or("");
-
-    let mut progressive: Vec<&Value> = vec![];
-    let mut hls_aac_160: Vec<&Value> = vec![];
-    let mut hls_aac_other: Vec<&Value> = vec![];
-    let mut hls_mp3: Vec<&Value> = vec![];
-
+    let mut out = Vec::new();
     for t in transcodings {
-        let f = t.get("format");
-        let p = f.and_then(|f| f.get("protocol")).and_then(|p| p.as_str()).unwrap_or("");
-        let m = f.and_then(|f| f.get("mime_type")).and_then(|m| m.as_str()).unwrap_or("");
+        let Some(url) = t.get("url").and_then(|u| u.as_str()) else {
+            continue;
+        };
+        let format = t.get("format");
+        let protocol = format
+            .and_then(|f| f.get("protocol"))
+            .and_then(|p| p.as_str())
+            .unwrap_or("");
+        let mime = format
+            .and_then(|f| f.get("mime_type"))
+            .and_then(|m| m.as_str())
+            .unwrap_or("");
         let preset = t.get("preset").and_then(|v| v.as_str()).unwrap_or("");
+        let snipped = t.get("snipped").and_then(|v| v.as_bool()).unwrap_or(false);
 
-        if p == "progressive" && (m.starts_with("audio/mpeg") || m.starts_with("audio/mp4")) {
-            progressive.push(t);
-        } else if p == "hls" || p.contains("encrypted-hls") {
-            if m.starts_with("audio/mp4") {
-                if preset == "aac_160k" {
-                    hls_aac_160.push(t);
-                } else {
-                    hls_aac_other.push(t);
-                }
-            } else if m.starts_with("audio/mpeg") {
-                hls_mp3.push(t);
-            }
+        if snipped || url.contains("/preview") {
+            continue;
         }
+        if !mime.starts_with("audio/") {
+            continue;
+        }
+
+        let encrypted = protocol.contains("encrypted");
+        let is_progressive = protocol == "progressive";
+        let is_hls = protocol == "hls" || protocol.starts_with("hls");
+        if !is_progressive && !is_hls && !encrypted {
+            continue;
+        }
+
+        out.push(Candidate {
+            raw: t.clone(),
+            preset: preset.to_string(),
+            protocol: if is_progressive {
+                "progressive".into()
+            } else if encrypted {
+                "encrypted-hls".into()
+            } else {
+                "hls".into()
+            },
+            bitrate: bitrate_from_preset(preset),
+            encrypted,
+        });
+    }
+    out
+}
+
+fn sort_for_quality(candidates: &mut Vec<Candidate>, quality: AudioQuality) {
+    candidates.sort_by(|a, b| {
+        let protocol_order = protocol_rank(a, quality).cmp(&protocol_rank(b, quality));
+        match quality {
+            AudioQuality::Best => b.bitrate.cmp(&a.bitrate).then(protocol_order),
+            AudioQuality::Low => protocol_order.then(a.bitrate.cmp(&b.bitrate)),
+            _ => quality
+                .distance(a.bitrate)
+                .cmp(&quality.distance(b.bitrate))
+                .then(protocol_order),
+        }
+    });
+}
+
+fn protocol_rank(c: &Candidate, quality: AudioQuality) -> u8 {
+    match (quality, c.protocol.as_str()) {
+        (AudioQuality::Low, "progressive") => 0,
+        (AudioQuality::Low, "hls") => 1,
+        (_, "hls") => 0,
+        (_, "progressive") => 1,
+        _ => 2,
+    }
+}
+
+async fn resolve_stream_for(
+    data: &Value,
+    quality: AudioQuality,
+) -> Result<SelectedStream, ApiError> {
+    let auth = data
+        .get("track_authorization")
+        .and_then(|t| t.as_str())
+        .unwrap_or("");
+
+    let mut all = candidates(data);
+    if all.is_empty() {
+        return Err(ApiError::Other("нет форматов для трека".into()));
     }
 
-    // порядок: aac 160 → aac other → mp3 hls → progressive (по доке 07_soundcloud)
-    for t in hls_aac_160 {
-        if let Some(url) = resolve_hls_variant(t, auth).await {
-            println!("[stream] выбран: AAC 160 kbps (HLS)");
-            return Ok(url);
-        }
+    let encrypted_count = all.iter().filter(|c| c.encrypted).count();
+    all.retain(|c| !c.encrypted);
+
+    if all.is_empty() {
+        return Err(ApiError::Other(
+            "только go+ encrypted hls, локальный decrypt пока не поддержан".into(),
+        ));
     }
 
-    for t in hls_aac_other {
-        if let Some(url) = resolve_hls_variant(t, auth).await {
-            let preset = t.get("preset").and_then(|v| v.as_str()).unwrap_or("?");
-            println!("[stream] выбран: AAC {} (HLS)", preset);
-            return Ok(url);
-        }
+    sort_for_quality(&mut all, quality);
+    let pool = all;
+
+    for candidate in pool {
+        let url = if candidate.protocol == "hls" {
+            resolve_hls_variant(&candidate.raw, auth).await
+        } else {
+            resolve_progressive_variant(&candidate.raw, auth).await
+        };
+        let Some(url) = url else {
+            continue;
+        };
+
+        println!(
+            "[stream] выбран {} {} ({} kbps)",
+            candidate.protocol,
+            candidate.preset,
+            candidate.bitrate.map_or(0, |b| b)
+        );
+
+        return Ok(SelectedStream {
+            url,
+            preset: candidate.preset,
+            protocol: candidate.protocol,
+            bitrate: candidate.bitrate,
+            quality,
+        });
     }
 
-    for t in hls_mp3 {
-        if let Some(url) = resolve_hls_variant(t, auth).await {
-            println!("[stream] выбран: MP3 (HLS)");
-            return Ok(url);
-        }
-    }
-
-    for t in progressive {
-        if let Some(url) = resolve_progressive_variant(t, auth).await {
-            println!("[stream] выбран: progressive MP3 (fallback)");
-            return Ok(url);
-        }
+    if encrypted_count > 0 {
+        return Err(ApiError::Other(
+            "доступен только go+ encrypted hls, локальный decrypt пока не поддержан".into(),
+        ));
     }
 
     Err(ApiError::Other("нет форматов для трека".into()))
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct StreamInfo {
     pub url: String,
     pub genre: Option<String>,
     pub playback_count: Option<u64>,
+    pub preset: String,
+    pub protocol: String,
+    pub bitrate: Option<u32>,
+    pub quality: AudioQuality,
 }
 
-#[tauri::command]
-pub async fn get_stream_url(track_id: String) -> Result<StreamInfo, String> {
-    let data = get_track(&track_id).await.map_err(|e| e.to_string())?;
+pub async fn resolve_track_stream(
+    track_id: u64,
+    quality: AudioQuality,
+) -> Result<StreamInfo, String> {
+    let data = get_track(&track_id.to_string())
+        .await
+        .map_err(|e| e.to_string())?;
 
-    if let Some(first) = data.get("errors").and_then(|e| e.as_array()).and_then(|a| a.first()) {
-        let msg = first.get("error_message")
+    if let Some(first) = data
+        .get("errors")
+        .and_then(|e| e.as_array())
+        .and_then(|a| a.first())
+    {
+        let msg = first
+            .get("error_message")
             .or_else(|| first.get("message"))
             .and_then(|m| m.as_str())
             .unwrap_or("неизвестная ошибка");
         return Err(format!("ск {}", msg));
     }
 
-    let url = resolve_stream(&data).await.map_err(|e| e.to_string())?;
+    let selected = resolve_stream_for(&data, quality)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let genre = data.get("genre")
+    let genre = data
+        .get("genre")
         .and_then(|g| g.as_str())
         .filter(|s| !s.is_empty())
         .map(String::from);
-
     let playback_count = data.get("playback_count").and_then(|p| p.as_u64());
 
-    Ok(StreamInfo { url, genre, playback_count })
+    Ok(StreamInfo {
+        url: selected.url,
+        genre,
+        playback_count,
+        preset: selected.preset,
+        protocol: selected.protocol,
+        bitrate: selected.bitrate,
+        quality: selected.quality,
+    })
+}
+
+#[tauri::command]
+pub async fn get_stream_url(
+    track_id: String,
+    quality: Option<String>,
+) -> Result<StreamInfo, String> {
+    let id = track_id
+        .parse::<u64>()
+        .map_err(|_| format!("неверный track id: {track_id}"))?;
+    resolve_track_stream(id, AudioQuality::from_label(quality.as_deref())).await
 }
 
 #[tauri::command]

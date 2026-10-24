@@ -2,12 +2,65 @@ mod state;
 mod engine;
 
 pub use state::AppState;
+use crate::api::quality::AudioQuality;
+use crate::api::stream::StreamInfo;
+use crate::track_cache::TrackCacheState;
 use tauri::State;
 
+// играем только из кэша, путь резолвит rust, а не фронт
+#[tauri::command]
+pub fn play_cached(
+    track_id: u64,
+    cache: State<'_, TrackCacheState>,
+    state: State<'_, AppState>,
+) -> Result<engine::PlaybackSync, String> {
+    let path = cache
+        .get_cache_path(track_id)
+        .ok_or_else(|| "трек не найден в кэше".to_string())?;
+    engine::play_file(std::path::PathBuf::from(path), track_id, state)
+}
+
+#[derive(serde::Serialize)]
+pub struct StreamPlayback {
+    pub sync: engine::PlaybackSync,
+    pub stream: Option<StreamInfo>,
+}
+
+// режим только воспроизведения: байты живут в памяти, диск не трогаем
+#[tauri::command]
+pub async fn play_stream(
+    track_id: u64,
+    quality: Option<String>,
+    cache: State<'_, TrackCacheState>,
+    state: State<'_, AppState>,
+) -> Result<StreamPlayback, String> {
+    let quality = AudioQuality::from_label(quality.as_deref());
+    let (bytes, stream) = cache.stream_audio(track_id, quality).await?;
+    let sync = engine::play_bytes(bytes, track_id, state)?;
+    Ok(StreamPlayback { sync, stream })
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioOutputDevice {
+    pub name: String,
+    pub is_default: bool,
+}
 
 #[tauri::command]
-pub async fn play_audio(url: String, track_id: u64, state: State<'_, AppState>) -> Result<engine::PlaybackSync, String> {
-    engine::play_async(url, track_id, state).await
+pub fn list_output_devices() -> Result<Vec<AudioOutputDevice>, String> {
+    Ok(state::output_devices()?
+        .into_iter()
+        .map(|(name, is_default)| AudioOutputDevice { name, is_default })
+        .collect())
+}
+
+#[tauri::command]
+pub fn set_output_device(
+    name: Option<String>,
+    state: State<AppState>,
+) -> Result<String, String> {
+    state.set_output_device(name.as_deref())
 }
 
 #[tauri::command]
@@ -65,9 +118,4 @@ pub fn start_volume_stream(
 
     *state.volume_channel.lock().unwrap() = Some(on_volume);
     Ok(())
-}
-
-#[tauri::command]
-pub async fn prefetch_audio(track_id: u64, url: String, state: State<'_, AppState>) -> Result<(), String> {
-    engine::prefetch_track(track_id, url, state).await
 }

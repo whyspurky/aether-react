@@ -1,5 +1,6 @@
 mod api;
 mod audio;
+mod track_cache;
 mod zapret;
 mod global_binds;
 use audio::AppState;
@@ -42,6 +43,21 @@ pub fn run() {
             *state.app_handle.lock().unwrap() = Some(app.handle().clone());
             app.manage(state);
 
+            let cache_dir = app
+                .path()
+                .app_cache_dir()
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
+                .join("audio");
+            let offline_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
+                .join("offline");
+            let mut cache = track_cache::init(cache_dir, offline_dir)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            cache.set_app_handle(app.handle().clone());
+            app.manage(cache);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -83,7 +99,10 @@ pub fn run() {
             api::soundcloud::proxy_test_cdn,
 
             // audio
-            audio::play_audio,
+            audio::play_cached,
+            audio::play_stream,
+            audio::list_output_devices,
+            audio::set_output_device,
             audio::pause_audio,
             audio::resume_audio,
             audio::stop_audio,
@@ -93,8 +112,22 @@ pub fn run() {
             audio::set_track_duration,
             audio::get_position,
             audio::seek_audio,
-            audio::prefetch_audio,
             audio::start_volume_stream,
+
+            // track cache
+            track_cache::track_ensure_cached,
+            track_cache::track_preload,
+            track_cache::track_remove_cached,
+            track_cache::track_cache_info,
+            track_cache::track_is_cached,
+            track_cache::track_cache_size,
+            track_cache::track_clear_cache,
+            track_cache::track_enforce_cache_limit,
+            track_cache::track_cache_inventory,
+            track_cache::track_bulk_cache_start,
+            track_cache::track_bulk_cache_status,
+            track_cache::track_bulk_cache_cancel,
+            track_cache::track_mark_played,
 
             // zapret
             zapret::zapret_status,

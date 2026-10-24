@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
+import { api } from '@lib/api';
+import { CacheIndicator } from '@components/track/CacheIndicator';
 import { useNavigate } from 'react-router-dom';
 import { useTrackAnimation } from '@hooks/player/useTrackAnimation';
 import { PlayerProgressBar } from '@components/player/PlayerProgressBar';
@@ -35,6 +37,12 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const queueScrollRef = useRef<HTMLDivElement | null>(null);
   const favorites = useStore((s) => s.library.favorites);
+  const cacheEntry = useStore((s) =>
+    s.player.currentTrack ? s.offline.entries[s.player.currentTrack.id] : undefined
+  );
+  const cacheProgress = useStore((s) =>
+    s.player.currentTrack ? s.offline.progress[s.player.currentTrack.id] : undefined
+  );
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);
   const { open: openAddToPlaylist } = useAddToPlaylist();
@@ -168,11 +176,18 @@ export default function PlayerPage() {
                 isTrackChanging ? 'opacity-0 -translate-x-8' : 'opacity-100 translate-x-0'
               }`}
             >
-              <MarqueeText
-                text={displayTrack?.title || currentTrack.title || 'без названия'}
-                className="font-black tracking-tight text-text-primary"
-                style={{ fontSize: 'clamp(1.4rem, 3.5vw, 3rem)', lineHeight: '1.15' }}
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                <CacheIndicator entry={cacheEntry} size={18} />
+                <MarqueeText
+                  text={displayTrack?.title || currentTrack.title || 'без названия'}
+                  className="min-w-0 flex-1 font-black tracking-tight text-text-primary"
+                  style={{
+                    width: 'auto',
+                    fontSize: 'clamp(1.4rem, 3.5vw, 3rem)',
+                    lineHeight: '1.15',
+                  }}
+                />
+              </div>
             </div>
 
             <div
@@ -291,6 +306,64 @@ export default function PlayerPage() {
                       size={18}
                       className={isFav ? 'fill-current' : ''}
                     />
+                  </button>
+                )}
+
+                {currentTrack && (
+                  <button
+                    onClick={() => {
+                      const state = useStore.getState();
+                      if (cacheEntry?.offline) {
+                        void api
+                          .trackRemoveCached(currentTrack.id, true)
+                          .then(() => {
+                            state.removeCacheEntry(currentTrack.id);
+                            state.refreshCacheSizes();
+                          })
+                          .catch(() => {});
+                        return;
+                      }
+                      void api
+                        .trackEnsureCached(currentTrack.id, {
+                          quality: state.offline.quality,
+                          durationMs: currentTrack.duration,
+                          offline: true,
+                        })
+                        .then((result) => {
+                          state.setCacheEntry(result.entry);
+                          state.refreshCacheSizes();
+                        })
+                        .catch(() => {});
+                    }}
+                    className={`flex-shrink-0 p-1.5 rounded-full transition-all ${
+                      cacheEntry?.offline
+                        ? 'text-[var(--accent-primary)]'
+                        : 'text-text-tertiary hover:text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]'
+                    }`}
+                    aria-label={
+                      cacheEntry?.offline
+                        ? 'убрать из офлайн'
+                        : cacheEntry
+                          ? 'в кэше, сохранить офлайн'
+                          : 'сохранить офлайн'
+                    }
+                  >
+                    {cacheProgress !== undefined && cacheProgress < 1 ? (
+                      <span className="text-[10px] tabular-nums">
+                        {Math.round(cacheProgress * 100)}%
+                      </span>
+                    ) : (
+                      <Icon
+                        name={
+                          cacheEntry?.offline
+                            ? 'check-circle'
+                            : cacheEntry
+                              ? 'database'
+                              : 'download-cloud'
+                        }
+                        size={18}
+                      />
+                    )}
                   </button>
                 )}
 

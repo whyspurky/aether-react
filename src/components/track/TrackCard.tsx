@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
+import { CacheIndicator } from './CacheIndicator';
 import type { Track } from '@store/types';
 import { formatMs } from '@lib/format';
 
@@ -14,6 +15,7 @@ interface TrackCardProps {
 export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
+  const cacheEntry = useStore((s) => s.offline.entries[track.id]);
   const { openTrackMenu } = useTrackContextMenu();
 
   const coverUrl =
@@ -69,9 +71,12 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
       </div>
 
       <div className="mt-2 space-y-0.5">
-        <h4 className="text-sm font-medium text-text-primary truncate leading-tight transition-colors duration-150 group-hover:text-[var(--accent-primary)]">
-          {track.title || 'без названия'}
-        </h4>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CacheIndicator entry={cacheEntry} size={12} />
+          <h4 className="min-w-0 truncate text-sm font-medium leading-tight text-text-primary transition-colors duration-150 group-hover:text-[var(--accent-primary)]">
+            {track.title || 'без названия'}
+          </h4>
+        </div>
         <p className="text-xs text-text-tertiary truncate leading-tight">
           {track.user?.id ? (
             <span

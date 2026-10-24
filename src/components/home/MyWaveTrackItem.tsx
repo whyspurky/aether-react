@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
+import { CacheIndicator } from '@components/track/CacheIndicator';
 import { formatMs, getCoverUrl } from '@lib/format';
 import type { Track } from '@store/types';
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 export function MyWaveTrackItem({ track, tracks }: Props) {
   const navigate = useNavigate();
   const playTrack = useStore((s) => s.playTrack);
+  const cacheEntry = useStore((s) => s.offline.entries[track.id]);
   const { openTrackMenu } = useTrackContextMenu();
 
   const index = tracks.findIndex((t) => t.id === track.id);
@@ -46,9 +48,12 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
       )}
 
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-[var(--accent-primary)] transition-colors duration-150">
-          {track.title || 'без названия'}
-        </h4>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CacheIndicator entry={cacheEntry} size={12} />
+          <h4 className="min-w-0 truncate text-sm font-medium text-text-primary transition-colors duration-150 group-hover:text-[var(--accent-primary)]">
+            {track.title || 'без названия'}
+          </h4>
+        </div>
         <p className="text-xs text-text-tertiary truncate">
           {track.user?.id ? (
             <span

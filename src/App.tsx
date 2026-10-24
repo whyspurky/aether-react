@@ -9,6 +9,8 @@ import { useContextMenuPrevent } from './hooks/app/useContextMenuPrevent';
 import { useWindowShow } from './hooks/app/useWindowShow';
 import { useVolumeRestore } from './hooks/app/useVolumeRestore';
 import { useColdStartPrefetch } from './hooks/app/useColdStartPrefetch';
+import { useTrackCacheEvents } from './hooks/app/useTrackCacheEvents';
+import { useAudioOutput } from './hooks/app/useAudioOutput';
 import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -26,7 +28,9 @@ function AppContent() {
   useWindowShow();
   useContextMenuPrevent();
   useVolumeRestore();
+  useAudioOutput();
   useColdStartPrefetch();
+  useTrackCacheEvents();
   useProxySync();
   useGlobalBinds();
 

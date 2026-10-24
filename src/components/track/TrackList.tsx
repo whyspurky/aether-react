@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
+import { CacheIndicator } from './CacheIndicator';
 import type { Track } from '@store/types';
 import { formatMs, formatCount, getCoverUrl } from '@lib/format';
 
@@ -35,6 +36,8 @@ export function TrackList({
   const playTrack = useStore((s) => s.playTrack);
   const currentTrack = useStore((s) => s.player.currentTrack);
   const favorites = useStore((s) => s.library.favorites);
+  const offlineEntries = useStore((s) => s.offline.entries);
+  const offlineProgress = useStore((s) => s.offline.progress);
   const addToFavorites = useStore((s) => s.addToFavorites);
   const removeFromFavorites = useStore((s) => s.removeFromFavorites);
   const { openTrackMenu } = useTrackContextMenu();
@@ -111,6 +114,8 @@ export function TrackList({
   const renderItem = (track: Track, index: number) => {
     const isCurrent = currentTrack?.id === track.id;
     const isFav = favIds.has(track.id);
+    const cacheEntry = offlineEntries[track.id];
+    const progress = offlineProgress[track.id];
     const coverUrl = getCoverUrl(track, 't300x300');
 
     return (
@@ -138,15 +143,18 @@ export function TrackList({
         )}
 
         <div className="flex-1 min-w-0">
-          <h4
-            className={`text-sm font-medium truncate transition-colors duration-150 ${
-              isCurrent
-                ? 'text-text-secondary'
-                : 'text-text-primary group-hover:text-[var(--accent-primary)]'
-            }`}
-          >
-            {track.title || 'без названия'}
-          </h4>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <CacheIndicator entry={cacheEntry} />
+            <h4
+              className={`min-w-0 truncate text-sm font-medium transition-colors duration-150 ${
+                isCurrent
+                  ? 'text-text-secondary'
+                  : 'text-text-primary group-hover:text-[var(--accent-primary)]'
+              }`}
+            >
+              {track.title || 'без названия'}
+            </h4>
+          </div>
           <p className="text-xs text-text-tertiary truncate">
             {showArtist ? (
               track.user?.id ? (
@@ -196,6 +204,12 @@ export function TrackList({
               </button>
             )}
           </div>
+
+          {progress !== undefined && progress < 1 && (
+            <span className="mr-1 text-[10px] tabular-nums text-text-tertiary">
+              {Math.round(progress * 100)}%
+            </span>
+          )}
 
           <span className="tabular-nums text-xs text-text-tertiary text-right w-[4.1ch]">
             {formatMs(track.duration || 0)}

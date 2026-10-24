@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { ConfirmModal } from '@components/ui/ConfirmModal';
 import { useStore } from '@store/store';
@@ -106,7 +106,7 @@ function RoadmapRow({
   );
 }
 
-function DeviceSelect({
+function DeviceGrid({
   devices,
   value,
   onChange,
@@ -115,118 +115,66 @@ function DeviceSelect({
   value: string;
   onChange: (name: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const selected = value || 'системное по умолчанию';
-  const known = !value || devices.some((device) => device.name === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
-  const pick = (name: string) => {
-    onChange(name);
-    setOpen(false);
-  };
+  const options = [
+    {
+      name: '',
+      label: 'По умолчанию',
+      subtitle: 'Системное устройство',
+      icon: 'volume-2',
+      isDefault: true,
+    },
+    ...devices.map((device) => ({
+      name: device.name,
+      label: device.name,
+      subtitle: 'Устройство вывода',
+      icon: device.isDefault ? 'volume-2' : 'audio-lines',
+      isDefault: device.isDefault,
+    })),
+  ];
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label="устройство вывода звука"
-        onClick={() => setOpen((next) => !next)}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-border-subtle bg-white/[0.04] px-3 py-2.5 text-left text-sm text-text-primary outline-none transition-colors hover:border-border-visible focus-visible:border-[var(--accent-primary)]"
-      >
-        <Icon name="volume-2" size={15} className="flex-shrink-0 text-text-tertiary" />
-        <span className="min-w-0 flex-1 truncate">{selected}</span>
-        <Icon
-          name="chevron-right"
-          size={14}
-          className={`flex-shrink-0 text-text-tertiary transition-transform duration-200 ${
-            open ? 'rotate-90' : ''
-          }`}
-        />
-      </button>
-
-      {open && (
-        <div
-          role="listbox"
-          aria-label="список устройств вывода"
-          className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-xl border border-border-subtle bg-bg-card/95 p-1 shadow-2xl backdrop-blur-xl animate-menu-enter"
-        >
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {options.map((device, index) => {
+        const active = device.name === value;
+        return (
           <button
+            key={`${device.name}-${index}`}
             type="button"
-            role="option"
-            aria-selected={!value}
-            onClick={() => pick('')}
-            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
-              !value
-                ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
-                : 'text-text-secondary hover:bg-white/[0.05]'
+            aria-pressed={active}
+            onClick={() => onChange(device.name)}
+            className={`group relative flex min-h-[88px] flex-col justify-between rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.98] ${
+              active
+                ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
+                : 'border-border-subtle bg-bg-primary/90 backdrop-blur-xl hover:border-border-visible hover:bg-white/[0.05]'
             }`}
           >
-            <span className="min-w-0 flex-1 truncate">системное по умолчанию</span>
-            {!value && <Icon name="check" size={13} className="flex-shrink-0" />}
+            <span className="flex w-full items-start justify-between">
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                  active
+                    ? 'bg-[var(--accent-primary)] text-bg-primary'
+                    : 'bg-white/[0.05] text-text-tertiary group-hover:text-text-secondary'
+                }`}
+              >
+                <Icon name={device.icon} size={15} />
+              </span>
+              {active && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent-primary)] text-bg-primary">
+                  <Icon name="check" size={10} />
+                </span>
+              )}
+            </span>
+            <span className="mt-2 min-w-0">
+              <span className="block break-words text-xs font-medium leading-snug text-text-primary">
+                {device.label}
+              </span>
+              <span className="mt-1 block text-[10px] text-text-tertiary">
+                {device.subtitle}
+              </span>
+            </span>
           </button>
-
-          {value && !known && (
-            <button
-              type="button"
-              role="option"
-              aria-selected
-              onClick={() => pick(value)}
-              className="flex w-full items-center gap-2 rounded-lg bg-[var(--accent-muted)] px-2.5 py-2 text-left text-sm text-[var(--accent-primary)]"
-            >
-              <span className="min-w-0 flex-1 truncate">{value}</span>
-              <Icon name="check" size={13} className="flex-shrink-0" />
-            </button>
-          )}
-
-          <div className="max-h-56 overflow-auto scrollbar-hidden">
-            {devices.map((device, index) => {
-              const active = device.name === value;
-              return (
-                <button
-                  key={`${device.name}-${index}`}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => pick(device.name)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
-                    active
-                      ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
-                      : 'text-text-secondary hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    {device.name}
-                    {device.isDefault && (
-                      <span className="ml-1.5 text-[10px] text-text-tertiary">
-                        по умолчанию
-                      </span>
-                    )}
-                  </span>
-                  {active && <Icon name="check" size={13} className="flex-shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -289,6 +237,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
   };
 
   const chooseOutputDevice = async (name: string) => {
+    if (name === outputDevice) return;
     setOutputDevice(name);
     try {
       await api.setOutputDevice(name || null);
@@ -440,7 +389,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         </div>
       </div>
 
-      <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-1' : 'hidden'}`}>
+      <div className={`overflow-visible rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-1' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="volume-2" size={16} className="text-text-secondary" />
@@ -454,27 +403,11 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         </div>
 
         <div className="px-5 py-4">
-          <div className="relative">
-            <select
-              value={outputDevice}
-              onChange={(e) => chooseOutputDevice(e.target.value)}
-              aria-label="устройство вывода звука"
-              className="w-full appearance-none rounded-xl border border-border-subtle bg-white/[0.04] px-3 py-2.5 pr-9 text-sm text-text-primary outline-none transition-colors hover:border-border-visible focus:border-[var(--accent-primary)]"
-            >
-              <option value="">системное по умолчанию</option>
-              {devices.map((device, index) => (
-                <option key={`${device.name}-${index}`} value={device.name}>
-                  {device.name}
-                  {device.isDefault ? ' (по умолчанию)' : ''}
-                </option>
-              ))}
-            </select>
-            <Icon
-              name="chevron-right"
-              size={14}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-text-tertiary"
-            />
-          </div>
+          <DeviceGrid
+            devices={devices}
+            value={outputDevice}
+            onChange={chooseOutputDevice}
+          />
           {devices.length === 0 && (
             <p className="mt-2 text-[11px] text-text-tertiary">
               список устройств недоступен, используется системное
