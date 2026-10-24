@@ -1,5 +1,14 @@
-import { invokeCmd } from './client';
+import { invokeCmd, invokeCmdStrict } from './client';
 import type { Track, User, Playlist } from '@store/types';
+
+export interface ArtistSectionResult<T> {
+  items: T[];
+  hasMore: boolean;
+  // сколько элементов пришло в сыром ответе, для смещения пагинации
+  count?: number;
+  // курсор следующей страницы из next_href
+  cursor?: string;
+}
 
 let popularCache: { tracks: Track[]; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
@@ -16,8 +25,6 @@ export const soundcloudApi = {
     const data = await invokeCmd<any>('search_tracks', { query, limit, offset });
     return data?.collection || [];
   },
-
-
 
   searchUsers: async (query: string, offset = 0, limit = 50): Promise<User[]> => {
     const data = await invokeCmd<any>('search_users', { query, limit, offset });
@@ -38,31 +45,80 @@ export const soundcloudApi = {
       .filter((s: any): s is string => typeof s === 'string' && s.length > 0);
   },
 
-  getUserTracks: async (userId: number): Promise<Track[]> => {
-    const data = await invokeCmd<any>('get_user_tracks', { userId: String(userId) });
-    return data?.collection || [];
+  getUserTracks: async (
+    userId: number,
+    limit = 30,
+    offset = 0,
+    sort: 'popular' | 'new' = 'new',
+    cursor?: string
+  ): Promise<ArtistSectionResult<Track>> => {
+    const data = await invokeCmdStrict<any>('get_user_tracks', {
+      userId: String(userId),
+      limit,
+      offset,
+      cursor: cursor ?? null,
+      sort,
+    });
+    return {
+      items: data?.collection || [],
+      hasMore: !!data?.has_more,
+      count: typeof data?.count === 'number' ? data.count : undefined,
+      cursor: typeof data?.next_cursor === 'string' ? data.next_cursor : undefined,
+    };
   },
 
-  getUserPopularTracks: async (userId: number): Promise<Track[]> => {
-    const data = await invokeCmd<any>('get_user_popular_tracks', { userId: String(userId) });
-    return data?.collection || [];
+  getUserPopularTracks: async (userId: number, limit = 10): Promise<ArtistSectionResult<Track>> => {
+    const data = await invokeCmdStrict<any>('get_user_popular_tracks', { userId: String(userId), limit });
+    return {
+      items: data?.collection || [],
+      hasMore: !!data?.has_more,
+      count: typeof data?.count === 'number' ? data.count : undefined,
+    };
   },
 
-  getRelatedArtists: async (userId: number): Promise<User[]> => {
-    const data = await invokeCmd<any>('get_related_artists', { userId: String(userId) });
-    return data?.collection || [];
+  getRelatedArtists: async (
+    userId: number,
+    limit = 12,
+    offset = 0
+  ): Promise<ArtistSectionResult<User>> => {
+    const data = await invokeCmdStrict<any>('get_related_artists', {
+      userId: String(userId),
+      limit,
+      offset,
+    });
+    return {
+      items: data?.collection || [],
+      hasMore: !!data?.has_more,
+      count: typeof data?.count === 'number' ? data.count : undefined,
+    };
   },
 
-  getUserReposts: async (userId: number): Promise<Track[]> => {
-    const data = await invokeCmd<any>('get_user_reposts', { userId: String(userId) });
+  // в репостах бывают и треки и альбомы, разбираем на два списка
+  getUserReposts: async (
+    userId: number,
+    limit = 30,
+    offset = 0
+  ): Promise<ArtistSectionResult<Track> & { playlists: Playlist[] }> => {
+    const data = await invokeCmdStrict<any>('get_user_reposts', { userId: String(userId), limit, offset });
     const collection = data?.collection || [];
-    return collection
-      .map((item: any) => item.track)
-      .filter((t: any) => t && t.id);
+    const tracks: Track[] = [];
+    const playlists: Playlist[] = [];
+
+    for (const item of collection) {
+      if (item?.track?.id) tracks.push(item.track);
+      else if (item?.playlist?.id) playlists.push(item.playlist);
+    }
+
+    return {
+      items: tracks,
+      playlists,
+      hasMore: !!data?.has_more,
+      count: collection.length,
+    };
   },
 
   getUser: async (userId: number): Promise<User | null> => {
-    return await invokeCmd<User>('get_user', { userId: String(userId) });
+    return await invokeCmdStrict<User>('get_user', { userId: String(userId) });
   },
 
   getPlaylist: async (playlistId: string): Promise<Playlist | null> => {
@@ -74,9 +130,13 @@ export const soundcloudApi = {
     return data?.collection || [];
   },
 
-  getUserPlaylists: async (userId: number): Promise<Playlist[]> => {
-    const data = await invokeCmd<any>('get_user_playlists', { userId: String(userId) });
-    return data?.collection || [];
+  getUserPlaylists: async (userId: number, limit = 30, offset = 0): Promise<ArtistSectionResult<Playlist>> => {
+    const data = await invokeCmdStrict<any>('get_user_playlists', { userId: String(userId), limit, offset });
+    return {
+      items: data?.collection || [],
+      hasMore: !!data?.has_more,
+      count: typeof data?.count === 'number' ? data.count : undefined,
+    };
   },
 
   getRelatedTracks: async (currentTracks: Track[], limit = 15, artists: string[] = []): Promise<Track[]> => {

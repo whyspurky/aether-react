@@ -1,30 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArtistTabButton } from './ArtistTabButton';
-
-type Tab = 'all' | 'tracks' | 'playlists' | 'reposts';
+import { formatCount } from '@lib/format';
+import type { ArtistTab } from '@store/types';
 
 interface Props {
-  activeTab: Tab;
-  onChange: (tab: Tab) => void;
+  activeTab: ArtistTab;
+  counts?: Partial<Record<ArtistTab, number>>;
+  onChange: (tab: ArtistTab) => void;
+  // пустые разделы не показываем совсем
+  hidden?: ArtistTab[];
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'all', label: 'все' },
+const TABS: { id: ArtistTab; label: string }[] = [
+  { id: 'overview', label: 'все' },
   { id: 'tracks', label: 'треки' },
+  { id: 'releases', label: 'альбомы' },
   { id: 'playlists', label: 'плейлисты' },
   { id: 'reposts', label: 'репосты' },
 ];
 
-export function ArtistTabs({ activeTab, onChange }: Props) {
+export function ArtistTabs({ activeTab, counts = {}, onChange, hidden = [] }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const buttonsRef = useRef<Record<Tab, HTMLButtonElement | null>>({
-    all: null,
-    tracks: null,
-    playlists: null,
-    reposts: null,
-  });
-
-  const [indicator, setIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+  const buttonsRef = useRef<Partial<Record<ArtistTab, HTMLButtonElement | null>>>({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  const tabs = useMemo(() => TABS.filter((tab) => !hidden.includes(tab.id)), [hidden]);
+  const tabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
+  const countsKey = tabs.map((tab) => counts[tab.id] ?? '').join('|');
 
   useEffect(() => {
     const update = () => {
@@ -36,29 +37,69 @@ export function ArtistTabs({ activeTab, onChange }: Props) {
       const containerRect = container.getBoundingClientRect();
 
       setIndicator({
-        left: btnRect.left - containerRect.left,
+        left: btnRect.left - containerRect.left + container.scrollLeft,
         width: btnRect.width,
       });
     };
 
     update();
+
+    const observer = new ResizeObserver(update);
+    if (containerRef.current) observer.observe(containerRef.current);
     window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [activeTab]);
+    // шрифт может подъехать после первого кадра, индикатор не должен уехать
+    document.fonts?.ready.then(update).catch(() => {});
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [activeTab, countsKey, tabIds]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const index = tabIds.indexOf(activeTab);
+    let next: ArtistTab | null = null;
+
+    if (e.key === 'ArrowRight') next = tabIds[(index + 1) % tabIds.length];
+    else if (e.key === 'ArrowLeft') next = tabIds[(index - 1 + tabIds.length) % tabIds.length];
+    else if (e.key === 'Home') next = tabIds[0];
+    else if (e.key === 'End') next = tabIds[tabIds.length - 1];
+
+    if (!next) return;
+    e.preventDefault();
+    onChange(next);
+    buttonsRef.current[next]?.focus();
+  };
 
   return (
-    <div className="sticky top-0 z-30 bg-bg-primary/95 backdrop-blur-xl border-b border-border-subtle">
-      <div ref={containerRef} className="relative flex gap-7 px-7">
-        {TABS.map((t) => (
-          <ArtistTabButton
-            key={t.id}
-            ref={(el) => { buttonsRef.current[t.id] = el; }}
-            active={activeTab === t.id}
-            onClick={() => onChange(t.id)}
-          >
-            {t.label}
-          </ArtistTabButton>
-        ))}
+    <div className="bg-bg-primary/95">
+      <div
+        ref={containerRef}
+        role="tablist"
+        aria-label="разделы артиста"
+        onKeyDown={handleKeyDown}
+        className="relative flex gap-6 px-6 overflow-x-auto scrollbar-hidden"
+      >
+        {tabs.map((tab) => {
+          const count = counts[tab.id];
+          return (
+            <ArtistTabButton
+              key={tab.id}
+              ref={(el) => {
+                buttonsRef.current[tab.id] = el;
+              }}
+              active={activeTab === tab.id}
+              onClick={() => onChange(tab.id)}
+            >
+              {tab.label}
+              {count !== undefined && count > 0 && (
+                <span className="ml-1.5 text-[11px] tabular-nums text-text-tertiary">
+                  {formatCount(count)}
+                </span>
+              )}
+            </ArtistTabButton>
+          );
+        })}
 
         <div
           className="absolute bottom-0 h-[2px] bg-[var(--accent-primary)] rounded-full pointer-events-none"

@@ -10,3 +10,15 @@ export async function invokeCmd<T>(cmd: string, args?: Record<string, unknown>):
     return null;
   }
 }
+
+// для страниц, которым нужен код ошибки, а не тихий null
+export async function invokeCmdStrict<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(cmd, args);
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn(`[invoke] ${cmd} failed:`, e);
+    }
+    throw new Error(typeof e === 'string' ? e : e instanceof Error ? e.message : 'ошибка запроса');
+  }
+}

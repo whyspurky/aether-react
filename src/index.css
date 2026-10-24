@@ -291,6 +291,23 @@
   }
 }
 
+/* морф аватара и имени при смене таба артиста */
+::view-transition-group(artist-avatar) {
+  animation-duration: 340ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-group(artist-name) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 @keyframes fadeInBlur {
   from { opacity: 0; }
   to { opacity: var(--blur-opacity, 0.25); }

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { upgradeCoverUrl } from '@lib/format';
+import { playlistTypeLabel } from '@lib/playlist';
 import type { Playlist, Track } from '@store/types';
 
 interface Props {
@@ -19,11 +20,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport }: Props)
     null;
 
   const title = (playlist as any).title || playlist.name || 'без названия';
-  const typeLabel = {
-    album: 'альбом',
-    ep: 'ep',
-    playlist: 'плейлист',
-  }[playlist.playlist_type || 'playlist'];
+  const typeLabel = playlistTypeLabel(playlist);
 
   const formatDuration = (ms: number | undefined) => {
     if (!ms) return '';

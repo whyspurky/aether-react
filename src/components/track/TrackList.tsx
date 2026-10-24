@@ -5,7 +5,7 @@ import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import type { Track } from '@store/types';
-import { formatMs, getCoverUrl } from '@lib/format';
+import { formatMs, formatCount, getCoverUrl } from '@lib/format';
 
 interface TrackListProps {
   tracks: Track[];
@@ -13,11 +13,13 @@ interface TrackListProps {
   scrollRef?: React.RefObject<HTMLElement | null>;
   showQueueButton?: boolean;
   showNumber?: boolean;
+  // на странице артиста имя под треком лишнее, вместо него прослушивания
+  showArtist?: boolean;
   onTrackClick?: (track: Track, index: number) => void;
   onRemove?: (track: Track) => void;
 }
 
-const ITEM_HEIGHT = 64;
+const ITEM_HEIGHT = 56;
 const ITEM_GAP_PX = 4;
 
 export function TrackList({
@@ -25,6 +27,7 @@ export function TrackList({
   virtualize = false,
   scrollRef,
   showQueueButton = true,
+  showArtist = true,
   onTrackClick,
   onRemove,
 }: TrackListProps) {
@@ -72,12 +75,15 @@ export function TrackList({
   const virtualizer = useVirtualizer({
     count: tracks.length,
     getScrollElement: () => scrollElementRef.current,
-    estimateSize: () => ITEM_HEIGHT,
+    estimateSize: () => ITEM_HEIGHT + ITEM_GAP_PX,
+    getItemKey: (index) => tracks[index]?.id ?? index,
     overscan: 12,
-    useFlushSync: false,
-    directDomUpdates: true,
-    directDomUpdatesMode: 'transform',
   });
+
+  // при смене списка старые замеры высот невалидны, пересчитываем
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, tracks.length]);
 
   const handlePlay = (track: Track, index: number) => {
     if (onTrackClick) {
@@ -118,7 +124,6 @@ export function TrackList({
           isCurrent ? 'bg-[var(--accent-muted)]' : ''
         }`}
         style={{
-          marginBottom: ITEM_GAP_PX,
           animation: 'contentFadeIn 0.2s ease-out backwards',
           animationDelay: `${Math.min(index, 15) * 25}ms`,
         }}
@@ -143,15 +148,19 @@ export function TrackList({
             {track.title || 'без названия'}
           </h4>
           <p className="text-xs text-text-tertiary truncate">
-            {track.user?.id ? (
-              <span
-                onClick={(e) => handleArtistClick(track, e)}
-                className="cursor-pointer hover:text-text-secondary transition-colors"
-              >
-                {track.user.username}
-              </span>
+            {showArtist ? (
+              track.user?.id ? (
+                <span
+                  onClick={(e) => handleArtistClick(track, e)}
+                  className="cursor-pointer hover:text-text-secondary transition-colors"
+                >
+                  {track.user.username}
+                </span>
+              ) : (
+                track.user?.username || ''
+              )
             ) : (
-              track.user?.username || ''
+              `${formatCount(track.playback_count)} прослушиваний`
             )}
           </p>
         </div>
@@ -197,29 +206,39 @@ export function TrackList({
   };
 
   if (virtualize) {
+    const items = virtualizer.getVirtualItems();
+
+    // позицию задаёт react, императивные transform от virtualizer ломались при смене списка
     const inner = (
       <div
-        ref={virtualizer.containerRef}
         style={{
           width: '100%',
+          height: virtualizer.getTotalSize(),
           position: 'relative',
         }}
       >
-        {virtualizer.getVirtualItems().map((virtualRow) => (
-          <div
-            key={tracks[virtualRow.index].id}
-            data-index={virtualRow.index}
-            ref={virtualizer.measureElement}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-            }}
-          >
-            {renderItem(tracks[virtualRow.index], virtualRow.index)}
-          </div>
-        ))}
+        {items.map((virtualRow) => {
+          const track = tracks[virtualRow.index];
+          if (!track) return null;
+
+          return (
+            <div
+              key={virtualRow.key}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                paddingBottom: ITEM_GAP_PX,
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
+              {renderItem(track, virtualRow.index)}
+            </div>
+          );
+        })}
       </div>
     );
 
@@ -237,7 +256,7 @@ export function TrackList({
   return (
     <div className="w-full">
       {tracks.map((_, index) => (
-        <div key={tracks[index].id} className="w-full">
+        <div key={tracks[index].id} className="w-full" style={{ paddingBottom: ITEM_GAP_PX }}>
           {renderItem(tracks[index], index)}
         </div>
       ))}

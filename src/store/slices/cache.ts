@@ -1,4 +1,77 @@
-import type { Track, User, Playlist } from '../types';
+import type {
+  Track,
+  User,
+  Playlist,
+  ArtistTab,
+  ArtistSectionKey,
+  ArtistSectionMeta,
+  ArtistTracksSort,
+} from '../types';
+
+export interface ArtistCacheEntry {
+  artist: User | null;
+  status: 'loading' | 'ready' | 'error';
+  error: string | null;
+  popular: Track[];
+  tracks: Track[];
+  tracksPopular: Track[];
+  tracksSort: ArtistTracksSort;
+  playlists: Playlist[];
+  reposts: Track[];
+  repostPlaylists: Playlist[];
+  related: User[];
+  sections: Record<ArtistSectionKey, ArtistSectionMeta>;
+  tab: ArtistTab;
+  scrollTopByTab: Partial<Record<ArtistTab, number>>;
+  updatedAt: number;
+}
+
+const emptySection = (): ArtistSectionMeta => ({
+  status: 'idle',
+  error: null,
+  hasMore: false,
+  offset: 0,
+  cursor: null,
+});
+
+export const createEmptyArtistEntry = (artist: User | null = null): ArtistCacheEntry => ({
+  artist,
+  status: artist ? 'ready' : 'loading',
+  error: null,
+  popular: [],
+  tracks: [],
+  tracksPopular: [],
+  tracksSort: 'popular',
+  playlists: [],
+  reposts: [],
+  repostPlaylists: [],
+  related: [],
+  sections: {
+    popular: emptySection(),
+    tracks: emptySection(),
+    tracksPopular: emptySection(),
+    playlists: emptySection(),
+    reposts: emptySection(),
+    related: emptySection(),
+  },
+  tab: 'overview',
+  scrollTopByTab: {},
+  updatedAt: 0,
+});
+
+const dedupeById = <T extends { id?: number | string }>(items: T[]): T[] => {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const id = item?.id;
+    if (id === undefined || id === null) continue;
+    const key = String(id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+};
 
 export interface CacheSlice {
   searchHistory: string[];
@@ -22,16 +95,7 @@ export interface CacheSlice {
     };
   };
   artistPage: {
-    cache: Record<string, {
-      artist: User;
-      popularTracks: Track[];
-      tracks: Track[];
-      reposts: Track[];
-      playlists: Playlist[];
-      relatedArtists: User[];
-      tab: 'all' | 'tracks' | 'playlists' | 'reposts';
-      scrollTop: number;
-    }>;
+    cache: Record<string, ArtistCacheEntry>;
   };
   playlistPage: {
     cache: Record<string, {
@@ -61,7 +125,18 @@ export interface CacheSlice {
       query: string;
     }>
   ) => void;
-  setArtistCache: (id: string, data: Partial<CacheSlice['artistPage']['cache'][string]>) => void;
+  setArtistCache: (id: string, data: Partial<ArtistCacheEntry>) => void;
+  updateArtistSection: (
+    id: string,
+    key: ArtistSectionKey,
+    data: {
+      items?: Track[] | Playlist[] | User[];
+      mode?: 'replace' | 'append';
+      meta?: Partial<ArtistSectionMeta>;
+      // дополнительные поля записи, например альбомы из репостов
+      extra?: Partial<ArtistCacheEntry>;
+    }
+  ) => void;
   setPlaylistCache: (id: string, data: Partial<CacheSlice['playlistPage']['cache'][string]>) => void;
   setHomePagePopular: (tracks: Track[]) => void;
   setHomePageMyWave: (tracks: Track[]) => void;
@@ -161,15 +236,44 @@ export const createCacheSlice = (set: any) => ({
       },
     })),
 
-  setArtistCache: (id: string, data: Partial<CacheSlice['artistPage']['cache'][string]>) =>
+  setArtistCache: (id: string, data: Partial<ArtistCacheEntry>) =>
     set((s: any) => ({
       artistPage: {
         cache: {
           ...s.artistPage.cache,
-          [id]: { ...s.artistPage.cache[id], ...data } as any,
+          [id]: { ...(s.artistPage.cache[id] ?? createEmptyArtistEntry()), ...data } as ArtistCacheEntry,
         },
       },
     })),
+
+  updateArtistSection: (
+    id: string,
+    key: ArtistSectionKey,
+    data: {
+      items?: Track[] | Playlist[] | User[];
+      mode?: 'replace' | 'append';
+      meta?: Partial<ArtistSectionMeta>;
+      extra?: Partial<ArtistCacheEntry>;
+    }
+  ) =>
+    set((s: any) => {
+      const entry: ArtistCacheEntry = s.artistPage.cache[id] ?? createEmptyArtistEntry();
+      const prevMeta = entry.sections[key] ?? emptySection();
+      const nextEntry: ArtistCacheEntry = {
+        ...entry,
+        ...data.extra,
+        sections: { ...entry.sections, [key]: { ...prevMeta, ...data.meta } },
+        updatedAt: Date.now(),
+      };
+
+      if (data.items) {
+        const prevItems = (entry as any)[key] as { id?: number | string }[];
+        const items = data.mode === 'append' ? [...prevItems, ...data.items] : data.items;
+        (nextEntry as any)[key] = dedupeById(items);
+      }
+
+      return { artistPage: { cache: { ...s.artistPage.cache, [id]: nextEntry } } };
+    }),
 
   setPlaylistCache: (id: string, data: Partial<CacheSlice['playlistPage']['cache'][string]>) =>
     set((s: any) => ({
