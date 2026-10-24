@@ -98,6 +98,7 @@ async fn fetch_json_inner(url: &str, validate_ct: bool) -> Result<Value, ApiErro
         .map_err(|e| ApiError::Network(e.to_string()))?;
 
     match resp.status().as_u16() {
+        401 => return Err(ApiError::Unauthorized),
         404 => return Err(ApiError::NotFound),
         429 => return Err(ApiError::RateLimited),
         s if s >= 500 => return Err(ApiError::Server(s)),

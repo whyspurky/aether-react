@@ -23,6 +23,7 @@ pub fn add_client_id(url: &str) -> String {
 #[derive(Debug)]
 pub enum ApiError {
     NotFound,
+    Unauthorized,
     RateLimited,
     Server(u16),
     Network(String),
@@ -40,6 +41,7 @@ impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ApiError::NotFound => write!(f, "не найдено"),
+            ApiError::Unauthorized => write!(f, "unauthorized"),
             ApiError::RateLimited => write!(f, "429"),
             ApiError::Server(s) => write!(f, "сервер {}", s),
             ApiError::Network(e) => write!(f, "сеть {}", e),

@@ -3,11 +3,12 @@ use std::time::Duration;
 use futures::stream::{self, StreamExt};
 use serde_json::{json, Value};
 
-use super::{add_client_id, BASE_URL, CLIENT_ID, MIN_TRACK_MS, MAX_TRACK_MS};
+use super::{BASE_URL, CLIENT_ID, MIN_TRACK_MS, MAX_TRACK_MS};
 use super::client::{http, apply_proxy, get_proxy_status, ProxyConfig, fetch_retry};
 
-const PAGINATION_MAX_PAGES: usize = 20;
 const TRACKS_CHUNK_SIZE: usize = 50;
+const ARTIST_PAGE_LIMIT: u32 = 30;
+const ARTIST_SECTION_LIMIT: u32 = 12;
 const POPULAR_ROUNDS: usize = 3;
 const POPULAR_BATCH_SIZE: usize = 5;
 const POPULAR_ARTISTS: &[&str] = &[
@@ -19,28 +20,38 @@ const POPULAR_ARTISTS: &[&str] = &[
 const MY_WAVE_TARGET: usize = 50;
 const MY_WAVE_PER_ARTIST: usize = 10;
 
-async fn fetch_paginated(start_url: &str) -> Result<Vec<Value>, String> {
-    let mut all = vec![];
-    let mut seen = HashSet::new();
-    let mut next = Some(start_url.to_string());
-
-    while let Some(url) = next.take() {
-        if !seen.insert(url.clone()) {
-            break;
+// у api-v2 offset в next_href это курсор вида "<created_at>,tracks,<id>", а не число
+fn cursor_from(next_href: &str) -> Option<String> {
+    let query = next_href.split_once('?')?.1;
+    for pair in query.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            continue;
+        };
+        if key != "offset" {
+            continue;
         }
-        if seen.len() > PAGINATION_MAX_PAGES {
-            break;
+        let decoded = urlencoding::decode(value).ok()?.into_owned();
+        if !decoded.is_empty() {
+            return Some(decoded);
         }
-
-        let data = fetch_retry(&url).await.map_err(|e| e.to_string())?;
-        if let Some(arr) = data["collection"].as_array() {
-            all.extend(arr.iter().cloned());
-        }
-
-        next = data.get("next_href").and_then(|h| h.as_str()).map(add_client_id);
     }
+    None
+}
 
-    Ok(all)
+// одна страница списка: без добивания всех next_href, чтобы не ловить 429
+fn page_from(data: Value, limit: u32) -> Value {
+    let collection = data.get("collection").cloned().unwrap_or_else(|| json!([]));
+    let raw_len = collection.as_array().map_or(0, |items| items.len());
+    let next_href = data.get("next_href").and_then(|h| h.as_str());
+    // some endpoints не отдают next_href, но полная страница значит что может быть ещё
+    let has_more = next_href.is_some() || (raw_len > 0 && raw_len >= limit as usize);
+    let next_cursor = next_href.and_then(cursor_from);
+    json!({ "collection": collection, "has_more": has_more, "count": raw_len, "next_cursor": next_cursor })
+}
+
+async fn fetch_page(url: &str, limit: u32) -> Result<Value, String> {
+    let data = fetch_retry(url).await.map_err(|e| e.to_string())?;
+    Ok(page_from(data, limit))
 }
 
 #[tauri::command]
@@ -155,29 +166,93 @@ pub async fn search_playlists(query: String, limit: u32, offset: u32) -> Result<
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub async fn get_user_tracks(user_id: String) -> Result<Value, String> {
-    let url = format!(
-        "{}/users/{}/tracks?client_id={}&limit=50&representation=&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID
-    );
-    let all = fetch_paginated(&url).await?;
-    Ok(json!({ "collection": all }))
+fn clamp_limit(limit: Option<u32>, fallback: u32, max: u32) -> u32 {
+    limit.unwrap_or(fallback).clamp(1, max)
 }
 
 #[tauri::command]
-pub async fn get_user_popular_tracks(user_id: String) -> Result<Value, String> {
+pub async fn get_user_tracks(
+    user_id: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+    cursor: Option<String>,
+    sort: Option<String>,
+) -> Result<Value, String> {
+    let limit = clamp_limit(limit, ARTIST_PAGE_LIMIT, 100);
+    let offset = offset.unwrap_or(0);
+    // popular это toptracks, new это обычный список, soundcloud отдаёт его от новых
+    let path = if sort.as_deref() == Some("popular") { "toptracks" } else { "tracks" };
+    // у новых треков offset это курсор из next_href, у toptracks число
+    let offset_param = match cursor {
+        Some(value) if !value.trim().is_empty() => urlencoding::encode(value.trim()).into_owned(),
+        _ => offset.to_string(),
+    };
     let url = format!(
-        "{}/users/{}/toptracks?client_id={}&limit=20&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID
+        "{}/users/{}/{}?client_id={}&limit={}&offset={}&linked_partitioning=1",
+        BASE_URL, user_id, path, CLIENT_ID, limit, offset_param
     );
-    fetch_retry(&url).await.map_err(|e| e.to_string())
+    fetch_page(&url, limit).await
 }
 
 #[tauri::command]
-pub async fn get_related_artists(user_id: String) -> Result<Value, String> {
-    let url = format!("{}/users/{}/related-artists?client_id={}&limit=20", BASE_URL, user_id, CLIENT_ID);
-    fetch_retry(&url).await.map_err(|e| e.to_string())
+pub async fn get_user_popular_tracks(
+    user_id: String,
+    limit: Option<u32>,
+) -> Result<Value, String> {
+    let limit = clamp_limit(limit, ARTIST_SECTION_LIMIT, 50);
+    let url = format!(
+        "{}/users/{}/toptracks?client_id={}&limit={}&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID, limit
+    );
+    fetch_page(&url, limit).await
+}
+
+#[tauri::command]
+pub async fn get_related_artists(
+    user_id: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Value, String> {
+    let limit = clamp_limit(limit, ARTIST_SECTION_LIMIT, 50);
+    let offset = offset.unwrap_or(0);
+    // на soundcloud это fans also like, порядок это релевантность
+    let url = format!(
+        "{}/users/{}/related?client_id={}&limit={}&offset={}&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID, limit, offset
+    );
+    let page = match fetch_page(&url, limit).await {
+        Ok(data) => data,
+        // старый вариант на случай, если related выпилят
+        Err(_) => {
+            let fallback = format!(
+                "{}/users/{}/related-artists?client_id={}&limit={}&offset={}&linked_partitioning=1",
+                BASE_URL, user_id, CLIENT_ID, limit, offset
+            );
+            fetch_page(&fallback, limit).await?
+        }
+    };
+
+    // чистим страницу: без id и имени строку не нарисовать, себя и дубли тоже убираем
+    let raw = page["collection"].as_array().cloned().unwrap_or_default();
+    let raw_len = raw.len();
+    let mut seen = HashSet::new();
+    let mut items = Vec::with_capacity(raw_len);
+
+    for user in raw {
+        let Some(id) = user["id"].as_u64() else { continue };
+        if id.to_string() == user_id {
+            continue;
+        }
+        let has_name = user["username"].as_str().map_or(false, |name| !name.is_empty());
+        if !has_name || !seen.insert(id) {
+            continue;
+        }
+        items.push(user);
+    }
+
+    let has_more = page["has_more"].as_bool().unwrap_or(false) && raw_len > 0;
+    // count это длина сырой страницы, по ней двигаем offset
+    Ok(json!({ "collection": items, "has_more": has_more, "count": raw_len }))
 }
 
 #[tauri::command]
@@ -187,13 +262,18 @@ pub async fn get_user(user_id: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub async fn get_user_reposts(user_id: String) -> Result<Value, String> {
+pub async fn get_user_reposts(
+    user_id: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Value, String> {
+    let limit = clamp_limit(limit, ARTIST_PAGE_LIMIT, 100);
+    let offset = offset.unwrap_or(0);
     let url = format!(
-        "{}/stream/users/{}/reposts?client_id={}&limit=50&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID
+        "{}/stream/users/{}/reposts?client_id={}&limit={}&offset={}&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID, limit, offset
     );
-    let all = fetch_paginated(&url).await?;
-    Ok(json!({ "collection": all }))
+    fetch_page(&url, limit).await
 }
 
 #[tauri::command]
@@ -250,13 +330,18 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub async fn get_user_playlists(user_id: String) -> Result<Value, String> {
+pub async fn get_user_playlists(
+    user_id: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Value, String> {
+    let limit = clamp_limit(limit, ARTIST_PAGE_LIMIT, 100);
+    let offset = offset.unwrap_or(0);
     let url = format!(
-        "{}/users/{}/playlists?client_id={}&limit=50&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID
+        "{}/users/{}/playlists?client_id={}&limit={}&offset={}&linked_partitioning=1",
+        BASE_URL, user_id, CLIENT_ID, limit, offset
     );
-    let all = fetch_paginated(&url).await?;
-    Ok(json!({ "collection": all }))
+    fetch_page(&url, limit).await
 }
 
 #[tauri::command]
