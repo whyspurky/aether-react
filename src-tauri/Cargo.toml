@@ -37,8 +37,8 @@ reqwest = { version = "0.13.5", default-features = false, features = [
 ] }
 urlencoding = "2"
 regex = "1"
-cpal = "0.17.3"
-rodio = { version = "0.22.2", features = ["symphonia-all", "experimental"] }
+cpal = "0.18.2"
+rodio = { version = "0.23.0", features = ["symphonia-all", "experimental"] }
 futures = "0.3.34"
 tokio = { version = "1.53.1", features = ["full"] }
 bytes = "1.12.1"
