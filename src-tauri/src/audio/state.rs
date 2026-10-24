@@ -1,9 +1,20 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
+use cpal::traits::{DeviceTrait, HostTrait};
 use tauri::async_runtime::JoinHandle;
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputDeviceInfo {
+    pub id: String,
+    pub name: String,
+    pub detail: String,
+    pub is_default: bool,
+}
 
 #[derive(Clone)]
 pub enum PlaybackSource {
@@ -121,35 +132,99 @@ pub struct AppState {
     pub volume_channel: Arc<Mutex<Option<tauri::ipc::Channel<u32>>>>,
 }
 
-pub fn output_devices() -> Result<Vec<(String, bool)>, String> {
-    let outputs = rodio::speakers::available_outputs().map_err(|e| e.to_string())?;
-    Ok(outputs
+fn device_label(
+    device: &cpal::Device,
+    index: usize,
+    default_id: &Option<cpal::DeviceId>,
+    seen: &mut HashMap<String, usize>,
+) -> OutputDeviceInfo {
+    let desc = device.description().ok();
+    let raw_name = desc
+        .as_ref()
+        .map(|d| d.name().to_string())
+        .unwrap_or_else(|| format!("Устройство {}", index + 1));
+    let driver = desc
+        .as_ref()
+        .and_then(|d| d.driver())
+        .unwrap_or("")
+        .to_string();
+
+    let base = if raw_name.contains('(') || driver.is_empty() {
+        raw_name
+    } else {
+        format!("{raw_name} ({driver})")
+    };
+    let count = seen.entry(base.clone()).or_insert(0);
+    *count += 1;
+    let name = if *count > 1 {
+        format!("{base} #{}", *count)
+    } else {
+        base
+    };
+    let detail = "Устройство вывода".to_string();
+
+    OutputDeviceInfo {
+        id: format!("{index}|{name}"),
+        name,
+        detail,
+        is_default: device.id().ok() == *default_id,
+    }
+}
+
+fn collect_devices() -> Result<Vec<(cpal::Device, OutputDeviceInfo)>, String> {
+    let host = cpal::default_host();
+    let default_id = host
+        .default_output_device()
+        .and_then(|device| device.id().ok());
+    let devices = host
+        .output_devices()
+        .map_err(|e| format!("output devices: {e}"))?;
+    let mut seen = HashMap::new();
+    Ok(devices
+        .enumerate()
+        .map(|(index, device)| {
+            let info = device_label(&device, index, &default_id, &mut seen);
+            (device, info)
+        })
+        .collect())
+}
+
+pub fn output_devices() -> Result<Vec<OutputDeviceInfo>, String> {
+    Ok(collect_devices()?
         .into_iter()
-        .map(|output| (output.to_string(), output.is_default()))
+        .map(|(_, info)| info)
         .collect())
 }
 
 impl AppState {
-    pub fn set_output_device(&self, name: Option<&str>) -> Result<String, String> {
-        let wanted = name.unwrap_or("").trim();
+    pub fn set_output_device(&self, id: Option<&str>) -> Result<String, String> {
+        let wanted = id.unwrap_or("").trim();
         let (sink, label) = if wanted.is_empty() || wanted == "default" {
             let sink = rodio::DeviceSinkBuilder::open_default_sink()
                 .map_err(|e| format!("default output: {e}"))?;
             (sink, "default".to_string())
         } else {
-            let outputs = rodio::speakers::available_outputs().map_err(|e| e.to_string())?;
-            let output = outputs
-                .into_iter()
-                .find(|output| output.to_string() == wanted)
+            let devices = collect_devices()?;
+            let chosen = devices
+                .iter()
+                .find(|(_, info)| info.id == wanted)
+                .or_else(|| {
+                    let wanted_label = wanted
+                        .split_once('|')
+                        .map(|(_, label)| label)
+                        .unwrap_or(wanted);
+                    devices.iter().find(|(_, info)| {
+                        info.name == wanted_label
+                            || info.id.ends_with(&format!("|{wanted_label}"))
+                    })
+                })
                 .ok_or_else(|| format!("устройство вывода не найдено: {wanted}"))?;
-            let label = output.to_string();
-            let sink = rodio::speakers::SpeakersBuilder::new()
-                .device(output)
-                .map_err(|e| e.to_string())?
-                .default_config()
-                .map_err(|e| e.to_string())?
-                .open_mixer()
-                .map_err(|e| e.to_string())?;
+
+            let label = chosen.1.name.clone();
+            let sink = rodio::DeviceSinkBuilder::from_device(chosen.0.clone())
+                .map_err(|e| format!("device config: {e}"))?
+                .open_stream()
+                .map_err(|e| format!("device open: {e}"))?;
             (sink, label)
         };
 
@@ -177,3 +252,21 @@ impl AppState {
         }
     }
 }
+
+#[cfg(test)]
+mod device_tests {
+    use std::collections::HashSet;
+
+    #[test]
+    fn every_output_device_has_a_distinct_label() {
+        let Ok(devices) = super::output_devices() else {
+            return;
+        };
+        let labels: Vec<_> = devices.iter().map(|device| device.name.as_str()).collect();
+        println!("output devices: {labels:?}");
+        assert!(labels.iter().all(|label| !label.is_empty()));
+        let unique: HashSet<_> = labels.iter().collect();
+        assert_eq!(unique.len(), labels.len());
+    }
+}
+

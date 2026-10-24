@@ -31,12 +31,18 @@ export const playerApi = {
     return await invoke('play_stream', { trackId, quality });
   },
 
-  listOutputDevices: async (): Promise<{ name: string; isDefault: boolean }[]> => {
-    return (await invokeCmd<{ name: string; isDefault: boolean }[]>('list_output_devices')) ?? [];
+  listOutputDevices: async (): Promise<
+    { id: string; name: string; detail: string; isDefault: boolean }[]
+  > => {
+    return (
+      (await invokeCmd<
+        { id: string; name: string; detail: string; isDefault: boolean }[]
+      >('list_output_devices')) ?? []
+    );
   },
 
-  setOutputDevice: async (name: string | null): Promise<string> => {
-    return await invokeCmdStrict<string>('set_output_device', { name });
+  setOutputDevice: async (id: string | null): Promise<string> => {
+    return await invokeCmdStrict<string>('set_output_device', { id });
   },
 
   pauseAudio: async (): Promise<void> => { await invokeCmd('pause_audio'); },

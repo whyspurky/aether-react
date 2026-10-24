@@ -24,6 +24,7 @@ name = "aether-desktop"
 version = "0.1.2"
 dependencies = [
  "bytes",
+ "cpal",
  "dirs",
  "futures",
  "regex",

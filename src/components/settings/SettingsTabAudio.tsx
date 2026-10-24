@@ -111,37 +111,35 @@ function DeviceGrid({
   value,
   onChange,
 }: {
-  devices: { name: string; isDefault: boolean }[];
+  devices: { id: string; name: string; detail: string; isDefault: boolean }[];
   value: string;
-  onChange: (name: string) => void;
+  onChange: (id: string) => void;
 }) {
   const options = [
     {
-      name: '',
+      id: '',
       label: 'По умолчанию',
       subtitle: 'Системное устройство',
       icon: 'volume-2',
-      isDefault: true,
     },
     ...devices.map((device) => ({
-      name: device.name,
+      id: device.id,
       label: device.name,
-      subtitle: 'Устройство вывода',
+      subtitle: device.detail || 'Устройство вывода',
       icon: device.isDefault ? 'volume-2' : 'audio-lines',
-      isDefault: device.isDefault,
     })),
   ];
 
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {options.map((device, index) => {
-        const active = device.name === value;
+        const active = device.id === value;
         return (
           <button
-            key={`${device.name}-${index}`}
+            key={`${device.id}-${index}`}
             type="button"
             aria-pressed={active}
-            onClick={() => onChange(device.name)}
+            onClick={() => onChange(device.id)}
             className={`group relative flex min-h-[88px] flex-col justify-between rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.98] ${
               active
                 ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
@@ -190,7 +188,9 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
   const refreshCache = useStore((s) => s.refreshCache);
   const outputDevice = useStore((s) => s.audio.outputDevice);
   const setOutputDevice = useStore((s) => s.setOutputDevice);
-  const [devices, setDevices] = useState<{ name: string; isDefault: boolean }[]>([]);
+  const [devices, setDevices] = useState<
+    { id: string; name: string; detail: string; isDefault: boolean }[]
+  >([]);
   const [clearScope, setClearScope] = useState<ClearScope>(null);
   const [limitDraft, setLimitDraft] = useState(String(offline.cacheLimitMb));
   const entries = Object.values(offline.entries);
@@ -236,11 +236,11 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
     }
   };
 
-  const chooseOutputDevice = async (name: string) => {
-    if (name === outputDevice) return;
-    setOutputDevice(name);
+  const chooseOutputDevice = async (id: string) => {
+    if (id === outputDevice) return;
+    setOutputDevice(id);
     try {
-      await api.setOutputDevice(name || null);
+      await api.setOutputDevice(id || null);
       await api.stopAudio();
       useStore.setState((s: any) => ({
         player: {

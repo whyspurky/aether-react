@@ -1,7 +1,7 @@
 mod state;
 mod engine;
 
-pub use state::AppState;
+pub use state::{AppState, OutputDeviceInfo};
 use crate::api::quality::AudioQuality;
 use crate::api::stream::StreamInfo;
 use crate::track_cache::TrackCacheState;
@@ -40,27 +40,17 @@ pub async fn play_stream(
     Ok(StreamPlayback { sync, stream })
 }
 
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AudioOutputDevice {
-    pub name: String,
-    pub is_default: bool,
-}
-
 #[tauri::command]
-pub fn list_output_devices() -> Result<Vec<AudioOutputDevice>, String> {
-    Ok(state::output_devices()?
-        .into_iter()
-        .map(|(name, is_default)| AudioOutputDevice { name, is_default })
-        .collect())
+pub fn list_output_devices() -> Result<Vec<OutputDeviceInfo>, String> {
+    state::output_devices()
 }
 
 #[tauri::command]
 pub fn set_output_device(
-    name: Option<String>,
+    id: Option<String>,
     state: State<AppState>,
 ) -> Result<String, String> {
-    state.set_output_device(name.as_deref())
+    state.set_output_device(id.as_deref())
 }
 
 #[tauri::command]
