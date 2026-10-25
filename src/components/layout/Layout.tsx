@@ -12,12 +12,8 @@ function buildCoverCandidates(url: string): string[] {
   const base = url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '');
   const ext = url.match(/\.(jpg|jpeg|png|webp)$/i)?.[0] || '.jpg';
 
-  return [
-    `${base}-original${ext}`,
-    `${base}-t500x500${ext}`,
-    `${base}-t300x300${ext}`,
-    url,
-  ];
+  // фон размывается до неузнаваемости, полный размер не нужен
+  return [`${base}-t500x500${ext}`, `${base}-t300x300${ext}`, url];
 }
 
 export function Layout({ children }: LayoutProps) {

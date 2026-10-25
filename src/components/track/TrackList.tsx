@@ -135,7 +135,13 @@ export function TrackList({
       >
 
         {coverUrl ? (
-          <img src={coverUrl} className="w-10 h-10 rounded-md object-cover flex-shrink-0" alt="" />
+          <img
+            src={coverUrl}
+            className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="w-10 h-10 rounded-md bg-bg-secondary flex items-center justify-center flex-shrink-0">
             <Icon name="music" size={16} className="text-text-tertiary" />

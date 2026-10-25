@@ -82,17 +82,36 @@ export function PlayerBar() {
   });
 
   useEffect(() => {
-    let raf: number;
-    const tick = () => {
+    let raf = 0;
+    let timer = 0;
+    let lastPct = -1;
+
+    const draw = () => {
       const d = durationRef.current;
       const pos = isDragging ? dragPosRef.current : progressRef.current;
       const pct = d > 0 ? (pos / d) * 100 : 0;
+      if (pct === lastPct) return;
+      lastPct = pct;
       if (fillRef.current) fillRef.current.style.width = `${pct}%`;
-      raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [progressRef, isDragging, dragPosRef]);
+
+    draw();
+
+    // на драге нужен кадр каждый кадр, в остальное время позиция приходит раз в 100 мс
+    if (isDragging) {
+      const tick = () => {
+        draw();
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }
+
+    if (!isPlaying) return;
+
+    timer = window.setInterval(draw, 100);
+    return () => window.clearInterval(timer);
+  }, [progressRef, isDragging, dragPosRef, isPlaying]);
   useEffect(() => {
     const measure = () => {
       const repeatEl = repeatRef.current;

@@ -6,6 +6,7 @@ interface Props {
   fillRef: React.MutableRefObject<HTMLDivElement | null>;
   knobRef: React.MutableRefObject<HTMLDivElement | null>;
   effectiveDuration: number;
+  isPlaying: boolean;
   isDragging: boolean;
   onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
@@ -15,6 +16,7 @@ export function PlayerProgressBar({
   fillRef,
   knobRef,
   effectiveDuration,
+  isPlaying,
   isDragging,
   onMouseDown,
 }: Props) {
@@ -24,24 +26,27 @@ export function PlayerProgressBar({
   useEffect(() => { durationRef.current = effectiveDuration; }, [effectiveDuration]);
 
   useEffect(() => {
-    let raf: number;
+    let timer = 0;
     let lastSec = -1;
-    const tick = () => {
+
+    const draw = () => {
       const el = fillRef.current;
-      if (el && timeRef.current) {
-        const pct = parseFloat(el.style.width) || 0;
-        const pos = (pct / 100) * durationRef.current;
-        const sec = Math.floor(pos);
-        if (sec !== lastSec) {
-          lastSec = sec;
-          timeRef.current.textContent = formatSec(pos);
-        }
-      }
-      raf = requestAnimationFrame(tick);
+      if (!el || !timeRef.current) return;
+      const pct = parseFloat(el.style.width) || 0;
+      const pos = (pct / 100) * durationRef.current;
+      const sec = Math.floor(pos);
+      if (sec === lastSec) return;
+      lastSec = sec;
+      timeRef.current.textContent = formatSec(pos);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [fillRef]);
+
+    draw();
+    if (!isPlaying && !isDragging) return;
+
+    // текст меняется раз в секунду, кадры ему не нужны
+    timer = window.setInterval(draw, 250);
+    return () => window.clearInterval(timer);
+  }, [fillRef, isPlaying, isDragging]);
 
   return (
     <div className="space-y-1">
