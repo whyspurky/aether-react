@@ -124,6 +124,22 @@ pub fn set_eq(settings: dsp::EqSettings, state: State<AppState>) -> Result<(), S
     engine::set_eq(settings, state)
 }
 
+// спектр нужен только пока на экране визуализатор
+#[tauri::command]
+pub fn set_spectrum_active(active: bool, state: State<AppState>) {
+    state.analyser.set_active(active);
+}
+
+// настройки производительности с фронта
+#[tauri::command]
+pub fn set_perf_flags(position_tick_ms: Option<u64>, state: State<AppState>) {
+    if let Some(ms) = position_tick_ms {
+        state
+            .position_tick_ms
+            .store(ms.clamp(50, 1000), std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 #[tauri::command]
 pub fn start_volume_stream(
     on_volume: tauri::ipc::Channel<u32>,

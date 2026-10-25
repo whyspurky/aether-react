@@ -192,7 +192,7 @@ export function SettingsTabBinds() {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-              <Icon name="command" size={16} className="text-text-secondary" />
+              <Icon name="command" size={16}  />
             </div>
             <div>
               <div className="flex items-center gap-2">

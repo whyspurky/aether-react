@@ -29,7 +29,7 @@ function BackRow({ onBack, label }: { onBack: () => void; label?: string }) {
         className="flex items-center gap-1 min-w-0 max-w-full px-2 py-1 rounded-full text-xs text-text-tertiary hover:text-text-primary transition-colors outline-none focus-visible:text-text-primary"
       >
         <Icon name="chevron-left" size={16} />
-        <span className="truncate font-semibold text-text-secondary">{label || 'назад'}</span>
+        <span className="truncate font-semibold">{label || 'назад'}</span>
       </button>
     </div>
   );

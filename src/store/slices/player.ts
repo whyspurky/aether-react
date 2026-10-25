@@ -324,7 +324,8 @@ if (isCurrent) {
 
         const nextIdx = index + 1;
         const nextTrack = tracks[nextIdx];
-        if (cacheEnabled && nextTrack?.id && transition !== 'off') {
+        const perfNow = get().perf;
+        if (cacheEnabled && nextTrack?.id && transition !== 'off' && perfNow.nextTrackPrep) {
           (async () => {
             try {
               if (!isValid()) return;
@@ -338,7 +339,7 @@ if (isCurrent) {
               }
             } catch {}
           })();
-        } else if (cacheEnabled && nextTrack?.id) {
+        } else if (cacheEnabled && nextTrack?.id && perfNow.prefetchQueue) {
           (async () => {
             try {
               if (!isValid()) return;
@@ -609,8 +610,8 @@ if (isCurrent) {
   },
 
   preloadMoreTracks: async () => {
-    const { queue, player, library, preload } = get();
-    if (preload.isPreloading || player.repeat === 'one') return;
+    const { queue, player, library, preload, perf } = get();
+    if (preload.isPreloading || player.repeat === 'one' || !perf.prefetchQueue) return;
 
     set((s: any) => ({ preload: { ...s.preload, isPreloading: true } }));
 

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
+import { upgradeCoverUrl } from '@lib/format';
 
 export function HomeTopArtists() {
   const artistScores = useStore((s) => s.artistScores);
@@ -19,14 +20,14 @@ export function HomeTopArtists() {
     <section>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Icon name="mic" size={16} className="text-text-tertiary" />
+          <Icon name="mic" size={16}  />
           <h2 className="text-sm font-bold text-text-primary">топ артистов</h2>
         </div>
       </div>
 
       <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
         {artists.map((a, i) => {
-          const avatar = a.avatar_url?.replace('-large', '-t300x300') || null;
+          const avatar = upgradeCoverUrl(a.avatar_url, 't300x300') || null;
 
           // затухание от 100% (первый) до 10% (последний)
           const total = Math.max(artists.length - 1, 1);
@@ -59,7 +60,7 @@ export function HomeTopArtists() {
                     <img src={avatar} alt={a.username} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-bg-secondary flex items-center justify-center">
-                      <Icon name="mic" size={20} className="text-text-tertiary" />
+                      <Icon name="mic" size={20}  />
                     </div>
                   )}
                 </div>

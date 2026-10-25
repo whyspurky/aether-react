@@ -27,7 +27,7 @@ export function PopularSection({
       <div className="rounded-2xl border border-border-subtle bg-bg-secondary/50 backdrop-blur-sm p-4 h-72 transition-all duration-200 hover:border-border-visible">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Icon name="flame" size={16} className="text-text-tertiary" />
+            <Icon name="flame" size={16}  />
             <h2 className="text-sm font-bold text-text-primary">популярное</h2>
           </div>
           {isLoadingMore && (

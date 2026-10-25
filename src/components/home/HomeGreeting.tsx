@@ -35,7 +35,7 @@ export function HomeGreeting() {
       <div className="relative p-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-[var(--accent-muted)] flex items-center justify-center">
-            <Icon name={icon} size={22} className="text-[var(--accent-primary)]" />
+            <Icon name={icon} size={22} className="text-[var(--accent-primary)]" filled/>
           </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-text-primary truncate">

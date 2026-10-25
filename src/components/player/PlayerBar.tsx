@@ -9,6 +9,7 @@ import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
 import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import type { Track } from '@store/types';
+import { upgradeCoverUrl } from '@lib/format';
 
 const MAX_VOLUME_WIDTH = 120;
 const MIN_VOLUME_WIDTH = 80;
@@ -150,8 +151,8 @@ export function PlayerBar() {
   };
 
   const coverUrl =
-    currentTrack?.artwork_url?.replace('-large', '-t300x300') ||
-    currentTrack?.user?.avatar_url?.replace('-large', '-t300x300') ||
+    upgradeCoverUrl(currentTrack?.artwork_url, 't300x300') ||
+    upgradeCoverUrl(currentTrack?.user?.avatar_url, 't300x300') ||
     null;
   const isFav = currentTrack ? favorites.some((f: Track) => f.id === currentTrack.id) : false;
 
@@ -168,7 +169,7 @@ export function PlayerBar() {
             <img src={coverUrl} className="w-10 h-10 rounded-lg object-cover" alt="" />
           ) : (
             <div className="w-10 h-10 rounded-lg bg-bg-secondary flex items-center justify-center">
-              <Icon name="music" size={18} className="text-text-tertiary" />
+              <Icon name="music" size={18} />
             </div>
           )}
           {isPlaying && (
@@ -282,7 +283,7 @@ export function PlayerBar() {
           onClick={() => prevTrack(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
         >
-          <Icon name="skip-back" size={16} />
+          <Icon name="skip-back" size={16} filled/>
         </button>
 
         <button
@@ -295,9 +296,9 @@ export function PlayerBar() {
           }`}
         >
           {isLoading ? (
-            <div className="w-4 h-4 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
+<div className="w-5 h-5 border-2 border-[var(--accent-primary)]/40 border-t-[var(--accent-primary)] rounded-full animate-spin" />
           ) : (
-            <Icon name={isPlaying ? 'pause' : 'play'} size={18} />
+            <Icon name={isPlaying ? 'pause' : 'play'} size={18} filled/>
           )}
         </button>
 
@@ -305,7 +306,7 @@ export function PlayerBar() {
           onClick={() => nextTrack(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-glass-bg transition-all duration-200"
         >
-          <Icon name="skip-forward" size={16} />
+          <Icon name="skip-forward" size={16} filled/>
         </button>
 
         <button

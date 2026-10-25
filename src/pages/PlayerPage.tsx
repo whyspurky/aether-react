@@ -135,11 +135,11 @@ export default function PlayerPage() {
             <div className="relative mb-6">
               <div className="absolute inset-0 bg-bg-secondary rounded-full blur-xl" />
               <div className="relative w-24 h-24 rounded-full bg-bg-secondary flex items-center justify-center">
-                <Icon name="music" size={40} className="text-text-tertiary" />
+                <Icon name="music" size={40} />
               </div>
             </div>
             <h2 className="text-2xl font-medium text-text-secondary mb-2">ничего не играет</h2>
-            <p className="text-text-tertiary text-sm max-w-sm">добавьте треки из поиска, чтобы начать слушать</p>
+            <p className=" text-sm max-w-sm">добавьте треки из поиска, чтобы начать слушать</p>
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@ export default function PlayerPage() {
                 <img src={displayCover} alt="" className="w-full h-full object-cover" draggable={false} />
               ) : (
                 <div className="w-full h-full bg-bg-secondary flex items-center justify-center">
-                  <Icon name="music" size={64} className="text-text-tertiary" />
+                  <Icon name="music" size={64} />
                 </div>
               )}
             </div>
@@ -183,7 +183,7 @@ export default function PlayerPage() {
                 <img src={coverUrl} alt={currentTrack.title || 'track'} className="w-full h-full object-cover" draggable={false} />
               ) : (
                 <div className="w-full h-full bg-bg-secondary flex items-center justify-center">
-                  <Icon name="music" size={64} className="text-text-tertiary" />
+                  <Icon name="music" size={64} />
                 </div>
               )}
             </div>
@@ -229,7 +229,7 @@ export default function PlayerPage() {
                 <div className="flex items-center gap-3 mt-2 text-xs text-text-tertiary">
                   {currentTrack?.playback_count !== undefined && (
                     <span className="flex items-center gap-1">
-                      <Icon name="play" size={12} />
+                      <Icon name="play" size={12} filled/>
                       {currentTrack.playback_count.toLocaleString()}
                     </span>
                   )}
@@ -276,26 +276,26 @@ export default function PlayerPage() {
                   onClick={() => prevTrack(true)}
                   className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
                 >
-                  <Icon name="skip-back" size={22} />
+                  <Icon name="skip-back" size={22} filled/>
                 </button>
                 <button
                   onClick={() => { if (!isLoading) void togglePlay(); }}
                   disabled={isLoading}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                    isLoading ? 'bg-white/[0.08] cursor-wait' : 'bg-white/[0.08] hover:bg-white/[0.14] hover:scale-105'
+                    isLoading ? ' cursor-wait' : 'hover:scale-105'
                   }`}
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-text-secondary border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-[var(--accent-primary)]/40 border-t-[var(--accent-primary)] rounded-full animate-spin" />
                   ) : (
-                    <Icon name={isPlaying ? 'pause' : 'play'} size={24} className="text-text-primary" />
+                    <Icon name={isPlaying ? 'pause' : 'play'} size={24} filled/>
                   )}
                 </button>
                 <button
                   onClick={() => nextTrack(true)}
                   className="p-1.5 rounded-full text-text-tertiary hover:text-text-primary transition-all"
                 >
-                  <Icon name="skip-forward" size={22} />
+                  <Icon name="skip-forward" size={22} filled/>
                 </button>
                 <button
                   onClick={() => {

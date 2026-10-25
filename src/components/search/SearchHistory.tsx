@@ -53,7 +53,7 @@ export function SearchHistory({ items, onSelect, onRemove, onClear }: Props) {
               }
             }}
           >
-            <Icon name="search" size={16} className="text-text-tertiary flex-shrink-0" />
+            <Icon name="search" size={16} className=" flex-shrink-0" />
             <span className="flex-1 text-sm text-text-primary truncate">{item}</span>
             <button
               type="button"

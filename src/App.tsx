@@ -22,10 +22,12 @@ import SettingsPage from './pages/SettingsPage';
 import ArtistPage from './pages/ArtistPage';
 import PlaylistPage from './pages/PlaylistPage';
 import { useGlobalBinds } from './hooks/app/useGlobalBinds';
+import { usePerfFlags } from './hooks/app/usePerfFlags';
 
 
 function AppContent() {
   useTheme();
+  usePerfFlags();
   useKeyboard();
   useWindowShow();
   useContextMenuPrevent();

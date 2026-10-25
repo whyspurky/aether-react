@@ -8,12 +8,41 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-function buildCoverCandidates(url: string): string[] {
+function buildCoverCandidates(url: string, blurAmount: number): string[] {
   const base = url.replace(/-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/, '');
   const ext = url.match(/\.(jpg|jpeg|png|webp)$/i)?.[0] || '.jpg';
+  const big = `${base}-t500x500${ext}`;
+  const small = `${base}-t300x300${ext}`;
 
-  // фон размывается до неузнаваемости, полный размер не нужен
-  return [`${base}-t500x500${ext}`, `${base}-t300x300${ext}`, url];
+  // при сильном размытии деталей не остаётся, хватает маленькой картинки
+  return blurAmount >= 24 ? [small, big, url] : [big, small, url];
+}
+
+// размываем уменьшенный слой и растягиваем: пятна те же, растр в 16 раз меньше
+function BlurredCover({ url, className }: { url: string; className?: string }) {
+  const blur = useStore((s) => s.blur);
+  const scale = 4;
+  const radius = Math.max(0, blur.amount) / scale;
+
+  return (
+    <div
+      className={`absolute inset-2 rounded-2xl pointer-events-none overflow-hidden ${className || ''}`}
+      style={{ ['--blur-opacity' as string]: String(blur.opacity) }}
+    >
+      <div
+        className="absolute left-1/2 top-1/2"
+        style={{
+          width: `${100 / scale}%`,
+          height: `${100 / scale}%`,
+          transform: `translate(-50%, -50%) scale(${scale})`,
+          backgroundImage: `url(${url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: `blur(${radius}px) saturate(1.4)`,
+        }}
+      />
+    </div>
+  );
 }
 
 export function Layout({ children }: LayoutProps) {
@@ -21,6 +50,8 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const currentTrack = useStore((s) => s.player.currentTrack);
   const blur = useStore((s) => s.blur);
+  const noiseOn = useStore((s) => s.perf.noise);
+  const bgCoverOn = useStore((s) => s.perf.bgCover);
 
   const isPlayerPage = location.pathname === '/player';
   const hasTrack = !!currentTrack;
@@ -44,8 +75,9 @@ export function Layout({ children }: LayoutProps) {
     return () => clearTimeout(t);
   }, [shouldShow, playerBarMounted]);
 
-  const rawCover = currentTrack?.artwork_url || currentTrack?.user?.avatar_url || null;
-  const candidates = rawCover ? buildCoverCandidates(rawCover) : [];
+  const rawCover =
+    bgCoverOn && blur.enabled ? currentTrack?.artwork_url || currentTrack?.user?.avatar_url || null : null;
+  const candidates = rawCover ? buildCoverCandidates(rawCover, blur.amount) : [];
 
   const [prevUrl, setPrevUrl] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(candidates[0] || null);
@@ -95,34 +127,14 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="h-full flex flex-col pt-10 bg-bg-primary p-2 relative">
-      {blur.enabled && (
+      {blur.enabled && bgCoverOn && (
         <>
           {prevUrl && (
-            <div
-              key={`prev-${prevUrl}`}
-              className="absolute inset-2 rounded-2xl pointer-events-none overflow-hidden animate-fade-out-blur"
-              style={{
-                backgroundImage: `url(${prevUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: `blur(${blur.amount}px) saturate(1.4)`,
-                ['--blur-opacity' as string]: String(blur.opacity),
-              }}
-            />
+            <BlurredCover key={`prev-${prevUrl}`} url={prevUrl} className="animate-fade-out-blur" />
           )}
 
           {currentUrl && (
-            <div
-              key={`curr-${currentUrl}`}
-              className="absolute inset-2 rounded-2xl pointer-events-none overflow-hidden animate-fade-in-blur"
-              style={{
-                backgroundImage: `url(${currentUrl})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                filter: `blur(${blur.amount}px) saturate(1.4)`,
-                ['--blur-opacity' as string]: String(blur.opacity),
-              }}
-            />
+            <BlurredCover key={`curr-${currentUrl}`} url={currentUrl} className="animate-fade-in-blur" />
           )}
         </>
       )}
@@ -132,7 +144,7 @@ export function Layout({ children }: LayoutProps) {
           <Sidebar currentPath={location.pathname} onNavigate={navigate} />
         </div>
 
-        <div className="flex-1 min-w-0 relative noise-overlay">
+        <div className={`flex-1 min-w-0 relative ${noiseOn ? 'noise-overlay' : ''}`}>
           <div className="absolute inset-0 rounded-2xl border border-border-subtle bg-bg-secondary/30 overflow-hidden">
             <main
               key={location.pathname}

@@ -35,7 +35,7 @@ export function SettingsTabAppearance() {
         <div className="px-5 py-4">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-              <Icon name="palette" size={16} className="text-text-secondary" />
+              <Icon name="palette" size={16} />
             </div>
             <div>
               <p className="text-sm text-text-primary">тема</p>
@@ -110,7 +110,7 @@ export function SettingsTabAppearance() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-                <Icon name="sparkles" size={16} className="text-text-secondary" />
+                <Icon name="sparkles" size={16} />
               </div>
               <div>
                 <p className="text-sm text-text-primary">размытие обложки</p>
@@ -182,7 +182,7 @@ export function SettingsTabAppearance() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-                <Icon name="bookmark" size={16} className="text-text-secondary" />
+                <Icon name="bookmark" size={16} />
               </div>
               <div>
                 <div className="flex items-center gap-2">

@@ -22,6 +22,7 @@ export function MarqueeText({
   style?: React.CSSProperties;
   onClick?: () => void;
 }) {
+  const marqueeOn = useStore((s) => s.perf.marquee);
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldScroll, setShouldScroll] = useState(false);
   const shouldScrollRef = useRef(false);
@@ -64,7 +65,11 @@ export function MarqueeText({
       className={`overflow-hidden min-w-0 w-full ${className || ''}`}
       style={style}
     >
-      <div className={`whitespace-nowrap flex w-max ${shouldScroll ? 'animate-marquee' : ''}`}>
+      <div
+        className={`whitespace-nowrap flex w-max ${
+          shouldScroll && marqueeOn ? 'animate-marquee' : ''
+        }`}
+      >
         <span onClick={onClick} className={onClick ? 'cursor-pointer' : ''}>
           {text}
         </span>

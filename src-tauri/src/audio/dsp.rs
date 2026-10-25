@@ -515,6 +515,14 @@ mod tests {
             assert!((a - b).abs() < 1e-6);
         }
     }
+
+    #[test]
+    fn resample_passthrough_at_normal_pitch() {
+        let data = vec![0.1, -0.2, 0.3, -0.4, 0.5, -0.6];
+        let mut resample = ResampleSource::new(source(data.clone()), pitch_source(1.0));
+        let out: Vec<f32> = resample.by_ref().collect();
+        assert_eq!(out, data);
+    }
 }
 
 
@@ -535,6 +543,8 @@ pub struct TempoSource<S> {
     ended: bool,
     prev_tail: Vec<f32>,
     has_prev: bool,
+    tempo_cache: f32,
+    tempo_counter: u32,
 }
 
 impl<S> TempoSource<S>
@@ -563,7 +573,19 @@ where
             ended: false,
             prev_tail: Vec::new(),
             has_prev: false,
+            tempo_cache: 1.0,
+            tempo_counter: 0,
         }
+    }
+
+    // скорость меняется редко, атомик читаем раз в 256 сэмплов
+    fn tempo_cached(&mut self) -> f32 {
+        if self.tempo_counter == 0 {
+            self.tempo_cache =
+                (self.speed_milli.load(Ordering::Relaxed) as f32 / 1000.0).clamp(0.5, 2.0);
+        }
+        self.tempo_counter = (self.tempo_counter + 1) & 0xff;
+        self.tempo_cache
     }
 
     fn frames_in_buffer(&self) -> u64 {
@@ -727,7 +749,7 @@ where
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let tempo = (self.speed_milli.load(Ordering::Relaxed) as f32 / 1000.0).clamp(0.5, 2.0);
+        let tempo = self.tempo_cached();
         if (tempo - 1.0).abs() < 0.001 {
             if let Some(sample) = self.out.pop_front() {
                 return Some(sample);
@@ -779,6 +801,7 @@ where
         self.end_frame = None;
         self.input_ended = false;
         self.ended = false;
+        self.tempo_counter = 0;
         Ok(())
     }
 }
@@ -788,12 +811,16 @@ pub struct ResampleSource<S> {
     inner: S,
     pitch_milli: Arc<AtomicU32>,
     channels: usize,
+    // фиксированные буферы: кадр не аллоцируется на каждую итерацию
     prev: Vec<f32>,
     next: Vec<f32>,
+    scratch: Vec<f32>,
     frac: f64,
     channel: usize,
     initialized: bool,
     ended: bool,
+    ratio_cache: f64,
+    ratio_counter: u32,
 }
 
 impl<S> ResampleSource<S>
@@ -801,17 +828,20 @@ where
     S: Source,
 {
     pub fn new(inner: S, pitch_milli: Arc<AtomicU32>) -> Self {
-        let channels = inner.channels().get() as usize;
+        let channels = (inner.channels().get() as usize).max(1);
         Self {
             inner,
             pitch_milli,
-            channels: channels.max(1),
-            prev: Vec::new(),
-            next: Vec::new(),
+            channels,
+            prev: vec![0.0; channels],
+            next: vec![0.0; channels],
+            scratch: vec![0.0; channels],
             frac: 0.0,
             channel: 0,
             initialized: false,
             ended: false,
+            ratio_cache: 1.0,
+            ratio_counter: 0,
         }
     }
 
@@ -819,33 +849,49 @@ where
         (self.pitch_milli.load(Ordering::Relaxed) as f64 / 1000.0).clamp(0.25, 4.0)
     }
 
-    fn read_frame(&mut self) -> Option<Vec<f32>> {
-        let mut frame = Vec::with_capacity(self.channels);
-        for _ in 0..self.channels {
-            frame.push(self.inner.next()?);
+    // атомик читаем раз в 256 сэмплов, а не на каждый
+    fn ratio_cached(&mut self) -> f64 {
+        if self.ratio_counter == 0 {
+            self.ratio_cache = self.ratio();
         }
-        Some(frame)
+        self.ratio_counter = (self.ratio_counter + 1) & 0xff;
+        self.ratio_cache
+    }
+
+    fn read_frame(&mut self) -> bool {
+        for index in 0..self.channels {
+            match self.inner.next() {
+                Some(sample) => self.scratch[index] = sample,
+                None => return false,
+            }
+        }
+        true
     }
 
     fn init(&mut self) -> bool {
         if self.initialized {
             return true;
         }
-        let Some(prev) = self.read_frame() else {
+        if !self.read_frame() {
             self.ended = true;
             return false;
-        };
-        let Some(next) = self.read_frame() else {
-            self.next = prev.clone();
-            self.prev = prev;
+        }
+        self.prev.copy_from_slice(&self.scratch);
+        if !self.read_frame() {
+            self.next.copy_from_slice(&self.prev);
             self.ended = true;
             self.initialized = true;
             return true;
-        };
-        self.prev = prev;
-        self.next = next;
+        }
+        self.next.copy_from_slice(&self.scratch);
         self.initialized = true;
         true
+    }
+
+    fn reset_interp(&mut self) {
+        self.frac = 0.0;
+        self.channel = 0;
+        self.initialized = false;
     }
 }
 
@@ -859,6 +905,16 @@ where
         if self.ended {
             return None;
         }
+
+        let ratio = self.ratio_cached();
+        // 1 к 1 не требует интерполяции
+        if (ratio - 1.0).abs() < 0.001 {
+            if self.initialized {
+                self.reset_interp();
+            }
+            return self.inner.next();
+        }
+
         if !self.init() {
             return None;
         }
@@ -870,16 +926,15 @@ where
         self.channel += 1;
         if self.channel >= self.channels {
             self.channel = 0;
-            self.frac += self.ratio();
+            self.frac += ratio;
             while self.frac >= 1.0 {
-                self.prev = self.next.clone();
-                match self.read_frame() {
-                    Some(frame) => self.next = frame,
-                    None => {
-                        self.ended = true;
-                        self.frac = 0.0;
-                        break;
-                    }
+                self.prev.copy_from_slice(&self.next);
+                if self.read_frame() {
+                    self.next.copy_from_slice(&self.scratch);
+                } else {
+                    self.ended = true;
+                    self.frac = 0.0;
+                    break;
                 }
                 self.frac -= 1.0;
             }
@@ -914,12 +969,14 @@ where
 
     fn try_seek(&mut self, pos: Duration) -> Result<(), rodio::source::SeekError> {
         self.inner.try_seek(pos)?;
-        self.prev.clear();
-        self.next.clear();
+        self.prev.fill(0.0);
+        self.next.fill(0.0);
+        self.scratch.fill(0.0);
         self.frac = 0.0;
         self.channel = 0;
         self.initialized = false;
         self.ended = false;
+        self.ratio_counter = 0;
         Ok(())
     }
 }

@@ -62,7 +62,7 @@ export function ArtistRelatedList({ artists, meta, onRetry, onLoadMore }: Props)
                 />
               ) : (
                 <div className="w-11 h-11 rounded-full bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-                  <Icon name="mic" size={16} className="text-text-tertiary" />
+                  <Icon name="mic" size={16}  />
                 </div>
               )}
 
@@ -73,7 +73,7 @@ export function ArtistRelatedList({ artists, meta, onRetry, onLoadMore }: Props)
                   </h3>
                   {artist.verified && (
                     <span role="img" aria-label="подтверждённый артист" className="flex flex-shrink-0">
-                      <Icon name="check-circle" size={13} className="text-text-secondary" />
+                      <Icon name="check-circle" size={13}  />
                     </span>
                   )}
                 </div>
@@ -92,7 +92,7 @@ export function ArtistRelatedList({ artists, meta, onRetry, onLoadMore }: Props)
               <Icon
                 name="chevron-right"
                 size={16}
-                className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
               />
             </button>
           );

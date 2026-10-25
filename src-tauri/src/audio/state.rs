@@ -213,6 +213,8 @@ pub struct AppState {
     pub tempo_milli: Arc<AtomicU32>,
     pub analyser: Arc<AnalyserBuffer>,
     pub analyser_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    // частота position-tick, настраивается из вкладки производительности
+    pub position_tick_ms: Arc<AtomicU64>,
 }
 
 fn device_label(
@@ -374,6 +376,7 @@ impl AppState {
             tempo_milli: Arc::new(AtomicU32::new(1000)),
             analyser: AnalyserBuffer::new(),
             analyser_task: Arc::new(Mutex::new(None)),
+            position_tick_ms: Arc::new(AtomicU64::new(100)),
         }
     }
 }

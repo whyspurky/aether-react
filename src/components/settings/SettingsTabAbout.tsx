@@ -120,7 +120,7 @@ export function SettingsTabAbout() {
                 <Icon
                   name={link.icon}
                   size={16}
-                  className="text-text-secondary transition-colors duration-200 group-hover:text-[var(--accent-primary)]"
+                  className=" transition-colors duration-200 group-hover:text-[var(--accent-primary)]"
                 />
               </div>
               <div className="flex-1 min-w-0 text-left">
@@ -130,7 +130,7 @@ export function SettingsTabAbout() {
               <Icon
                 name="arrow-up-right"
                 size={14}
-                className="text-text-tertiary transition-all duration-200 group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                className=" transition-all duration-200 group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
               />
             </button>
           ))}
@@ -143,7 +143,7 @@ export function SettingsTabAbout() {
       <div className="relative overflow-hidden rounded-2xl border border-border-subtle bg-white/[0.02] p-4">
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center">
-            <Icon name="info" size={14} className="text-text-tertiary" />
+            <Icon name="info" size={14} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-text-secondary leading-relaxed">

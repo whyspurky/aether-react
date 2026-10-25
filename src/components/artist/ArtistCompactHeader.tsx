@@ -26,7 +26,7 @@ export function ArtistCompactHeader({ artist, onPlay, onShuffle, canPlay }: Prop
           style={{ viewTransitionName: 'artist-avatar' }}
           className="w-10 h-10 rounded-full bg-white/[0.06] flex items-center justify-center flex-shrink-0"
         >
-          <Icon name="mic" size={16} className="text-text-tertiary" />
+          <Icon name="mic" size={16} />
         </div>
       )}
 
@@ -40,7 +40,7 @@ export function ArtistCompactHeader({ artist, onPlay, onShuffle, canPlay }: Prop
           </h2>
           {artist.verified && (
             <span role="img" aria-label="подтверждённый артист" className="flex flex-shrink-0">
-              <Icon name="check-circle" size={14} className="text-text-secondary" />
+              <Icon name="check-circle" size={14} />
             </span>
           )}
         </div>

@@ -27,6 +27,9 @@ const TARGET_RMS_DBFS: f32 = -16.0;
 const TARGET_PEAK_DBFS: f32 = -1.0;
 const GAPLESS_FADE_SECS: f32 = 0.04;
 const TRANSITION_TICK_MS: u64 = 20;
+const IDLE_TICK_MS: u64 = 50;
+// ближе к концу трека начинаем следить за очередью
+const QUEUE_LOOKAHEAD_SECS: f64 = 30.0;
 
 fn detect_hint_prefix(head: &[u8]) -> &'static str {
     if head.len() >= 3 && &head[..3] == b"ID3" {
@@ -282,6 +285,7 @@ fn ensure_tick_running(state: &AppState) {
     let settings = state.settings.clone();
     let queued_next = state.queued_next.clone();
     let transition = state.transition.clone();
+    let position_tick = state.position_tick_ms.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(TRANSITION_TICK_MS));
@@ -291,6 +295,16 @@ fn ensure_tick_running(state: &AppState) {
 
         loop {
             interval.tick().await;
+            // без перехода точность 20 мс не нужна, хватает 50
+            let idle = settings
+                .lock()
+                .map(|s| s.transition == TransitionMode::Off)
+                .unwrap_or(true);
+            interval.reset_after(Duration::from_millis(if idle {
+                IDLE_TICK_MS
+            } else {
+                TRANSITION_TICK_MS
+            }));
             let now = Instant::now();
             let dt = now.duration_since(last_tick).as_secs_f32().min(0.1);
             last_tick = now;
@@ -314,10 +328,10 @@ fn ensure_tick_running(state: &AppState) {
                 continue;
             }
 
-            let volume = main_volume_value(&playback);
             let has_transition = transition.lock().unwrap().is_some();
 
             if has_transition {
+                let volume = main_volume_value(&playback);
                 let (in_gain, out_gain, done) = {
                     let mut guard = transition.lock().unwrap();
                     let Some(run) = guard.as_mut() else {
@@ -344,7 +358,14 @@ fn ensure_tick_running(state: &AppState) {
                     player.lock().unwrap().set_volume(volume);
                 }
             } else {
-                let next = queued_next.lock().unwrap().clone();
+                // настройки и очередь клонируем только у конца трека, а не каждый тик
+                let near_end = duration_ms > 0
+                    && (duration_ms as f64 - pos) <= QUEUE_LOOKAHEAD_SECS;
+                let next = if near_end {
+                    queued_next.lock().unwrap().clone()
+                } else {
+                    None
+                };
                 if let Some(next) = next {
                     let settings_now = settings.lock().unwrap().clone();
                     if settings_now.transition != TransitionMode::Off && duration_ms > 0 {
@@ -384,7 +405,9 @@ fn ensure_tick_running(state: &AppState) {
                 }
             }
 
-            if last_emit.elapsed() >= Duration::from_millis(100) {
+            let emit_every =
+                Duration::from_millis(position_tick.load(Ordering::Relaxed).clamp(50, 1000));
+            if last_emit.elapsed() >= emit_every {
                 last_emit = Instant::now();
                 let (track_id, is_still_playing) = {
                     let pb = playback.lock().unwrap();
@@ -424,8 +447,9 @@ fn ensure_analyser_running(state: &AppState) {
         return;
     };
     let buffer = state.analyser.clone();
+    let playback = state.playback.clone();
     let handle = tauri::async_runtime::spawn(async move {
-        crate::audio::analyser::run(app, buffer).await;
+        crate::audio::analyser::run(app, buffer, playback).await;
     });
     *task = Some(handle);
 }

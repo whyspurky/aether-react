@@ -185,9 +185,9 @@ export function SpeedControl() {
             <div className="mt-4 rounded-xl bg-white/[0.03] px-3 py-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[11px] text-text-primary">связать скорость с питчем</p>
+                  <p className="text-[11px] text-text-primary">зависимость питча от скорости</p>
                   <p className="mt-0.5 text-[10px] leading-snug text-text-tertiary">
-                    режим винила, скорость меняет высоту звука
+                    скорость меняет высоту звука
                   </p>
                 </div>
                 <button

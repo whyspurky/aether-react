@@ -146,7 +146,7 @@ export function LibraryHeader({
                 onClick={onTogglePlaylistMenu}
                 className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-all"
               >
-                <Icon name="ellipsis-vertical" size={22} className="text-text-tertiary" />
+                <Icon name="ellipsis-vertical" size={22} />
               </button>
               {showPlaylistMenu && (
                 <div className="absolute right-0 top-full mt-1 w-40 bg-white/[0.06] backdrop-blur-xl rounded-lg shadow-xl border border-border-subtle overflow-hidden z-20">
@@ -175,7 +175,7 @@ export function LibraryHeader({
                 onClick={onToggleSettingsMenu}
                 className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-all"
               >
-                <Icon name="ellipsis-vertical" size={22} className="text-text-tertiary" />
+                <Icon name="ellipsis-vertical" size={22} />
               </button>
               {showSettingsMenu && (
                 <div className="absolute right-0 top-full mt-1 w-40 bg-white/[0.06] backdrop-blur-xl rounded-lg shadow-xl border border-border-subtle overflow-hidden z-20">

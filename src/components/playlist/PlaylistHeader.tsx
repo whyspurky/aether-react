@@ -45,7 +45,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport, onSaveOf
           />
         ) : (
           <div className="w-48 h-48 rounded-2xl bg-bg-secondary flex items-center justify-center border border-border-subtle">
-            <Icon name="folder" size={64} className="text-text-tertiary opacity-60" />
+            <Icon name="folder" size={64} className="opacity-60" />
           </div>
         )}
       </div>
@@ -72,7 +72,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport, onSaveOf
         )}
 
         {playlist.description && (
-          <p className="text-text-tertiary text-sm mt-3 line-clamp-3 leading-relaxed">
+          <p className="text-sm mt-3 line-clamp-3 leading-relaxed">
             {playlist.description}
           </p>
         )}
@@ -93,7 +93,7 @@ export function PlaylistHeader({ playlist, tracks, onPlayAll, onImport, onSaveOf
             disabled={!tracks.length}
             className="px-6 py-2 bg-white/[0.08] text-text-primary rounded-full font-medium flex items-center gap-2 hover:bg-white/[0.14] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-white/[0.08]"
           >
-            <Icon name="play" size={16} />
+            <Icon name="play" size={16} filled/>
             слушать всё
           </button>
 

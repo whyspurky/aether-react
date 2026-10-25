@@ -31,7 +31,7 @@ export function SearchArtistCard({ artist }: Props) {
         />
       ) : (
         <div className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center">
-          <Icon name="mic" size={16} className="text-text-tertiary" />
+          <Icon name="mic" size={16} />
         </div>
       )}
 
@@ -47,7 +47,7 @@ export function SearchArtistCard({ artist }: Props) {
       <Icon
         name="chevron-right"
         size={16}
-        className="text-text-tertiary group-hover:text-text-secondary transition-all duration-200 group-hover:translate-x-0.5"
+        className=" group-hover:text-text-secondary transition-all duration-200 group-hover:translate-x-0.5"
       />
     </div>
   );

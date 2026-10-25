@@ -144,7 +144,7 @@ export function AddToPlaylistMenu({ track, anchorEl, onClose, isClosing }: Props
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <Icon name="folder" size={14} className="text-text-tertiary" />
+                    <Icon name="folder" size={14} />
                   )}
                 </div>
                 <span className="flex-1 truncate">{pl.name}</span>

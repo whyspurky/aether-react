@@ -21,7 +21,7 @@ interface Result {
 const END_THRESHOLD = 0.5;
 const SEEK_LOCK_MS = 400;
 const END_CALL_GUARD_MS = 2000;
-const STORE_SYNC_MS = 1000;
+const STORE_SYNC_FALLBACK_SECS = 1;
 const PLAYBACK_STATE_LOCK_MS = 300;
 const TRACK_CHANGE_LOCK_MS = 500;
 const RESET_POSITION_THRESHOLD = 1.0;
@@ -38,6 +38,8 @@ export function usePlayerProgress({
   isDragging,
   onTrackEnd,
 }: Params): Result {
+  const persistSecs =
+    useStore((s) => s.perf.persistSecs) || STORE_SYNC_FALLBACK_SECS;
   const progressRef = useRef(0);
   const durationRef = useRef(duration);
   durationRef.current = duration;
@@ -154,7 +156,7 @@ export function usePlayerProgress({
       }
 
       const now = performance.now();
-      if (now - lastStoreSyncRef.current > STORE_SYNC_MS) {
+      if (now - lastStoreSyncRef.current > persistSecs * 1000) {
         lastStoreSyncRef.current = now;
         useStore.getState().setPosition(pos);
       }
@@ -163,7 +165,7 @@ export function usePlayerProgress({
     return () => {
       if (unlisten) unlisten();
     };
-  }, [onTrackEnd]);
+  }, [onTrackEnd, persistSecs]);
 
   const prevTrackIdRef = useRef<number | null | undefined>(undefined);
 

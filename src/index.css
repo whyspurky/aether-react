@@ -373,3 +373,50 @@
   55% { opacity: 1; transform: scale(1.2); }
   100% { opacity: 1; transform: scale(1); }
 }
+
+/* быстрый режим: у каждой группы эффектов свой класс на html */
+html.no-transitions *,
+html.no-transitions *::before,
+html.no-transitions *::after {
+  transition-duration: 1ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+html.no-enter *,
+html.no-enter *::before,
+html.no-enter *::after {
+  animation-duration: 1ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* спиннеры, пульсацию загрузки и бегущую строку ведёт отдельный флаг */
+html.no-enter .animate-spin,
+html.no-enter .animate-pulse {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
+}
+
+html.no-enter .animate-marquee {
+  animation-duration: 12s !important;
+  animation-iteration-count: infinite !important;
+}
+
+html.no-pulse .animate-ping {
+  display: none !important;
+}
+
+html.no-pulse [class*='animate-[eqBar'] {
+  animation: none !important;
+}
+
+html.no-backdrop [class*='backdrop-blur'] {
+  backdrop-filter: none !important;
+}
+
+html.no-glow .shadow-lg,
+html.no-glow .shadow-xl,
+html.no-glow .shadow-2xl {
+  box-shadow: none !important;
+}

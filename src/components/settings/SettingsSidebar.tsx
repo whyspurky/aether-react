@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Icon } from '@components/ui/Icon';
 
-export type SettingsTab = 'data' | 'audio' | 'appearance' | 'proxy' | 'binds' | 'about';
+export type SettingsTab =
+  | 'data'
+  | 'audio'
+  | 'appearance'
+  | 'performance'
+  | 'proxy'
+  | 'binds'
+  | 'about';
 export type AudioSection = 'playback' | 'eq' | 'cache';
 
 interface Props {
@@ -16,6 +24,7 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
   { id: 'data', label: 'данные', icon: 'database' },
   { id: 'audio', label: 'аудио', icon: 'audio-lines' },
   { id: 'appearance', label: 'внешний вид', icon: 'palette' },
+  { id: 'performance', label: 'быстродействие', icon: 'gauge' },
   { id: 'binds', label: 'бинды', icon: 'command' },
   { id: 'proxy', label: 'прокси', icon: 'shield' },
   { id: 'about', label: 'о приложении', icon: 'info' },
@@ -27,6 +36,40 @@ const AUDIO_TABS: { id: AudioSection; label: string; icon: string }[] = [
   { id: 'cache', label: 'кэш', icon: 'database' },
 ];
 
+// контент лежит в абсолютном слое: при смене высоты двигается только
+// сама обёртка, кнопки внутри не пересчитывают раскладку каждый кадр
+function Collapse({ open, children }: { open: boolean; children: ReactNode }) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+
+    const update = () => setHeight(el.offsetHeight);
+    
+    // Сразу замеряем высоту (синхронно перед пейнтом)
+    update();
+
+    // Следим за изменениями контента (например, если меняется текст или размеры)
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    
+    return () => observer.disconnect();
+  }, [open]); // <-- Добавлена зависимость open. При открытии/закрытии высота пересчитывается до отрисовки.
+
+  return (
+    <div
+      className="relative overflow-hidden [contain:layout_paint] transition-[height,opacity] duration-200 ease-out will-change-[height,opacity]"
+      style={{ height: open ? height : 0, opacity: open ? 1 : 0 }}
+    >
+      <div ref={innerRef} className="absolute inset-x-0 top-0">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsSidebar({
   activeTab,
   audioSection,
@@ -36,8 +79,11 @@ export function SettingsSidebar({
 }: Props) {
   const [audioOpen, setAudioOpen] = useState(activeTab === 'audio');
 
+  // Синхронизируем открытие при смене таба снаружи (например, программно)
   useEffect(() => {
-    if (activeTab === 'audio') setAudioOpen(true);
+    if (activeTab === 'audio') {
+      setAudioOpen(true);
+    }
   }, [activeTab]);
 
   return (
@@ -54,10 +100,17 @@ export function SettingsSidebar({
               <button
                 onClick={() => {
                   if (isAudio) {
-                    setAudioOpen((open) => !open);
-                    if (activeTab !== 'audio') onChange('audio');
+                    // Если мы уже на аудио, просто переключаем открытие
+                    if (activeTab === 'audio') {
+                      setAudioOpen((open) => !open);
+                    } else {
+                      // Если мы на другой вкладке, переключаем на аудио и открываем
+                      onChange('audio');
+                      setAudioOpen(true);
+                    }
                     return;
                   }
+                  // Для остальных вкладок просто переключаем
                   onChange(tab.id);
                 }}
                 aria-expanded={isAudio ? audioOpen : undefined}
@@ -111,15 +164,8 @@ export function SettingsSidebar({
               </button>
 
               {isAudio && (
-                <div
-                  className={`grid transition-all duration-300 ease-out ${
-                    audioOpen
-                      ? 'mt-1 grid-rows-[1fr] opacity-100'
-                      : 'grid-rows-[0fr] opacity-0'
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <div className="ml-4 space-y-1 border-l border-border-subtle pl-2">
+                <Collapse open={audioOpen}>
+                  <div className="ml-4 space-y-1 border-l border-border-subtle pl-2 pt-1">
                       {AUDIO_TABS.map((sub) => {
                         const subActive = activeTab === 'audio' && audioSection === sub.id;
                         return (
@@ -140,9 +186,8 @@ export function SettingsSidebar({
                           </button>
                         );
                       })}
-                    </div>
                   </div>
-                </div>
+                </Collapse>
               )}
             </div>
           );

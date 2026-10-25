@@ -6,6 +6,7 @@ import { SettingsSidebar, type AudioSection, type SettingsTab } from '@component
 import { SettingsTabData } from '@components/settings/SettingsTabData';
 import { SettingsTabAudio } from '@components/settings/SettingsTabAudio';
 import { SettingsTabAppearance } from '@components/settings/SettingsTabAppearance';
+import { SettingsTabPerformance } from '@components/settings/SettingsTabPerformance';
 import { SettingsTabAbout } from '@components/settings/SettingsTabAbout';
 import { SettingsTabBinds } from '@components/settings/SettingsTabBinds';
 
@@ -41,6 +42,7 @@ export default function SettingsPage() {
           {activeTab === 'data' && <SettingsTabData />}
           {activeTab === 'audio' && <SettingsTabAudio section={audioSection} />}
           {activeTab === 'appearance' && <SettingsTabAppearance />}
+          {activeTab === 'performance' && <SettingsTabPerformance />}
           {activeTab === 'proxy' && <ProxySettings />}
           {activeTab === 'binds' && <SettingsTabBinds />}
           {activeTab === 'about' && <SettingsTabAbout />}

@@ -77,7 +77,7 @@ export function SearchPlaylistCard({ playlist }: Props) {
         <img src={coverUrl} alt="" className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
       ) : (
         <div className="w-12 h-12 rounded-md bg-bg-secondary flex items-center justify-center flex-shrink-0">
-          <Icon name="folder" size={20} className="text-text-tertiary" />
+          <Icon name="folder" size={20} />
         </div>
       )}
 
@@ -130,7 +130,7 @@ export function SearchPlaylistCard({ playlist }: Props) {
       <Icon
         name="chevron-right"
         size={16}
-        className="text-text-tertiary group-hover:text-text-secondary transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0"
+        className=" group-hover:text-text-secondary transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0"
       />
     </div>
   );

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { tauriStorage } from '../lib/store/tauriStorage';
 import { createProxySlice, type ProxySlice } from './slices/proxy';
-import { createUiSlice, type UiSlice } from './slices/ui';
+import { createUiSlice, PERF_DEFAULTS, type UiSlice } from './slices/ui';
 import { createCacheSlice, type CacheSlice } from './slices/cache';
 import { createLibrarySlice, type LibrarySlice } from './slices/library';
 import { createPlayerSlice, type PlayerSlice } from './slices/player';
@@ -27,9 +27,28 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
 
     {
       name: 'aether-storage',
-      version: 15,
+      version: 17,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
+        // старый плоский perf раскладываем по группам
+        const legacyPerf = persisted.perf;
+        if (!legacyPerf || !('motionTransitions' in legacyPerf)) {
+          if (!legacyPerf) {
+            persisted.perf = { ...PERF_DEFAULTS };
+          } else {
+            const motion = !!legacyPerf.animations;
+            persisted.perf = {
+              ...PERF_DEFAULTS,
+              motionTransitions: motion,
+              motionPages: motion,
+              motionPulse: motion,
+              motionMorph: motion,
+              marquee: legacyPerf.marquee ?? true,
+              noise: legacyPerf.noise ?? true,
+              spectrum: legacyPerf.spectrum ?? true,
+            };
+          }
+        }
         if (version < 2) {
           if (!persisted.proxy) {
             persisted.proxy = {
@@ -236,6 +255,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           amount: s.blur.amount,
           opacity: s.blur.opacity,
         },
+        perf: s.perf,
         customPresets: s.customPresets,
         hideBindsWarning: s.hideBindsWarning,
         proxy: {

@@ -83,7 +83,7 @@ export function LibrarySidebar({
                   {coverUrl ? (
                     <img src={coverUrl} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <Icon name="folder" size={18} className="text-text-tertiary" />
+                    <Icon name="folder" size={18}  />
                   )}
                 </button>
               </div>

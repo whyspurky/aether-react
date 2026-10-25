@@ -46,7 +46,7 @@ export function useAudioTransition() {
       api.trackMarkPlayed(track.id).catch(() => {});
 
       const next = state.queue.tracks[index + 1];
-      if (next && state.audio.transition !== 'off') {
+      if (next && state.audio.transition !== 'off' && state.perf.nextTrackPrep) {
         state.setAutoAdvancePending(true);
         api
           .queueNextTrack(next.id, next.duration, state.offline.quality)

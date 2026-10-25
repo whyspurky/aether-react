@@ -6,6 +6,7 @@ import { PlaylistHeader } from '@components/playlist/PlaylistHeader';
 import { api } from '@lib/api';
 import { useStore } from '@store/store';
 import type { Playlist, Track } from '@store/types';
+import { upgradeCoverUrl } from '@lib/format';
 
 export function PlaylistPage() {
   const { id } = useParams<{ id: string }>();
@@ -108,7 +109,7 @@ const title = playlist.title || playlist.name || 'без названия';
     if (libraryPlaylists.some((p) => p.name === title)) {
       return;
     }
-    const coverUrl = playlist.artwork_url?.replace('-large', '-t500x500') || undefined;
+    const coverUrl = upgradeCoverUrl(playlist.artwork_url, 't500x500');
     importPlaylist(title, tracks, coverUrl);
   };
 
@@ -121,7 +122,7 @@ const title = playlist.title || playlist.name || 'без названия';
           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-text-secondary">
-            <Icon name="alert-circle" size={64} className="mb-4 text-text-tertiary" />
+            <Icon name="alert-circle" size={64} className="mb-4" />
             <p className="text-lg mb-2">плейлист не найден</p>
             <button
               onClick={() => navigate('/library')}

@@ -198,7 +198,7 @@ export default function SearchPage() {
         {!hasQuery ? null : error && items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-center animate-content-fade-in">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.04]">
-              <Icon name="alert-circle" size={24} className="text-text-tertiary" />
+              <Icon name="alert-circle" size={24} />
             </div>
             <p className="text-sm text-text-secondary">{error}</p>
             <button
@@ -215,7 +215,7 @@ export default function SearchPage() {
         ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-center animate-content-fade-in">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.04]">
-              <Icon name="x-circle" size={24} className="text-text-tertiary" />
+              <Icon name="x-circle" size={24} />
             </div>
             <p className="text-sm text-text-secondary">ничего не найдено</p>
             <p className="text-xs text-text-tertiary max-w-[320px]">
@@ -257,7 +257,7 @@ export default function SearchPage() {
                 <button
                   type="button"
                   onClick={retry}
-                  className="text-text-secondary hover:text-[var(--accent-primary)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_35%,transparent)] rounded-sm"
+                  className=" hover:text-[var(--accent-primary)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_35%,transparent)] rounded-sm"
                 >
                   повторить
                 </button>

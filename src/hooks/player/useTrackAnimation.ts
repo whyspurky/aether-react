@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Track } from '@store/types';
+import { upgradeCoverUrl } from '@lib/format';
 import { useDisplayTrack } from './useDisplayTrack';
 
 interface Result {
@@ -11,7 +12,7 @@ interface Result {
 const getCover = (track: Track | null): string | null => {
   if (!track) return null;
   const raw = track.artwork_url || track.user?.avatar_url;
-  return raw ? raw.replace('-large', '-t500x500') : null;
+  return upgradeCoverUrl(raw, 't500x500') ?? null;
 };
 
 export function useTrackAnimation(currentTrack: Track | null): Result {

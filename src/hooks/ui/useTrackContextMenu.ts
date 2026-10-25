@@ -76,6 +76,7 @@ export function useTrackContextMenu() {
                     {
                       label: 'удалить из кэша',
                       icon: 'trash-2',
+                      danger: true,
                       onClick: () => {
                         void api
                           .trackRemoveCached(track.id, false)

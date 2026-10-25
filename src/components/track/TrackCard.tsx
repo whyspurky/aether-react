@@ -4,7 +4,7 @@ import { useStore } from '@store/store';
 import { useTrackContextMenu } from '@hooks/ui/useTrackContextMenu';
 import { CacheIndicator } from './CacheIndicator';
 import type { Track } from '@store/types';
-import { formatMs } from '@lib/format';
+import { formatMs, upgradeCoverUrl } from '@lib/format';
 
 interface TrackCardProps {
   track: Track;
@@ -19,8 +19,8 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
   const { openTrackMenu } = useTrackContextMenu();
 
   const coverUrl =
-    track.artwork_url?.replace('-large', '-t500x500') ||
-    track.user?.avatar_url?.replace('-large', '-t500x500') ||
+    upgradeCoverUrl(track.artwork_url, 't500x500') ||
+    upgradeCoverUrl(track.user?.avatar_url, 't500x500') ||
     null;
 
   const handlePlay = async () => {
@@ -56,7 +56,7 @@ export function TrackCard({ track, index = 0, tracks }: TrackCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-bg-secondary">
-            <Icon name="music" size={32} className="text-text-tertiary" />
+            <Icon name="music" size={32} />
           </div>
         )}
 

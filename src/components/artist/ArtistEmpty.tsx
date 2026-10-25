@@ -24,7 +24,7 @@ export function ArtistEmpty({
       }`}
     >
       <div className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.04]">
-        <Icon name={icon} size={20} className="text-text-tertiary" />
+        <Icon name={icon} size={20}  />
       </div>
       <p className="text-sm text-text-secondary">{title}</p>
       {hint && <p className="text-xs text-text-tertiary max-w-[320px]">{hint}</p>}
@@ -56,7 +56,7 @@ export function ArtistSectionError({ message, onRetry, compact = false }: ErrorP
       }`}
     >
       <div className="w-12 h-12 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.04]">
-        <Icon name="alert-circle" size={20} className="text-text-tertiary" />
+        <Icon name="alert-circle" size={20} />
       </div>
       <p className="text-sm text-text-secondary">{message}</p>
       <button

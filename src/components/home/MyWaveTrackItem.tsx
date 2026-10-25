@@ -43,7 +43,7 @@ export function MyWaveTrackItem({ track, tracks }: Props) {
         />
       ) : (
         <div className="w-10 h-10 rounded-md bg-bg-secondary flex items-center justify-center flex-shrink-0">
-          <Icon name="music" size={16} className="text-text-tertiary" />
+          <Icon name="music" size={16} />
         </div>
       )}
 

@@ -19,7 +19,7 @@ export function ProxySettings() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-border-subtle bg-bg-primary/40 p-5">
         <div className="flex items-center gap-3 mb-1">
-          <Icon name="shield" size={18} className="text-text-secondary" />
+          <Icon name="shield" size={18}  />
           <h2 className="text-sm font-medium text-text-primary">прокси</h2>
         </div>
         <p className="text-xs text-text-tertiary">

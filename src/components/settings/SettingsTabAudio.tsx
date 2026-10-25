@@ -6,8 +6,7 @@ import { useStore } from '@store/store';
 import { api } from '@lib/api';
 import type { AudioQuality } from '@store/types';
 import type { AudioSection } from './SettingsSidebar';
-import { EqVisualizer } from '@components/settings/EqVisualizer';
-import { useAudioSpectrum } from '@hooks/player/useAudioSpectrum';
+import { EqSpectrumSection } from '@components/settings/EqSpectrumSection';
 import { EQ_PRESETS } from '@lib/eqPresets';
 
 const QUALITY_OPTIONS: { id: AudioQuality; label: string; hint: string }[] = [
@@ -249,7 +248,6 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
   const eqBands = useStore((s) => s.audio.eqBands);
   const eqPreset = useStore((s) => s.audio.eqPreset);
   const setEqPreset = useStore((s) => s.setEqPreset);
-  const spectrum = useAudioSpectrum();
   const setEqBand = useStore((s) => s.setEqBand);
   const addEqBand = useStore((s) => s.addEqBand);
   const removeEqBand = useStore((s) => s.removeEqBand);
@@ -420,7 +418,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                     : 'bg-white/[0.05] text-text-tertiary group-hover:text-text-secondary'
                 }`}
               >
-                <Icon name="play" size={14} />
+                <Icon name="play" size={14} filled/>
               </span>
               <span className="min-w-0">
                 <span className="block text-sm text-text-primary">только слушать</span>
@@ -462,7 +460,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
       <div className={`overflow-visible rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-1' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-            <Icon name="volume-2" size={16} className="text-text-secondary" />
+            <Icon name="volume-2" size={16}  />
           </div>
           <div>
             <p className="text-sm text-text-primary">устройство вывода</p>
@@ -489,7 +487,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
       <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-3' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-            <Icon name="audio-lines" size={16} className="text-text-secondary" />
+            <Icon name="audio-lines" size={16}  />
           </div>
           <div>
             <p className="text-sm text-text-primary">воспроизведение</p>
@@ -571,7 +569,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
               <div className="overflow-hidden">
                 <div className="rounded-xl border border-border-subtle bg-white/[0.02] px-3 py-3">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-text-tertiary">длина кроссфейда</span>
+                    <span>длина кроссфейда</span>
                     <span className="tabular-nums text-text-secondary">
                       {crossfadeSecs.toFixed(1)} с
                     </span>
@@ -643,7 +641,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
           <div className="overflow-hidden">
             <div className="px-4 pb-4 pt-3">
               <div className="flex flex-wrap items-center gap-1 pb-2">
-                {[{ id: 'custom', label: 'Своя' }, ...EQ_PRESETS].map((preset) => {
+                {[{ id: 'custom', label: 'своя' }, ...EQ_PRESETS].map((preset) => {
                   const active = eqPreset === preset.id;
                   return (
                     <button
@@ -662,45 +660,11 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                 })}
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-border-subtle bg-gradient-to-b from-white/[0.035] to-transparent px-2 py-2">
-                <EqVisualizer
-                  bands={eqBands}
-                  preampDb={eqPreampDb}
-                  spectrum={spectrum.bins}
-                  onBandChange={(id, gainDb, freq) => setEqBand(id, { gainDb, freq })}
-                />
-              </div>
-
-              <div className="mt-3 flex items-center gap-3 px-1">
-                <span className="w-14 flex-shrink-0 text-[10px] text-text-tertiary">
-                  уровень
-                </span>
-                <div className="flex min-w-0 flex-1 items-center gap-[2px]" aria-label="уровень сигнала">
-                  {Array.from({ length: 36 }).map((_, index) => {
-                    const threshold = (index + 1) / 36;
-                    const active = spectrum.level >= threshold;
-                    const color =
-                      index >= 33
-                        ? 'bg-red-400'
-                        : index >= 28
-                          ? 'bg-amber-400'
-                          : 'bg-[var(--accent-primary)]';
-                    return (
-                      <span
-                        key={index}
-                        className={`h-1.5 flex-1 rounded-sm transition-colors duration-75 ${
-                          active ? color : 'bg-white/[0.07]'
-                        }`}
-                      />
-                    );
-                  })}
-                </div>
-                <span className="w-12 flex-shrink-0 text-right text-[10px] tabular-nums text-text-secondary">
-                  {spectrum.level <= 0.001
-                    ? '-∞'
-                    : `${Math.round(spectrum.level * 60 - 60)} дБ`}
-                </span>
-              </div>
+              <EqSpectrumSection
+                bands={eqBands}
+                preampDb={eqPreampDb}
+                onBandChange={(id, gainDb, freq) => setEqBand(id, { gainDb, freq })}
+              />
 
               <div className="mt-2 flex items-center gap-3 px-1">
             <span className="w-14 flex-shrink-0 text-[10px] text-text-tertiary">усиление</span>
@@ -719,8 +683,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
           </div>
 
           <div className="mt-2 flex items-center justify-between gap-3 px-1">
-            <p className="text-[10px] text-text-tertiary">
-              точки тянутся, двойной клик сбрасывает полосу
+            <p>
             </p>
             <button
               type="button"
@@ -837,7 +800,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
       <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-2' : 'hidden'}`}>
         <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-            <Icon name="sparkles" size={16} className="text-text-secondary" />
+            <Icon name="sparkles" size={16} />
           </div>
           <div>
             <p className="text-sm text-text-primary">качество</p>
@@ -890,7 +853,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         <div className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06]">
-              <Icon name="download-cloud" size={16} className="text-text-secondary" />
+              <Icon name="download-cloud" size={16} />
             </div>
             <div>
               <p className="text-sm text-text-primary">сохранять прослушанное</p>
@@ -975,7 +938,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
             <Icon
               name="trash-2"
               size={15}
-              className="text-text-tertiary group-hover:text-text-primary"
+              className=" group-hover:text-text-primary"
             />
           </button>
 
@@ -993,7 +956,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
             <Icon
               name="trash-2"
               size={15}
-              className="text-text-tertiary group-hover:text-red-400"
+              className=" group-hover:text-red-400"
             />
           </button>
 
@@ -1011,7 +974,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
             <Icon
               name="trash-2"
               size={15}
-              className="text-text-tertiary group-hover:text-red-400"
+              className=" group-hover:text-red-400"
             />
           </button>
         </div>

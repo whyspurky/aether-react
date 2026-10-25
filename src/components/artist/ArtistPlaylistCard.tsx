@@ -68,7 +68,7 @@ export function ArtistPlaylistCard({ playlist, variant = 'playlist', showUser = 
             />
           ) : (
             <span className="w-full h-full flex items-center justify-center">
-              <Icon name="folder" size={40} className="text-text-tertiary" />
+              <Icon name="folder" size={40}  />
             </span>
           )}
         </button>

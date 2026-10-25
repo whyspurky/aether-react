@@ -115,6 +115,8 @@ pub fn run() {
             audio::queue_next_track,
             audio::set_audio_settings,
             audio::set_eq,
+            audio::set_spectrum_active,
+            audio::set_perf_flags,
             audio::start_volume_stream,
 
             // track cache

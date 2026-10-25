@@ -64,7 +64,7 @@ export function ArtistHeader({
               style={{ viewTransitionName: 'artist-avatar' }}
               className="w-36 lg:w-48 aspect-square rounded-full bg-white/[0.06] flex items-center justify-center"
             >
-              <Icon name="mic" size={56} className="text-text-tertiary" />
+              <Icon name="mic" size={56} />
             </div>
           )}
         </div>
@@ -79,7 +79,7 @@ export function ArtistHeader({
             </h1>
             {artist.verified && (
               <span role="img" aria-label="подтверждённый артист" className="flex-shrink-0 flex">
-                <Icon name="check-circle" size={20} className="text-text-secondary" />
+                <Icon name="check-circle" size={20}  />
               </span>
             )}
           </div>
@@ -124,7 +124,7 @@ export function ArtistHeader({
               disabled={!canPlay}
               className="px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 bg-[var(--accent-primary)] text-[var(--bg-primary)] hover:opacity-90 transition-opacity duration-200 disabled:opacity-30 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_45%,transparent)]"
             >
-              <Icon name="play" size={16} />
+              <Icon name="play" size={16} filled/>
               слушать все
             </button>
 

@@ -9,20 +9,36 @@ export const formatSec = (sec: number): string => {
 
 export const formatMs = (ms: number): string => formatSec(ms / 1000);
 
-type CoverSize = 't300x300' | 't500x500';
+type CoverSize = 't200x200' | 't300x300' | 't500x500';
 
 const IMG_SIZE_RE = /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/;
+
+const COVER_RANK: Record<CoverSize, number> = {
+  't200x200': 200,
+  't300x300': 300,
+  't500x500': 500,
+};
+
+// потолок качества задаётся в настройках производительности
+let coverQuality: CoverSize = 't500x500';
+
+export const setCoverQuality = (quality: CoverSize) => {
+  coverQuality = quality;
+};
+
+const clampCover = (size: CoverSize): CoverSize =>
+  COVER_RANK[size] <= COVER_RANK[coverQuality] ? size : coverQuality;
 
 export const getCoverUrl = (track: Track | null | undefined, size: CoverSize = 't300x300'): string | null => {
   if (!track) return null;
   const raw = track.artwork_url || track.user?.avatar_url;
   if (!raw) return null;
-  return raw.replace(IMG_SIZE_RE, `-${size}$2`);
+  return raw.replace(IMG_SIZE_RE, `-${clampCover(size)}$2`);
 };
 
 export const upgradeCoverUrl = (url: string | undefined | null, size: CoverSize = 't500x500'): string | undefined => {
   if (!url) return undefined;
-  return url.replace(IMG_SIZE_RE, `-${size}$2`);
+  return url.replace(IMG_SIZE_RE, `-${clampCover(size)}$2`);
 };
 
 const compactNumber = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });

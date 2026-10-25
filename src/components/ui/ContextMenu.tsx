@@ -94,7 +94,13 @@ export function ContextMenu({ x, y, items, anchor, onClose, forceClose }: Props)
               : 'text-text-secondary hover:bg-[var(--accent-muted)] hover:text-[var(--accent-primary)]'
           }`}
         >
-          {item.icon && <Icon name={item.icon} size={14} />}
+          {item.icon && (
+            <Icon
+              name={item.icon}
+              size={14}
+              className={item.danger ? 'text-red-400' : ''}
+            />
+          )}
           <span className="flex-1">{item.label}</span>
         </button>
       ))}

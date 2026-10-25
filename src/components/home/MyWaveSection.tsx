@@ -41,7 +41,7 @@ export function MyWaveSection({ tracks, isLoading, onPlay }: Props) {
       return (
         <div key={i} className="flex items-center gap-3 p-2">
           <div className="w-10 h-10 rounded-md bg-white/[0.06] flex items-center justify-center">
-            <Icon name="music" size={16} className="text-text-tertiary" />
+            <Icon name="music" size={16}  />
           </div>
           <div className="flex-1 min-w-0">
             <div className="h-4 bg-white/[0.06] rounded mb-1" style={{ width: `${title}%` }} />

@@ -93,7 +93,7 @@ export function SettingsTabData() {
       <div className="bg-bg-primary/40 rounded-2xl border border-border-subtle overflow-hidden">
         <div className="px-5 py-4 border-b border-border-subtle flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-            <Icon name="trash-2" size={16} className="text-text-secondary" />
+            <Icon name="trash-2" size={16} />
           </div>
           <div>
             <p className="text-sm text-text-primary">очистка данных</p>
@@ -108,7 +108,7 @@ export function SettingsTabData() {
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.04] flex items-center justify-center transition-all duration-200 group-hover:bg-[var(--accent-muted)]">
-                <Icon name="history" size={16} className="text-text-secondary transition-colors duration-200 group-hover:text-[var(--accent-primary)]" />
+                <Icon name="history" size={16} className=" transition-colors duration-200 group-hover:text-[var(--accent-primary)]" />
               </div>
               <div className="text-left">
                 <p className="text-sm text-text-primary">очистить историю</p>
@@ -118,7 +118,7 @@ export function SettingsTabData() {
             <Icon
               name="chevron-right"
               size={16}
-              className="text-text-tertiary group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all duration-200"
+              className=" group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all duration-200"
             />
           </button>
 
@@ -128,7 +128,7 @@ export function SettingsTabData() {
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-white/[0.04] flex items-center justify-center transition-all duration-200 group-hover:bg-[var(--accent-muted)]">
-                <Icon name="heart" size={16} className="text-text-secondary transition-colors duration-200 group-hover:text-[var(--accent-primary)]" />
+                <Icon name="heart" size={16} className=" transition-colors duration-200 group-hover:text-[var(--accent-primary)]" />
               </div>
               <div className="text-left">
                 <p className="text-sm text-text-primary">очистить избранное</p>
@@ -138,7 +138,7 @@ export function SettingsTabData() {
             <Icon
               name="chevron-right"
               size={16}
-              className="text-text-tertiary group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all duration-200"
+              className=" group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all duration-200"
             />
           </button>
 
@@ -158,7 +158,7 @@ export function SettingsTabData() {
             <Icon
               name="chevron-right"
               size={16}
-              className="text-text-tertiary group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200"
+              className=" group-hover:text-red-400 group-hover:translate-x-0.5 transition-all duration-200"
             />
           </button>
         </div>
@@ -168,7 +168,7 @@ export function SettingsTabData() {
       <div className="bg-bg-primary/40 rounded-2xl border border-border-subtle overflow-hidden">
         <div className="px-5 py-4 border-b border-border-subtle flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center">
-            <Icon name="database" size={16} className="text-text-secondary" />
+            <Icon name="database" size={16} />
           </div>
           <div>
             <p className="text-sm text-text-primary">хранилище данных</p>
@@ -177,14 +177,14 @@ export function SettingsTabData() {
         </div>
         <div className="p-4 space-y-2">
           <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02]">
-            <Icon name="folder" size={14} className="text-text-tertiary flex-shrink-0" />
+            <Icon name="folder" size={14} className=" flex-shrink-0" />
             <code className="text-xs text-text-secondary font-mono flex-1 truncate">
               %LOCALAPPDATA%\com.aether.desktop\
             </code>
           </div>
           <div className="flex gap-2">
             <div className="flex-1 flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02]">
-              <Icon name="search" size={14} className="text-text-tertiary flex-shrink-0" />
+              <Icon name="search" size={14} className=" flex-shrink-0" />
               <span className="text-xs text-text-tertiary">
                 поиск: <span className="text-text-secondary tabular-nums">{searchHistory.length}</span> запросов
               </span>

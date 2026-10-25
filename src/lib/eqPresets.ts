@@ -26,16 +26,16 @@ export interface EqPreset {
 }
 
 export const EQ_PRESETS: EqPreset[] = [
-  { id: 'flat', label: 'Ровная', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-  { id: 'bass', label: 'Больше басов', gains: [6, 5, 4, 2, 0, -1, -1, 0, 0, 0] },
-  { id: 'less-bass', label: 'Меньше басов', gains: [-5, -4, -3, -1, 0, 1, 1, 0, 0, 0] },
-  { id: 'treble', label: 'Больше высоких', gains: [0, 0, 0, 0, 0, 1, 2, 4, 5, 5] },
-  { id: 'vocal', label: 'Вокал', gains: [-2, -1, 0, -2, -1, 1, 3, 3, 2, 1] },
-  { id: 'rock', label: 'Рок', gains: [4, 3, 1, -1, -2, -1, 1, 3, 4, 3] },
-  { id: 'pop', label: 'Поп', gains: [2, 2, 1, 0, -1, 0, 2, 2, 2, 1] },
-  { id: 'jazz', label: 'Джаз', gains: [3, 2, 1, 0, -1, -1, 1, 2, 2, 1] },
-  { id: 'classical', label: 'Классика', gains: [1, 1, 0, 0, -1, -1, 0, 1, 2, 2] },
-  { id: 'electronic', label: 'Электроника', gains: [5, 4, 2, 0, -1, 0, 2, 3, 4, 3] },
+  { id: 'flat', label: 'ровная', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  { id: 'bass', label: 'больше басов', gains: [6, 5, 4, 2, 0, -1, -1, 0, 0, 0] },
+  { id: 'less-bass', label: 'меньше басов', gains: [-5, -4, -3, -1, 0, 1, 1, 0, 0, 0] },
+  { id: 'treble', label: 'больше высоких', gains: [0, 0, 0, 0, 0, 1, 2, 4, 5, 5] },
+  { id: 'vocal', label: 'вокал', gains: [-2, -1, 0, -2, -1, 1, 3, 3, 2, 1] },
+  { id: 'rock', label: 'рок', gains: [4, 3, 1, -1, -2, -1, 1, 3, 4, 3] },
+  { id: 'pop', label: 'поп', gains: [2, 2, 1, 0, -1, 0, 2, 2, 2, 1] },
+  { id: 'jazz', label: 'джаз', gains: [3, 2, 1, 0, -1, -1, 1, 2, 2, 1] },
+  { id: 'classical', label: 'классика', gains: [1, 1, 0, 0, -1, -1, 0, 1, 2, 2] },
+  { id: 'electronic', label: 'электроника', gains: [5, 4, 2, 0, -1, 0, 2, 3, 4, 3] },
 ];
 
 export function createBandsFromPreset(preset: EqPreset): EqBand[] {
