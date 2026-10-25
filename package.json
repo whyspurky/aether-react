@@ -2,7 +2,9 @@
   "name": "aether-desktop",
   "private": true,
   "version": "0.1.2",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +16,8 @@
     "tauri:build": "tauri build"
   },
   "dependencies": {
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@tanstack/react-virtual": "^3.14.20",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.8.0",
