@@ -27,7 +27,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
 
     {
       name: 'aether-storage',
-      version: 10,
+      version: 15,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         if (version < 2) {
@@ -150,6 +150,55 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           }
         }
 
+        if (version < 12) {
+          if (!persisted.audio) persisted.audio = {};
+          if (persisted.audio.pitchSemitones === undefined) persisted.audio.pitchSemitones = 0;
+        }
+
+        if (version < 15) {
+          if (!persisted.audio) persisted.audio = {};
+          if (!persisted.audio.eqPreset) persisted.audio.eqPreset = 'custom';
+        }
+
+        if (version < 14) {
+          if (!persisted.audio) persisted.audio = {};
+          if (!Array.isArray(persisted.audio.eqBands)) {
+            const freqs = [31.25, 62.5, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+            const gains = Array.isArray(persisted.audio.eqGains) ? persisted.audio.eqGains : [];
+            persisted.audio.eqBands = freqs.map((freq, index) => ({
+              id: index + 1,
+              enabled: true,
+              kind: 'peaking',
+              freq,
+              gainDb: gains[index] ?? 0,
+              q: 1.414,
+            }));
+          }
+          delete persisted.audio.eqGains;
+        }
+
+        if (version < 13) {
+          if (!persisted.audio) persisted.audio = {};
+          if (persisted.audio.linked === undefined) persisted.audio.linked = true;
+          if (persisted.audio.linked) {
+            const speed = persisted.audio.speed ?? 1;
+            persisted.audio.pitchSemitones = 12 * Math.log2(speed);
+          }
+        }
+
+        if (version < 11) {
+          if (!persisted.audio) persisted.audio = {};
+          if (persisted.audio.normalization === undefined) persisted.audio.normalization = false;
+          if (persisted.audio.eqEnabled === undefined) persisted.audio.eqEnabled = false;
+          if (persisted.audio.eqPreampDb === undefined) persisted.audio.eqPreampDb = 0;
+          if (!Array.isArray(persisted.audio.eqGains) || persisted.audio.eqGains.length !== 10) {
+            persisted.audio.eqGains = Array(10).fill(0);
+          }
+          if (persisted.audio.speed === undefined) persisted.audio.speed = 1;
+          if (!persisted.audio.transition) persisted.audio.transition = 'off';
+          if (persisted.audio.crossfadeSecs === undefined) persisted.audio.crossfadeSecs = 4;
+        }
+
         return persisted;
       },
       merge: (persisted: any, current: any) => ({
@@ -205,6 +254,16 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
         },
         audio: {
           outputDevice: s.audio.outputDevice,
+          normalization: s.audio.normalization,
+          eqEnabled: s.audio.eqEnabled,
+          eqPreampDb: s.audio.eqPreampDb,
+          eqBands: s.audio.eqBands,
+          eqPreset: s.audio.eqPreset,
+          speed: s.audio.speed,
+          pitchSemitones: s.audio.pitchSemitones,
+          linked: s.audio.linked,
+          transition: s.audio.transition,
+          crossfadeSecs: s.audio.crossfadeSecs,
         },
         queue: {
           tracks: s.queue.tracks.map((t: any) => ({

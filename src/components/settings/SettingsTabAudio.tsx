@@ -1,16 +1,36 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { ConfirmModal } from '@components/ui/ConfirmModal';
+import { PrecisionSlider } from '@components/ui/PrecisionSlider';
 import { useStore } from '@store/store';
 import { api } from '@lib/api';
 import type { AudioQuality } from '@store/types';
 import type { AudioSection } from './SettingsSidebar';
+import { EqVisualizer } from '@components/settings/EqVisualizer';
+import { useAudioSpectrum } from '@hooks/player/useAudioSpectrum';
+import { EQ_PRESETS } from '@lib/eqPresets';
 
 const QUALITY_OPTIONS: { id: AudioQuality; label: string; hint: string }[] = [
   { id: 'best', label: 'максимальное', hint: 'самый высокий доступный битрейт' },
   { id: 'high', label: 'высокое', hint: 'цель 160 kbps' },
   { id: 'medium', label: 'среднее', hint: 'цель 128 kbps' },
   { id: 'low', label: 'низкое', hint: 'прогрессивный поток или самый низкий' },
+];
+
+const TRANSITION_OPTIONS = [
+  { id: 'off' as const, label: 'выкл' },
+  { id: 'gapless' as const, label: 'бесшовно' },
+  { id: 'crossfade' as const, label: 'кроссфейд' },
+];
+
+const EQ_KIND_OPTIONS = [
+  { id: 'peaking' as const, label: 'пиковый' },
+  { id: 'lowShelf' as const, label: 'низкая полка' },
+  { id: 'highShelf' as const, label: 'высокая полка' },
+  { id: 'lowPass' as const, label: 'низкие частоты' },
+  { id: 'highPass' as const, label: 'высокие частоты' },
+  { id: 'notch' as const, label: 'вырез' },
+  { id: 'bandPass' as const, label: 'полосовой' },
 ];
 
 function formatSize(bytes: number): string {
@@ -66,43 +86,6 @@ function Toggle({
         }
       />
     </button>
-  );
-}
-
-function RoadmapRow({
-  icon,
-  title,
-  description,
-}: {
-  icon: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-text-tertiary">
-          <Icon name={icon} size={14} />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm text-text-primary">{title}</span>
-          <span className="mt-0.5 block text-[11px] leading-snug text-text-tertiary">
-            {description}
-          </span>
-        </span>
-      </div>
-      <div className="flex flex-shrink-0 items-center gap-2">
-        <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] uppercase tracking-wider text-text-tertiary">
-          скоро
-        </span>
-        <Toggle
-          checked={false}
-          onChange={() => {}}
-          disabled
-          label={`${title}, скоро`}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -177,6 +160,75 @@ function DeviceGrid({
   );
 }
 
+function EqNumberField({
+  value,
+  min,
+  max,
+  suffix,
+  ariaLabel,
+  onCommit,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  suffix: string;
+  ariaLabel: string;
+  onCommit: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setText(String(value));
+  }, [focused, value]);
+
+  const commit = (raw: string) => {
+    const parsed = Number(raw.replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      setText(String(value));
+      return;
+    }
+    const clamped = Math.max(min, Math.min(max, parsed));
+    onCommit(clamped);
+    setText(String(clamped));
+  };
+
+  return (
+    <label className="relative">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={text}
+        aria-label={ariaLabel}
+        onFocus={() => setFocused(true)}
+        onChange={(event) => {
+          const raw = event.target.value;
+          setText(raw);
+          const parsed = Number(raw.replace(',', '.'));
+          if (raw.trim() !== '' && Number.isFinite(parsed)) {
+            onCommit(Math.max(min, Math.min(max, parsed)));
+          }
+        }}
+        onBlur={() => {
+          setFocused(false);
+          commit(text);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          if (event.key === 'Escape') {
+            setText(String(value));
+            event.currentTarget.blur();
+          }
+        }}
+        className="w-full rounded-lg border border-border-subtle bg-white/[0.03] px-1.5 py-1 text-right text-[10px] tabular-nums text-text-secondary outline-none focus:border-[var(--accent-primary)]"
+      />
+      <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-text-tertiary">
+        {suffix}
+      </span>
+    </label>
+  );
+}
+
 type ClearScope = 'temp' | 'offline' | 'all' | null;
 
 export function SettingsTabAudio({ section }: { section: AudioSection }) {
@@ -188,6 +240,24 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
   const refreshCache = useStore((s) => s.refreshCache);
   const outputDevice = useStore((s) => s.audio.outputDevice);
   const setOutputDevice = useStore((s) => s.setOutputDevice);
+  const normalization = useStore((s) => s.audio.normalization);
+  const setNormalization = useStore((s) => s.setNormalization);
+  const eqEnabled = useStore((s) => s.audio.eqEnabled);
+  const setEqEnabled = useStore((s) => s.setEqEnabled);
+  const eqPreampDb = useStore((s) => s.audio.eqPreampDb);
+  const setEqPreamp = useStore((s) => s.setEqPreamp);
+  const eqBands = useStore((s) => s.audio.eqBands);
+  const eqPreset = useStore((s) => s.audio.eqPreset);
+  const setEqPreset = useStore((s) => s.setEqPreset);
+  const spectrum = useAudioSpectrum();
+  const setEqBand = useStore((s) => s.setEqBand);
+  const addEqBand = useStore((s) => s.addEqBand);
+  const removeEqBand = useStore((s) => s.removeEqBand);
+  const resetEq = useStore((s) => s.resetEq);
+  const transition = useStore((s) => s.audio.transition);
+  const setTransition = useStore((s) => s.setTransition);
+  const crossfadeSecs = useStore((s) => s.audio.crossfadeSecs);
+  const setCrossfadeSecs = useStore((s) => s.setCrossfadeSecs);
   const [devices, setDevices] = useState<
     { id: string; name: string; detail: string; isDefault: boolean }[]
   >([]);
@@ -430,22 +500,338 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         </div>
 
         <div className="divide-y divide-border-subtle">
-          <RoadmapRow
-            icon="volume-2"
-            title="нормализация громкости"
-            description="автоматическое выравнивание уровня громкости для всех треков"
-          />
-          <RoadmapRow
-            icon="audio-lines"
-            title="бесшовное воспроизведение"
-            description="плавный переход между треками без пауз и задержек"
-          />
-          <RoadmapRow
-            icon="repeat"
-            title="кроссфейд"
-            description="плавное затухание в конце трека и нарастание в начале следующего"
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-text-tertiary">
+                <Icon name="volume-2" size={14} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm text-text-primary">нормализация громкости</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-text-tertiary">
+                  выравнивает средний уровень треков и не дает уйти в клиппинг
+                </span>
+              </span>
+            </div>
+            <Toggle
+              checked={normalization}
+              onChange={setNormalization}
+              label={normalization ? 'выключить нормализацию' : 'включить нормализацию'}
+            />
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-text-tertiary">
+                <Icon name="repeat" size={14} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-text-primary">переход между треками | бета</p>
+                <p className="mt-0.5 text-[11px] text-text-tertiary">
+                  бесшовно без паузы, кроссфейд с наложением
+                </p>
+              </div>
+            </div>
+
+            <div className="relative mt-3 grid grid-cols-3 rounded-xl border border-border-subtle bg-white/[0.02] p-1">
+              <span
+                className="pointer-events-none absolute bottom-1 left-1 top-1 w-[calc((100%-0.5rem)/3)] rounded-lg border border-[var(--accent-primary)] bg-[var(--accent-muted)] transition-transform duration-300 ease-out"
+                style={{
+                  transform: `translateX(${Math.max(
+                    0,
+                    TRANSITION_OPTIONS.findIndex((option) => option.id === transition)
+                  ) * 100}%)`,
+                }}
+              />
+              {TRANSITION_OPTIONS.map((option) => {
+                const active = transition === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setTransition(option.id)}
+                    className={`relative z-10 rounded-lg px-2 py-2 text-xs transition-colors duration-200 ${
+                      active
+                        ? 'text-[var(--accent-primary)]'
+                        : 'text-text-tertiary hover:text-text-secondary'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={`grid transition-all duration-300 ease-out ${
+                transition === 'crossfade'
+                  ? 'mt-3 grid-rows-[1fr] opacity-100'
+                  : 'mt-0 grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="rounded-xl border border-border-subtle bg-white/[0.02] px-3 py-3">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-text-tertiary">длина кроссфейда</span>
+                    <span className="tabular-nums text-text-secondary">
+                      {crossfadeSecs.toFixed(1)} с
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <PrecisionSlider
+                      value={crossfadeSecs}
+                      min={1}
+                      max={12}
+                      step={0.5}
+                      ariaLabel="длина кроссфейда"
+                      onChange={setCrossfadeSecs}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div
+        className={`overflow-hidden rounded-2xl border bg-bg-primary/40 transition-colors duration-300 ${
+          section === 'eq' ? 'order-1' : 'hidden'
+        } ${eqEnabled ? 'border-[var(--accent-primary)]' : 'border-border-subtle'}`}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-300 ${
+                eqEnabled
+                  ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                  : 'bg-white/[0.06] text-text-secondary'
+              }`}
+            >
+              <Icon name="audio-lines" size={16} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-text-primary">эквалайзер</p>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[9px] transition-colors ${
+                    eqEnabled
+                      ? 'bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                      : 'bg-white/[0.06] text-text-tertiary'
+                  }`}
+                >
+                  {eqEnabled ? 'включен' : 'выключен'}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-text-tertiary">
+                спектр трека и 10 полос
+              </p>
+            </div>
+          </div>
+          <Toggle
+            checked={eqEnabled}
+            onChange={setEqEnabled}
+            label={eqEnabled ? 'выключить эквалайзер' : 'включить эквалайзер'}
           />
         </div>
+
+        <div
+          className={`grid transition-all duration-300 ease-out ${
+            eqEnabled ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="px-4 pb-4 pt-3">
+              <div className="flex flex-wrap items-center gap-1 pb-2">
+                {[{ id: 'custom', label: 'Своя' }, ...EQ_PRESETS].map((preset) => {
+                  const active = eqPreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setEqPreset(preset.id)}
+                      className={`rounded-lg border px-2 py-1 text-[10px] transition-all duration-150 active:scale-95 ${
+                        active
+                          ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]'
+                          : 'border-border-subtle bg-white/[0.02] text-text-tertiary hover:border-border-visible hover:text-text-secondary'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-border-subtle bg-gradient-to-b from-white/[0.035] to-transparent px-2 py-2">
+                <EqVisualizer
+                  bands={eqBands}
+                  preampDb={eqPreampDb}
+                  spectrum={spectrum.bins}
+                  onBandChange={(id, gainDb, freq) => setEqBand(id, { gainDb, freq })}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center gap-3 px-1">
+                <span className="w-14 flex-shrink-0 text-[10px] text-text-tertiary">
+                  уровень
+                </span>
+                <div className="flex min-w-0 flex-1 items-center gap-[2px]" aria-label="уровень сигнала">
+                  {Array.from({ length: 36 }).map((_, index) => {
+                    const threshold = (index + 1) / 36;
+                    const active = spectrum.level >= threshold;
+                    const color =
+                      index >= 33
+                        ? 'bg-red-400'
+                        : index >= 28
+                          ? 'bg-amber-400'
+                          : 'bg-[var(--accent-primary)]';
+                    return (
+                      <span
+                        key={index}
+                        className={`h-1.5 flex-1 rounded-sm transition-colors duration-75 ${
+                          active ? color : 'bg-white/[0.07]'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="w-12 flex-shrink-0 text-right text-[10px] tabular-nums text-text-secondary">
+                  {spectrum.level <= 0.001
+                    ? '-∞'
+                    : `${Math.round(spectrum.level * 60 - 60)} дБ`}
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-center gap-3 px-1">
+            <span className="w-14 flex-shrink-0 text-[10px] text-text-tertiary">усиление</span>
+            <PrecisionSlider
+              value={eqPreampDb}
+              min={-12}
+              max={6}
+              step={0.5}
+              ariaLabel="общий уровень эквалайзера"
+              onChange={setEqPreamp}
+            />
+            <span className="w-12 flex-shrink-0 text-right text-[10px] tabular-nums text-text-secondary">
+              {eqPreampDb > 0 ? '+' : ''}
+              {eqPreampDb.toFixed(1)} дБ
+            </span>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-3 px-1">
+            <p className="text-[10px] text-text-tertiary">
+              точки тянутся, двойной клик сбрасывает полосу
+            </p>
+            <button
+              type="button"
+              disabled={!eqEnabled}
+              onClick={resetEq}
+              className="rounded-lg border border-border-subtle px-2.5 py-1.5 text-[10px] text-text-tertiary transition-colors hover:border-border-visible hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              сбросить
+            </button>
+          </div>
+
+          <div className="mt-4 border-t border-border-subtle pt-3">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-[11px] text-text-primary">фильтры</p>
+              <button
+                type="button"
+                disabled={eqBands.length >= 24}
+                onClick={addEqBand}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle px-2 py-1 text-[10px] text-text-tertiary transition-colors hover:border-border-visible hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Icon name="plus" size={11} />
+                добавить фильтр
+              </button>
+            </div>
+
+            <div className="mt-2 space-y-1">
+              {[...eqBands]
+                .sort((a, b) => a.freq - b.freq || a.id - b.id)
+                .map((band) => (
+                <div
+                  key={band.id}
+                  className={`grid grid-cols-[auto_minmax(0,1fr)_64px_54px_54px_20px] items-center gap-1.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/[0.03] ${
+                    band.enabled ? '' : 'opacity-45'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={band.enabled}
+                    aria-label={band.enabled ? 'выключить фильтр' : 'включить фильтр'}
+                    onClick={() => setEqBand(band.id, { enabled: !band.enabled })}
+                    className={`relative h-4 w-7 flex-shrink-0 rounded-full transition-colors ${
+                      band.enabled ? 'bg-[var(--accent-primary)]' : 'bg-white/[0.14]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all ${
+                        band.enabled ? 'left-3.5' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+
+                  <select
+                    value={band.kind}
+                    onChange={(e) =>
+                      setEqBand(band.id, {
+                        kind: e.target.value as (typeof EQ_KIND_OPTIONS)[number]['id'],
+                      })
+                    }
+                    aria-label="тип фильтра"
+                    className="min-w-0 rounded-lg border border-border-subtle bg-white/[0.03] px-2 py-1 text-[10px] text-text-secondary outline-none focus:border-[var(--accent-primary)]"
+                  >
+                    {EQ_KIND_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <EqNumberField
+                    value={band.freq}
+                    min={20}
+                    max={20000}
+                    suffix="гц"
+                    ariaLabel="частота фильтра"
+                    onCommit={(freq) => setEqBand(band.id, { freq })}
+                  />
+
+                  <EqNumberField
+                    value={band.gainDb}
+                    min={-18}
+                    max={18}
+                    suffix="дб"
+                    ariaLabel="усиление фильтра"
+                    onCommit={(gainDb) => setEqBand(band.id, { gainDb })}
+                  />
+
+                  <EqNumberField
+                    value={band.q}
+                    min={0.1}
+                    max={10}
+                    suffix="q"
+                    ariaLabel="добротность фильтра"
+                    onCommit={(q) => setEqBand(band.id, { q })}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => removeEqBand(band.id)}
+                    aria-label="удалить фильтр"
+                    className="flex h-5 w-5 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-white/[0.06] hover:text-text-secondary"
+                  >
+                    <Icon name="x" size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
 
       <div className={`overflow-hidden rounded-2xl border border-border-subtle bg-bg-primary/40 ${section === 'playback' ? 'order-2' : 'hidden'}`}>

@@ -10,6 +10,7 @@ import { VolumeControl } from '@components/player/VolumeControl';
 import { PlayerQueue } from '@components/player/PlayerQueue';
 import { usePlayerProgress } from '@hooks/player/usePlayerProgress';
 import { useSeekDrag } from '@hooks/player/useSeekDrag';
+import { SpeedControl } from '@components/player/SpeedControl';
 import { MarqueeText } from '@components/track/AnimatedTrackInfo';
 import { useAddToPlaylist } from '@components/playlist/AddToPlaylistProvider';
 import { usePlayerControlsLayout } from '@hooks/player/usePlayerControlsLayout';
@@ -308,6 +309,8 @@ export default function PlayerPage() {
                     />
                   </button>
                 )}
+
+                <SpeedControl />
 
                 {currentTrack && (
                   <button

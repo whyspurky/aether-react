@@ -112,6 +112,9 @@ pub fn run() {
             audio::set_track_duration,
             audio::get_position,
             audio::seek_audio,
+            audio::queue_next_track,
+            audio::set_audio_settings,
+            audio::set_eq,
             audio::start_volume_stream,
 
             // track cache

@@ -95,6 +95,40 @@ export interface ArtistSectionMeta {
 }
 
 export type AudioQuality = 'best' | 'high' | 'medium' | 'low';
+export type TransitionMode = 'off' | 'gapless' | 'crossfade';
+
+export type EqKind =
+  | 'peaking'
+  | 'lowShelf'
+  | 'highShelf'
+  | 'lowPass'
+  | 'highPass'
+  | 'notch'
+  | 'bandPass';
+
+export interface EqBand {
+  id: number;
+  enabled: boolean;
+  kind: EqKind;
+  freq: number;
+  gainDb: number;
+  q: number;
+}
+
+export interface EqSettings {
+  enabled: boolean;
+  preampDb: number;
+  bands: EqBand[];
+}
+
+export interface AudioSettings {
+  normalization: boolean;
+  speed: number;
+  pitchSemitones: number;
+  linked: boolean;
+  transition: TransitionMode;
+  crossfadeSecs: number;
+}
 
 export interface StreamInfo {
   url: string;

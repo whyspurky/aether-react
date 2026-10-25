@@ -29,6 +29,7 @@ export interface PlayerSlice {
     duration: number;
     pendingSeek: number | null;
     shuffleHistory: number[];
+    autoAdvancePending: boolean;
   };
   preload: {
     isPreloading: boolean;
@@ -43,6 +44,7 @@ export interface PlayerSlice {
   setVolume: (volume: number, force?: boolean) => void;  setPosition: (position: number) => void;
   setShuffle: (shuffle: boolean) => void;
   setRepeat: (repeat: 'none' | 'all' | 'one') => void;
+  setAutoAdvancePending: (pending: boolean) => void;
   getUserTopArtists: (limit?: number) => string[];
   preloadMoreTracks: () => Promise<void>;
 }
@@ -103,8 +105,10 @@ function shouldPreloadQueue(remaining: number, repeat: 'none' | 'all' | 'one'): 
 
 let lastVolumePush = 0;
 let lastTogglePlayAt = 0;
+let lastAutoNextAt = 0;
 
 const TOGGLE_PLAY_DEBOUNCE_MS = 100;
+const AUTO_NEXT_GUARD_MS = 800;
 
 export const createPlayerSlice = (set: any, get: any) => ({
   queue: {
@@ -125,6 +129,7 @@ export const createPlayerSlice = (set: any, get: any) => ({
     duration: 0,
     pendingSeek: null,
     shuffleHistory: [] as number[],
+    autoAdvancePending: false,
   },
   preload: {
     isPreloading: false,
@@ -215,6 +220,7 @@ if (isCurrent) {
         position: startPos,
         duration: track.duration ? track.duration / 1000 : 0,
         pendingSeek: savedSeek && savedSeek > 0 ? savedSeek : null,
+        autoAdvancePending: false,
       },
     }));
 
@@ -222,6 +228,7 @@ if (isCurrent) {
     const cacheEnabled = get().offline?.cacheEnabled ?? true;
     const quality = get().offline?.quality ?? 'best';
     const autoSave = cacheEnabled && (get().offline?.autoSave ?? false);
+    const transition = get().audio?.transition ?? 'off';
 
     let started = false;
     const MAX_ATTEMPTS = 2;
@@ -317,7 +324,21 @@ if (isCurrent) {
 
         const nextIdx = index + 1;
         const nextTrack = tracks[nextIdx];
-        if (cacheEnabled && nextTrack?.id) {
+        if (cacheEnabled && nextTrack?.id && transition !== 'off') {
+          (async () => {
+            try {
+              if (!isValid()) return;
+              const queued = await api.queueNextTrack(
+                nextTrack.id,
+                nextTrack.duration,
+                quality
+              );
+              if (queued && get().player.currentTrack?.id === track.id) {
+                get().setAutoAdvancePending(true);
+              }
+            } catch {}
+          })();
+        } else if (cacheEnabled && nextTrack?.id) {
           (async () => {
             try {
               if (!isValid()) return;
@@ -364,6 +385,11 @@ if (isCurrent) {
   },
 
   nextTrack: async (manual = false) => {
+    if (!manual) {
+      const now = Date.now();
+      if (now - lastAutoNextAt < AUTO_NEXT_GUARD_MS) return;
+      lastAutoNextAt = now;
+    }
     try { await api.stopAudio(); } catch {}
 
     set((s: any) => ({
@@ -371,6 +397,7 @@ if (isCurrent) {
         ...s.player,
         isPlaying: false,
         position: 0,
+        autoAdvancePending: false,
         repeat: manual && s.player.repeat === 'one' ? 'none' : s.player.repeat,
       },
     }));
@@ -560,6 +587,9 @@ if (isCurrent) {
 
   setRepeat: (repeat: 'none' | 'all' | 'one') =>
     set((s: any) => ({ player: { ...s.player, repeat } })),
+
+  setAutoAdvancePending: (autoAdvancePending: boolean) =>
+    set((s: any) => ({ player: { ...s.player, autoAdvancePending } })),
 
   getUserTopArtists: (limit = 5) => {
     const { library } = get();

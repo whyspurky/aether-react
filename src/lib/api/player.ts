@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { invokeCmd, invokeCmdStrict } from './client';
-import type { AudioQuality, StreamInfo } from '@store/types';
+import type { AudioQuality, AudioSettings, EqSettings, StreamInfo } from '@store/types';
 
 export interface PlaybackSync {
   position_sec: number;
@@ -68,5 +68,27 @@ export const playerApi = {
 
   setTrackDuration: async (durationMs: number): Promise<void> => {
     await invokeCmd('set_track_duration', { durationMs });
+  },
+
+  queueNextTrack: async (
+    trackId: number,
+    durationMs: number,
+    quality: AudioQuality = 'best'
+  ): Promise<boolean> => {
+    return (
+      (await invokeCmd<boolean>('queue_next_track', {
+        trackId,
+        durationMs,
+        quality,
+      })) ?? false
+    );
+  },
+
+  setAudioSettings: async (settings: AudioSettings): Promise<void> => {
+    await invokeCmd('set_audio_settings', { settings });
+  },
+
+  setEq: async (settings: EqSettings): Promise<void> => {
+    await invokeCmd('set_eq', { settings });
   },
 };

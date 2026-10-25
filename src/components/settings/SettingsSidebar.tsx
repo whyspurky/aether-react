@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 
 export type SettingsTab = 'data' | 'audio' | 'appearance' | 'proxy' | 'binds' | 'about';
-export type AudioSection = 'playback' | 'cache';
+export type AudioSection = 'playback' | 'eq' | 'cache';
 
 interface Props {
   activeTab: SettingsTab;
@@ -23,6 +23,7 @@ const TABS: { id: SettingsTab; label: string; icon: string }[] = [
 
 const AUDIO_TABS: { id: AudioSection; label: string; icon: string }[] = [
   { id: 'playback', label: 'воспроизведение', icon: 'play' },
+  { id: 'eq', label: 'эквалайзер', icon: 'audio-lines' },
   { id: 'cache', label: 'кэш', icon: 'database' },
 ];
 

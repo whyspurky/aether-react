@@ -11,6 +11,8 @@ import { useVolumeRestore } from './hooks/app/useVolumeRestore';
 import { useColdStartPrefetch } from './hooks/app/useColdStartPrefetch';
 import { useTrackCacheEvents } from './hooks/app/useTrackCacheEvents';
 import { useAudioOutput } from './hooks/app/useAudioOutput';
+import { useAudioSettings } from './hooks/app/useAudioSettings';
+import { useAudioTransition } from './hooks/app/useAudioTransition';
 import { ContextMenuProvider } from './components/ui/ContextMenuProvider';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
@@ -29,6 +31,8 @@ function AppContent() {
   useContextMenuPrevent();
   useVolumeRestore();
   useAudioOutput();
+  useAudioSettings();
+  useAudioTransition();
   useColdStartPrefetch();
   useTrackCacheEvents();
   useProxySync();

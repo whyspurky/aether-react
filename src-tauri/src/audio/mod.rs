@@ -1,5 +1,7 @@
 mod state;
 mod engine;
+mod dsp;
+mod analyser;
 
 pub use state::{AppState, OutputDeviceInfo};
 use crate::api::quality::AudioQuality;
@@ -96,6 +98,30 @@ pub fn get_position(state: State<AppState>) -> Result<f64, String> {
 #[tauri::command]
 pub fn seek_audio(seconds: f64, state: State<AppState>) -> Result<engine::PlaybackSync, String> {
     engine::seek(seconds, state)
+}
+
+#[tauri::command]
+pub async fn queue_next_track(
+    track_id: u64,
+    duration_ms: u32,
+    quality: Option<String>,
+    cache: State<'_, TrackCacheState>,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    engine::queue_next_track(track_id, duration_ms, quality, cache, state).await
+}
+
+#[tauri::command]
+pub fn set_audio_settings(
+    settings: state::AudioSettings,
+    state: State<AppState>,
+) -> Result<(), String> {
+    engine::set_audio_settings(settings, state)
+}
+
+#[tauri::command]
+pub fn set_eq(settings: dsp::EqSettings, state: State<AppState>) -> Result<(), String> {
+    engine::set_eq(settings, state)
 }
 
 #[tauri::command]

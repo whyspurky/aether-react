@@ -27,6 +27,9 @@ const TRACK_CHANGE_LOCK_MS = 500;
 const RESET_POSITION_THRESHOLD = 1.0;
 const STORE_RESET_THRESHOLD = 5.0;
 
+let lastEndHandledTrackId: number | null = null;
+let lastEndHandledAt = 0;
+
 export function usePlayerProgress({
   currentTrackId,
   isPlaying,
@@ -110,12 +113,24 @@ export function usePlayerProgress({
       if (isDraggingRef.current) return;
       if (performance.now() < seekLockUntilRef.current) return;
 
-      if (d > 0 && pos >= d - END_THRESHOLD) {
+      if (d > 0 && pos >= d - END_THRESHOLD && !useStore.getState().player.autoAdvancePending) {
         const now = performance.now();
         if (now - lastEndCallRef.current < END_CALL_GUARD_MS) {
           return;
         }
         lastEndCallRef.current = now;
+
+        const handledId = currentTrackIdRef.current ?? null;
+        if (
+          handledId &&
+          lastEndHandledTrackId === handledId &&
+          now - lastEndHandledAt < END_CALL_GUARD_MS
+        ) {
+          endedRef.current = true;
+          return;
+        }
+        lastEndHandledTrackId = handledId;
+        lastEndHandledAt = now;
 
         endedRef.current = true;
         progressRef.current = d;

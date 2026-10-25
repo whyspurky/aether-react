@@ -1,17 +1,32 @@
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
 use rodio::Source;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
-use crate::audio::state::{AppState, PlaybackSource};
+use crate::api::quality::AudioQuality;
+use crate::audio::analyser::{AnalyserBuffer, AnalyserSource};
+use crate::audio::dsp::{EqSettings, EqSource, GainSource, ResampleSource, TempoSource};
+use crate::audio::state::{
+    AppState, AudioSettings, PlaybackSource, QueuedTrack, TransitionMode, TransitionRun,
+};
+use crate::track_cache::state::{CacheRequest, Priority};
+use crate::track_cache::TrackCacheState;
 
 trait ReadSeek: Read + Seek + Send + Sync {}
 impl<T: Read + Seek + Send + Sync> ReadSeek for T {}
 type BoxedSource = Box<dyn ReadSeek>;
+type PlaybackSourceBox = Box<dyn Source<Item = f32> + Send>;
+
+const TARGET_RMS_DBFS: f32 = -16.0;
+const TARGET_PEAK_DBFS: f32 = -1.0;
+const GAPLESS_FADE_SECS: f32 = 0.04;
+const TRANSITION_TICK_MS: u64 = 20;
 
 fn detect_hint_prefix(head: &[u8]) -> &'static str {
     if head.len() >= 3 && &head[..3] == b"ID3" {
@@ -67,8 +82,64 @@ fn build_decoder(source: PlaybackSource) -> Result<rodio::Decoder<BoxedSource>, 
         .map_err(|e| format!("decoding error: {e}"))
 }
 
+fn build_playback_source(
+    source: PlaybackSource,
+    gain: f32,
+    eq: Arc<Mutex<EqSettings>>,
+    pitch_milli: Arc<std::sync::atomic::AtomicU32>,
+    tempo_milli: Arc<std::sync::atomic::AtomicU32>,
+    analyser: Arc<AnalyserBuffer>,
+) -> Result<PlaybackSourceBox, String> {
+    let decoder = build_decoder(source)?;
+    let gain = GainSource::new(decoder, gain);
+    let pitch = ResampleSource::new(gain, pitch_milli);
+    let tempo = TempoSource::new(pitch, tempo_milli);
+    let eq = EqSource::new(tempo, eq);
+    Ok(Box::new(AnalyserSource::new(eq, analyser)))
+}
+
+fn analyze_normalization(source: &PlaybackSource) -> f32 {
+    let Ok(decoder) = build_decoder(source.clone()) else {
+        return 1.0;
+    };
+
+    let mut sum = 0.0f64;
+    let mut peak = 0.0f32;
+    let mut count = 0u64;
+    for sample in decoder {
+        let value = sample as f32;
+        peak = peak.max(value.abs());
+        sum += (value as f64) * (value as f64);
+        count += 1;
+    }
+    if count == 0 || peak <= 1e-7 {
+        return 1.0;
+    }
+
+    let rms = (sum / count as f64).sqrt() as f32;
+    let rms_db = 20.0 * rms.max(1e-7).log10();
+    let peak_db = 20.0 * peak.max(1e-7).log10();
+    let rms_gain = TARGET_RMS_DBFS - rms_db;
+    let peak_gain = TARGET_PEAK_DBFS - peak_db;
+    let gain_db = rms_gain.min(peak_gain).clamp(-12.0, 12.0);
+    10f32.powf(gain_db / 20.0)
+}
+
+fn normalization_gain(source: &PlaybackSource, track_id: u64, state: &AppState) -> f32 {
+    let enabled = state.settings.lock().unwrap().normalization;
+    if !enabled {
+        return 1.0;
+    }
+    if let Some(gain) = state.gain_cache.lock().unwrap().get(&track_id).copied() {
+        return gain;
+    }
+    let gain = analyze_normalization(source);
+    state.gain_cache.lock().unwrap().insert(track_id, gain);
+    gain
+}
+
 fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
-    let pos = state.playback.lock().unwrap().position().as_secs_f64();
+    let pos = output_position(state);
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
         let _ = app.emit(
             "playback:state",
@@ -87,6 +158,117 @@ pub struct PlaybackSync {
     pub real_offset_ms: u64,
 }
 
+fn output_position(state: &AppState) -> f64 {
+    let output = state.player.lock().unwrap().get_pos().as_secs_f64();
+    state.playback.lock().unwrap().position_at(output).as_secs_f64()
+}
+
+fn main_volume(state: &AppState) -> f32 {
+    let pb = state.playback.lock().unwrap();
+    if pb.is_muted { 0.0 } else { pb.volume }
+}
+
+fn finish_transition(state: &AppState, clear_queue: bool) {
+    let had_queue = state.queued_next.lock().unwrap().take().is_some();
+    let had_transition = state.transition.lock().unwrap().take().is_some();
+    let outgoing = state.outgoing.lock().unwrap().take();
+    let had_outgoing = outgoing.is_some();
+    if let Some(old) = outgoing {
+        old.stop();
+    }
+
+    state.transition_gen.fetch_add(1, Ordering::Relaxed);
+    if had_queue || had_transition || had_outgoing {
+        let app = state.app_handle.lock().unwrap().as_ref().cloned();
+        if let Some(app) = app {
+            let _ = app.emit("track:auto-advance-cancelled", serde_json::json!({}));
+        }
+    }
+
+    if clear_queue {
+        state.queued_next.lock().unwrap().take();
+    }
+    state.player.lock().unwrap().set_volume(main_volume(state));
+}
+
+fn apply_volumes(state: &AppState, volume: f32) {
+    let gains = {
+        let guard = state.transition.lock().unwrap();
+        guard.as_ref().map(|run| (run.in_gain, run.out_gain))
+    };
+    let (in_gain, out_gain) = gains.unwrap_or((1.0, 0.0));
+    state.player.lock().unwrap().set_volume(volume * in_gain);
+    if let Some(old) = state.outgoing.lock().unwrap().as_ref() {
+        old.set_volume(volume * out_gain);
+    }
+}
+
+fn transition_gains(progress: f32) -> (f32, f32) {
+    let angle = progress.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2;
+    (angle.cos(), angle.sin())
+}
+
+fn start_transition(
+    state: &AppState,
+    next: QueuedTrack,
+    length: f32,
+) -> Result<(), String> {
+    let source = build_playback_source(
+        next.source.clone(),
+        next.gain,
+        state.eq.clone(),
+        state.pitch_milli.clone(),
+        state.tempo_milli.clone(),
+        state.analyser.clone(),
+    )?;
+
+    let next_player = {
+        let sink = state._sink_handle.lock().unwrap();
+        ensure_analyser_running(state);
+        let player = rodio::Player::connect_new(sink.mixer());
+        player.append(source);
+        player.set_volume(0.0);
+        player.set_speed(1.0);
+        player.play();
+        player
+    };
+
+    let volume = main_volume(state);
+    let old = {
+        let mut current = state.player.lock().unwrap();
+        std::mem::replace(&mut *current, next_player)
+    };
+    old.set_volume(volume);
+    *state.outgoing.lock().unwrap() = Some(old);
+
+    let speed = state.playback.lock().unwrap().speed;
+    {
+        let mut pb = state.playback.lock().unwrap();
+        pb.start(next.source.clone(), next.track_id, next.gain, speed);
+        pb.duration_ms = next.duration_ms;
+    }
+
+    *state.transition.lock().unwrap() = Some(TransitionRun {
+        length: length.max(0.001),
+        elapsed: 0.0,
+        in_gain: 0.0,
+        out_gain: 1.0,
+    });
+    state.transition_gen.fetch_add(1, Ordering::Relaxed);
+
+    if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
+        let _ = app.emit(
+            "track:auto-advanced",
+            serde_json::json!({
+                "track_id": next.track_id,
+                "duration_ms": next.duration_ms,
+                "position": 0.0,
+            }),
+        );
+    }
+    Ok(())
+}
+
 fn ensure_tick_running(state: &AppState) {
     let mut tick = state.tick_task.lock().unwrap();
     if tick.is_some() {
@@ -95,49 +277,131 @@ fn ensure_tick_running(state: &AppState) {
 
     let playback = state.playback.clone();
     let app_handle = state.app_handle.clone();
+    let player = state.player.clone();
+    let outgoing = state.outgoing.clone();
+    let settings = state.settings.clone();
+    let queued_next = state.queued_next.clone();
+    let transition = state.transition.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
+        let mut interval = tokio::time::interval(Duration::from_millis(TRANSITION_TICK_MS));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut last_tick = Instant::now();
+        let mut last_emit = Instant::now();
 
         loop {
             interval.tick().await;
+            let now = Instant::now();
+            let dt = now.duration_since(last_tick).as_secs_f32().min(0.1);
+            last_tick = now;
 
-            let (is_playing, pos, skip) = {
+            let output = player.lock().unwrap().get_pos().as_secs_f64();
+            let (is_playing, pos, skip, duration_ms) = {
                 let mut pb = playback.lock().unwrap();
                 let skip = pb.seek_skip_tick;
                 if skip > 0 {
                     pb.seek_skip_tick = skip - 1;
                 }
-                (pb.is_playing, pb.position().as_secs_f64(), skip > 0)
+                (
+                    pb.is_playing,
+                    pb.position_at(output).as_secs_f64(),
+                    skip > 0,
+                    pb.duration_ms,
+                )
             };
 
             if !is_playing || skip {
                 continue;
             }
 
-            let (track_id, is_still_playing) = {
-                let pb = playback.lock().unwrap();
-                (pb.current_track_id, pb.is_playing)
-            };
+            let volume = main_volume_value(&playback);
+            let has_transition = transition.lock().unwrap().is_some();
 
-            if !is_still_playing {
-                continue;
+            if has_transition {
+                let (in_gain, out_gain, done) = {
+                    let mut guard = transition.lock().unwrap();
+                    let Some(run) = guard.as_mut() else {
+                        continue;
+                    };
+                    run.elapsed = (run.elapsed + dt).min(run.length);
+                    let progress = (run.elapsed / run.length).clamp(0.0, 1.0);
+                    let (out, incoming) = transition_gains(progress);
+                    run.in_gain = incoming;
+                    run.out_gain = out;
+                    (incoming, out, run.elapsed >= run.length)
+                };
+
+                player.lock().unwrap().set_volume(volume * in_gain);
+                if let Some(old) = outgoing.lock().unwrap().as_ref() {
+                    old.set_volume(volume * out_gain);
+                }
+
+                if done {
+                    transition.lock().unwrap().take();
+                    if let Some(old) = outgoing.lock().unwrap().take() {
+                        old.stop();
+                    }
+                    player.lock().unwrap().set_volume(volume);
+                }
+            } else {
+                let next = queued_next.lock().unwrap().clone();
+                if let Some(next) = next {
+                    let settings_now = settings.lock().unwrap().clone();
+                    if settings_now.transition != TransitionMode::Off && duration_ms > 0 {
+                        let speed = playback.lock().unwrap().speed.max(0.1) as f64;
+                        let duration = duration_ms as f64 / 1000.0;
+                        let fade_wall = match settings_now.transition {
+                            TransitionMode::Gapless => GAPLESS_FADE_SECS as f64,
+                            TransitionMode::Crossfade => settings_now.crossfade_secs as f64,
+                            TransitionMode::Off => 0.0,
+                        };
+                        let wanted_fade_media = fade_wall * speed;
+                        let remaining = (duration - pos).max(0.0);
+                        let fade_media = wanted_fade_media.min(remaining);
+                        let at_end = pos >= duration - 0.002;
+
+                        if at_end || pos >= duration - wanted_fade_media {
+                            queued_next.lock().unwrap().take();
+                            let fade = if at_end {
+                                GAPLESS_FADE_SECS
+                            } else {
+                                (fade_media / speed) as f32
+                            };
+                            let app = app_handle.lock().unwrap().as_ref().cloned();
+                            if let Some(app) = app {
+                                let state = app.state::<AppState>();
+                                if let Err(err) = start_transition(&state, next, fade) {
+                                    eprintln!("[transition] {err}");
+                                    let _ = app.emit(
+                                        "track:auto-advance-cancelled",
+                                        serde_json::json!({}),
+                                    );
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                }
             }
 
-            let app_opt = {
-                let guard = app_handle.lock().unwrap();
-                guard.as_ref().cloned()
-            };
-
-            if let Some(app) = app_opt {
-                let _ = app.emit(
-                    "position-tick",
-                    serde_json::json!({
-                        "position": pos,
-                        "track_id": track_id,
-                    }),
-                );
+            if last_emit.elapsed() >= Duration::from_millis(100) {
+                last_emit = Instant::now();
+                let (track_id, is_still_playing) = {
+                    let pb = playback.lock().unwrap();
+                    (pb.current_track_id, pb.is_playing)
+                };
+                if !is_still_playing {
+                    continue;
+                }
+                if let Some(app) = app_handle.lock().unwrap().as_ref() {
+                    let _ = app.emit(
+                        "position-tick",
+                        serde_json::json!({
+                            "position": pos,
+                            "track_id": track_id,
+                        }),
+                    );
+                }
             }
         }
     });
@@ -145,33 +409,64 @@ fn ensure_tick_running(state: &AppState) {
     *tick = Some(handle);
 }
 
+fn main_volume_value(playback: &Arc<Mutex<crate::audio::state::Playback>>) -> f32 {
+    let pb = playback.lock().unwrap();
+    if pb.is_muted { 0.0 } else { pb.volume }
+}
+
+fn ensure_analyser_running(state: &AppState) {
+    let mut task = state.analyser_task.lock().unwrap();
+    if task.is_some() {
+        return;
+    }
+    let app = state.app_handle.lock().unwrap().as_ref().cloned();
+    let Some(app) = app else {
+        return;
+    };
+    let buffer = state.analyser.clone();
+    let handle = tauri::async_runtime::spawn(async move {
+        crate::audio::analyser::run(app, buffer).await;
+    });
+    *task = Some(handle);
+}
+
 fn start_source(
     source: PlaybackSource,
     track_id: u64,
     state: State<'_, AppState>,
 ) -> Result<PlaybackSync, String> {
-    let decoder = build_decoder(source.clone())?;
+    finish_transition(&state, true);
+    let gain = normalization_gain(&source, track_id, &state);
+    let settings = state.settings.lock().unwrap().clone();
+    state.set_transport(settings.speed, settings.pitch_semitones, settings.linked);
+    let playback_source = build_playback_source(source.clone(), gain, state.eq.clone(), state.pitch_milli.clone(), state.tempo_milli.clone(), state.analyser.clone())?;
 
     let vol = {
         let pb = state.playback.lock().unwrap();
         if pb.is_muted { 0.0 } else { pb.volume }
     };
 
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     {
         let player = state.player.lock().unwrap();
         player.stop();
         player.clear();
-        player.append(decoder);
+        player.append(playback_source);
         player.set_volume(vol);
+        player.set_speed(1.0);
         player.play();
     }
 
-    state.playback.lock().unwrap().start(source, track_id);
+    state
+        .playback
+        .lock()
+        .unwrap()
+        .start(source, track_id, gain, settings.speed);
 
     let real_offset_ms = started.elapsed().as_millis() as u64;
-    let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
+    let position_sec = 0.0;
 
+    ensure_analyser_running(&state);
     ensure_tick_running(&state);
     emit_state(&state, "playing", real_offset_ms);
 
@@ -198,10 +493,11 @@ pub fn play_bytes(
 }
 
 pub fn pause(state: State<AppState>) -> Result<(), String> {
-    let player = state.player.lock().unwrap();
-    player.pause();
+    state.player.lock().unwrap().pause();
+    if let Some(old) = state.outgoing.lock().unwrap().as_ref() {
+        old.pause();
+    }
     state.playback.lock().unwrap().pause();
-    drop(player);
     emit_state(&state, "paused", 0);
     Ok(())
 }
@@ -212,16 +508,18 @@ pub fn resume(state: State<AppState>) -> Result<PlaybackSync, String> {
         if pb.is_muted { 0.0 } else { pb.volume }
     };
 
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     {
-        let player = state.player.lock().unwrap();
-        player.set_volume(vol);
-        player.play();
+        state.player.lock().unwrap().play();
+        if let Some(old) = state.outgoing.lock().unwrap().as_ref() {
+            old.play();
+        }
     }
+    apply_volumes(&state, vol);
 
     state.playback.lock().unwrap().resume();
     let real_offset_ms = started.elapsed().as_millis() as u64;
-    let position_sec = state.playback.lock().unwrap().position().as_secs_f64();
+    let position_sec = output_position(&state);
 
     ensure_tick_running(&state);
     emit_state(&state, "playing", real_offset_ms);
@@ -232,6 +530,7 @@ pub fn resume(state: State<AppState>) -> Result<PlaybackSync, String> {
 }
 
 pub fn stop(state: State<AppState>) -> Result<(), String> {
+    finish_transition(&state, true);
     {
         let player = state.player.lock().unwrap();
         player.stop();
@@ -243,13 +542,12 @@ pub fn stop(state: State<AppState>) -> Result<(), String> {
 }
 
 pub fn get_position(state: State<AppState>) -> Result<f64, String> {
-    let pb = state.playback.lock().unwrap();
-    Ok(pb.position().as_secs_f64())
+    Ok(output_position(&state))
 }
 
 pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
     let effective = state.playback.lock().unwrap().set_volume(volume);
-    state.player.lock().unwrap().set_volume(effective);
+    apply_volumes(&state, effective);
 
     if let Some(ch) = state.volume_channel.lock().unwrap().as_ref() {
         let _ = ch.send(volume);
@@ -260,7 +558,7 @@ pub fn set_volume(volume: u32, state: State<AppState>) -> Result<(), String> {
 
 pub fn mute_audio(state: State<AppState>) -> Result<(), String> {
     state.playback.lock().unwrap().mute();
-    state.player.lock().unwrap().set_volume(0.0);
+    apply_volumes(&state, 0.0);
     Ok(())
 }
 
@@ -270,7 +568,7 @@ pub fn unmute_audio(state: State<AppState>) -> Result<(), String> {
         pb.unmute();
         pb.volume
     };
-    state.player.lock().unwrap().set_volume(vol);
+    apply_volumes(&state, vol);
     Ok(())
 }
 
@@ -280,27 +578,28 @@ pub fn set_track_duration(duration_ms: u32, state: State<AppState>) -> Result<()
 }
 
 pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String> {
-    let (source, max_sec) = {
+    let (source, max_sec, gain) = {
         let pb = state.playback.lock().unwrap();
         let source = pb
             .source
             .clone()
             .ok_or("no track loaded cannot seek")?;
         let max = (pb.duration_ms as f64) / 1000.0;
-        (source, max)
+        (source, max, pb.gain)
     };
 
     if max_sec <= 0.0 {
         return Err("duration unknown".into());
     }
 
+    finish_transition(&state, true);
     let target = seconds.clamp(0.0, max_sec);
-    let mut decoder = build_decoder(source)?;
+    let mut source = build_playback_source(source, gain, state.eq.clone(), state.pitch_milli.clone(), state.tempo_milli.clone(), state.analyser.clone())?;
 
     let mut actual = Duration::ZERO;
     if target > 0.05 {
         let d = Duration::from_secs_f64(target);
-        if decoder.try_seek(d).is_ok() {
+        if source.try_seek(d).is_ok() {
             actual = d;
         } else {
             eprintln!("[seek] try_seek failed, начнем с начала");
@@ -313,13 +612,14 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
     };
     let was_playing = state.playback.lock().unwrap().is_playing;
 
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     {
         let player = state.player.lock().unwrap();
         player.stop();
         player.clear();
-        player.append(decoder);
+        player.append(source);
         player.set_volume(vol);
+        player.set_speed(1.0);
         if was_playing {
             player.play();
         } else {
@@ -341,4 +641,121 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
         position_sec: actual.as_secs_f64(),
         real_offset_ms,
     })
+}
+
+pub fn set_audio_settings(settings: AudioSettings, state: State<AppState>) -> Result<(), String> {
+    let settings = settings.normalized();
+    {
+        let mut current = state.settings.lock().unwrap();
+        *current = settings.clone();
+    }
+    state.set_transport(settings.speed, settings.pitch_semitones, settings.linked);
+    let speed_changed = {
+        let pb = state.playback.lock().unwrap();
+        (pb.speed - settings.speed).abs() > 0.001
+    };
+    if speed_changed {
+        let output = state.player.lock().unwrap().get_pos().as_secs_f64();
+        state.playback.lock().unwrap().set_speed_at(settings.speed, output);
+    }
+    if settings.transition == TransitionMode::Off {
+        finish_transition(&state, true);
+    }
+    Ok(())
+}
+
+pub fn set_eq(settings: EqSettings, state: State<AppState>) -> Result<(), String> {
+    let settings = settings.normalized();
+    *state.eq.lock().unwrap() = settings;
+    Ok(())
+}
+
+pub async fn queue_next_track(
+    track_id: u64,
+    duration_ms: u32,
+    quality: Option<String>,
+    cache: State<'_, TrackCacheState>,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let settings = state.settings.lock().unwrap().clone();
+    if settings.transition == TransitionMode::Off || duration_ms == 0 {
+        return Ok(false);
+    }
+    if state.queued_next.lock().unwrap().is_some()
+        || state.transition.lock().unwrap().is_some()
+    {
+        return Ok(false);
+    }
+    let (gen, current_id) = {
+        let pb = state.playback.lock().unwrap();
+        if pb.source.is_none() {
+            return Ok(false);
+        }
+        (state.transition_gen.load(Ordering::Relaxed), pb.current_track_id)
+    };
+
+    let quality = AudioQuality::from_label(quality.as_deref());
+    let result = cache
+        .ensure_cached(CacheRequest {
+            track_id,
+            quality,
+            expected_duration_ms: Some(duration_ms as u64),
+            offline: false,
+            priority: Priority::Playback,
+        })
+        .await?;
+
+    let settings = state.settings.lock().unwrap().clone();
+    if settings.transition == TransitionMode::Off
+        || state.transition_gen.load(Ordering::Relaxed) != gen
+    {
+        return Ok(false);
+    }
+    {
+        let pb = state.playback.lock().unwrap();
+        if pb.current_track_id != current_id {
+            return Ok(false);
+        }
+    }
+    if state.queued_next.lock().unwrap().is_some()
+        || state.transition.lock().unwrap().is_some()
+    {
+        return Ok(false);
+    }
+
+    let source = PlaybackSource::File(PathBuf::from(result.entry.path));
+    let gain = normalization_gain(&source, track_id, &state);
+    let queued = QueuedTrack {
+        track_id,
+        duration_ms,
+        source: source.clone(),
+        gain,
+    };
+
+    *state.queued_next.lock().unwrap() = Some(queued);
+    Ok(true)
+}
+
+
+#[cfg(test)]
+mod transition_tests {
+    use super::transition_gains;
+
+    #[test]
+    fn crossfade_is_equal_power() {
+        for step in 0..=20 {
+            let (out, incoming) = transition_gains(step as f32 / 20.0);
+            assert!((out * out + incoming * incoming - 1.0).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn crossfade_starts_on_outgoing_and_ends_on_incoming() {
+        let (out, incoming) = transition_gains(0.0);
+        assert!((out - 1.0).abs() < 1e-6);
+        assert!(incoming.abs() < 1e-6);
+        let (out, incoming) = transition_gains(1.0);
+        assert!(out.abs() < 1e-6);
+        assert!((incoming - 1.0).abs() < 1e-6);
+    }
 }
