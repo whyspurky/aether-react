@@ -46,4 +46,5 @@ bat/
 
 START_HERE.md
 
-.dsh-bundles/
+.dsh-bundles/aether-context
+.dsh-bundles/aether-tools
