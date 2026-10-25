@@ -39,4 +39,4 @@ export default defineConfig({
     sourcemap: !!process.env.TAURI_DEBUG,
     chunkSizeWarningLimit: 1000,
   },
-}); 
+});
