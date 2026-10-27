@@ -57,7 +57,7 @@ export function ArtistCompactHeader({ artist, onPlay, onShuffle, canPlay }: Prop
           className="w-9 h-9 rounded-full grid place-items-center bg-[var(--accent-primary)] text-[var(--bg-primary)] hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="слушать артиста"
         >
-          <Icon name="play" size={15} />
+          <Icon name="play" size={15} className="text-[var(--bg-primary)]" />
         </button>
         <button
           type="button"

@@ -124,7 +124,7 @@ export function ArtistHeader({
               disabled={!canPlay}
               className="px-5 py-2 rounded-full text-sm font-medium flex items-center gap-2 bg-[var(--accent-primary)] text-[var(--bg-primary)] hover:opacity-90 transition-opacity duration-200 disabled:opacity-30 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_45%,transparent)]"
             >
-              <Icon name="play" size={16} filled/>
+              <Icon name="play" size={16} filled className="text-[var(--bg-primary)]" />
               слушать все
             </button>
 

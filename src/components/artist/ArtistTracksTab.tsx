@@ -90,7 +90,7 @@ export function ArtistTracksTab({
             disabled={!hasTracks}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-[var(--accent-primary)] text-[var(--bg-primary)] hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--accent-primary)_45%,transparent)]"
           >
-            <Icon name="play" size={13} filled/>
+            <Icon name="play" size={13} filled className="text-[var(--bg-primary)]" />
             играть все
           </button>
           <button

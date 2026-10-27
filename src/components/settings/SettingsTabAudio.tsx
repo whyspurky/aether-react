@@ -124,7 +124,7 @@ function DeviceGrid({
             onClick={() => onChange(device.id)}
             className={`group relative flex min-h-[88px] flex-col justify-between rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.98] ${
               active
-                ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
+                ? 'border-[var(--accent-primary)] bg-bg-primary/90 backdrop-blur-xl'
                 : 'border-border-subtle bg-bg-primary/90 backdrop-blur-xl hover:border-border-visible hover:bg-white/[0.05]'
             }`}
           >
@@ -136,11 +136,11 @@ function DeviceGrid({
                     : 'bg-white/[0.05] text-text-tertiary group-hover:text-text-secondary'
                 }`}
               >
-                <Icon name={device.icon} size={15} />
+                <Icon name={device.icon} size={15} className={active ? 'text-bg-primary' : ''} />
               </span>
               {active && (
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent-primary)] text-bg-primary">
-                  <Icon name="check" size={10} />
+                  <Icon name="check" size={10} className="text-bg-primary" />
                 </span>
               )}
             </span>
@@ -339,11 +339,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         }`}
         style={
           enabled
-            ? {
-                borderColor: 'color-mix(in srgb, var(--accent-primary) 28%, transparent)',
-                background:
-                  'linear-gradient(135deg, color-mix(in srgb, var(--accent-primary) 12%, transparent), transparent 68%)',
-              }
+            ? { borderColor: 'color-mix(in srgb, var(--accent-primary) 28%, transparent)' }
             : undefined
         }
       >
@@ -407,7 +403,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
               onClick={() => toggleCache(false)}
               className={`group flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all duration-200 ${
                 !enabled
-                  ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
+                  ? 'border-[var(--accent-primary)] bg-white/[0.02]'
                   : 'border-border-subtle bg-white/[0.02] hover:border-border-visible hover:bg-white/[0.04]'
               }`}
             >
@@ -418,7 +414,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                     : 'bg-white/[0.05] text-text-tertiary group-hover:text-text-secondary'
                 }`}
               >
-                <Icon name="play" size={14} filled/>
+                <Icon name="play" size={14} filled className={!enabled ? 'text-bg-primary' : ''} />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm text-text-primary">только слушать</span>
@@ -433,7 +429,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
               onClick={() => toggleCache(true)}
               className={`group flex items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all duration-200 ${
                 enabled
-                  ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
+                  ? 'border-[var(--accent-primary)] bg-white/[0.02]'
                   : 'border-border-subtle bg-white/[0.02] hover:border-border-visible hover:bg-white/[0.04]'
               }`}
             >
@@ -444,7 +440,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                     : 'bg-white/[0.05] text-text-tertiary group-hover:text-text-secondary'
                 }`}
               >
-                <Icon name="database" size={14} />
+                <Icon name="database" size={14} className={enabled ? 'text-bg-primary' : ''} />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm text-text-primary">кэшировать</span>
@@ -820,16 +816,12 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                 onClick={() => setAudioQuality(option.id)}
                 className={`group relative flex min-h-[64px] items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 ${
                   active
-                    ? 'border-[var(--accent-primary)] bg-[var(--accent-muted)]'
+                    ? 'border-[var(--accent-primary)] bg-white/[0.02]'
                     : 'border-border-subtle bg-white/[0.02] hover:border-border-visible hover:bg-white/[0.04]'
                 }`}
               >
                 <span>
-                  <span
-                    className={`block text-sm ${active ? 'text-[var(--accent-primary)]' : 'text-text-primary'}`}
-                  >
-                    {option.label}
-                  </span>
+                  <span className="block text-sm text-text-primary">{option.label}</span>
                   <span className="mt-0.5 block text-[11px] leading-snug text-text-tertiary">
                     {option.hint}
                   </span>
@@ -841,7 +833,7 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
                       : 'border-white/[0.18] text-transparent'
                   }`}
                 >
-                  <Icon name="check" size={10} />
+                  <Icon name="check" size={10} className={active ? 'text-bg-primary' : 'text-transparent'} />
                 </span>
               </button>
             );

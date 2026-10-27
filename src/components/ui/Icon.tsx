@@ -27,14 +27,6 @@ if (import.meta.hot) {
   });
 }
 
-// проверяем, задан ли цвет в className (text-*, fill-*, stroke-*)
-function hasColorClass(className: string): boolean {
-  if (!className) return false;
-  return className
-    .split(/\s+/)
-    .some((cls) => /^(?:text|fill|stroke)-/.test(cls));
-}
-
 function prepare(
   svg: string,
   size: number,
@@ -64,16 +56,31 @@ function prepare(
   return el.outerHTML;
 }
 
+// явные цвета уважаем, приглушённые меняем на акцент
+const KEEP_COLOR = /^text-(bg-|red-|green-|amber-|white|black|transparent|\[)/;
+
+function resolveColor(name: string, className: string): string {
+  const parts = className.split(/\s+/).filter(Boolean);
+
+  // удаление всегда красное
+  if (name.startsWith('trash')) {
+    if (parts.some((cls) => /^text-red-/.test(cls))) return className;
+    const rest = parts.filter((cls) => !/^text-text-/.test(cls)).join(' ');
+    return `text-red-400 ${rest}`.trim();
+  }
+
+  if (parts.some((cls) => KEEP_COLOR.test(cls))) return className;
+
+  const rest = parts.filter((cls) => !/^text-text-/.test(cls)).join(' ');
+  return `text-[var(--accent-primary)] ${rest}`.trim();
+}
+
 export function Icon({ name, className = '', size = 20, filled = false }: IconProps) {
   const html = useMemo(() => {
     const raw = icons[name];
     if (!raw) return '';
 
-    // если цвет не задан явно — ставим accent по умолчанию
-    const finalClassName = hasColorClass(className)
-      ? className
-      : `text-[var(--accent-primary)] ${className}`.trim();
-
+    const finalClassName = resolveColor(name, className);
     const key = `${name}|${size}|${finalClassName}|${filled ? 'f' : 's'}`;
     const cached = cache.get(key);
     if (cached) return cached;
