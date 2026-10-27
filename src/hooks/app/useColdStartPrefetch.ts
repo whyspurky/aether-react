@@ -14,6 +14,8 @@ export function useColdStartPrefetch() {
       if (!s.offline.cacheEnabled) return;
       if (s.queue.currentIndex < 0) return;
       if (s.player.isAudioReady) return;
+      // playTrack уже качает этот трек, второй запрос только мешает
+      if (s.player.isLoading) return;
 
       fired = true;
       unsub();

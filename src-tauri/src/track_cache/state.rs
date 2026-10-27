@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
@@ -20,9 +21,14 @@ use crate::track_cache::http;
 const MIN_AUDIO_SIZE: u64 = 8192;
 const AUDIO_SNIFF_LEN: usize = 16;
 const STREAM_WRITE_BUFFER_SIZE: usize = 256 * 1024;
-const MAX_TEMP_TRACKS: usize = 3;
+const MAX_TEMP_TRACKS: usize = 12;
 const MAX_PARALLEL_PRELOADS: usize = 1;
 const MAX_PARALLEL_BULK: usize = 2;
+// сколько трек защищен от вытеснения после последнего использования
+const RECENT_TTL_SECS: u64 = 120;
+const RECENT_MAX: usize = 16;
+const WAIT_DOWNLOAD_SECS: u64 = 90;
+const STREAM_MEMO_MAX_BYTES: usize = 96 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,6 +126,13 @@ struct DownloadedAudio {
     source: String,
 }
 
+struct StreamMemoEntry {
+    track_id: u64,
+    quality: String,
+    data: Bytes,
+    stream: Option<StreamInfo>,
+}
+
 #[derive(Clone)]
 pub struct TrackCacheState {
     pub temp_dir: PathBuf,
@@ -127,6 +140,13 @@ pub struct TrackCacheState {
     http: Arc<http::CacheHttp>,
     anon: Arc<AnonClient>,
     active: Arc<Mutex<HashMap<String, ActiveDownload>>>,
+    // id активных загрузок без async-лока, чтобы eviction не зависел от него
+    active_ids: Arc<StdMutex<HashSet<u64>>>,
+    // недавно отданные плееру треки: их нельзя вытеснять
+    recent: Arc<StdMutex<Vec<(u64, std::time::Instant)>>>,
+    offline_locks: Arc<Mutex<HashMap<u64, Arc<Mutex<()>>>>>,
+    // режим без кэша: последние треки в памяти, чтобы повтор не качался заново
+    stream_memo: Arc<StdMutex<VecDeque<StreamMemoEntry>>>,
     preload_limiter: Arc<Semaphore>,
     bulk_limiter: Arc<Semaphore>,
     app_handle: Arc<StdMutex<Option<AppHandle>>>,
@@ -142,7 +162,7 @@ impl TrackCacheState {
         std::fs::create_dir_all(&offline_dir).map_err(|e| format!("create offline cache: {e}"))?;
 
         // temp это кэш текущего проигрывания, после перезапуска он не нужен
-        clear_dir(&temp_dir);
+        clear_dir(&temp_dir, &HashSet::new());
 
         let http = http::shared();
         let anon = Arc::new(AnonClient::new(http.clone()));
@@ -153,6 +173,10 @@ impl TrackCacheState {
             http,
             anon,
             active: Arc::new(Mutex::new(HashMap::new())),
+            active_ids: Arc::new(StdMutex::new(HashSet::new())),
+            recent: Arc::new(StdMutex::new(Vec::new())),
+            offline_locks: Arc::new(Mutex::new(HashMap::new())),
+            stream_memo: Arc::new(StdMutex::new(VecDeque::new())),
             preload_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_PRELOADS)),
             bulk_limiter: Arc::new(Semaphore::new(MAX_PARALLEL_BULK)),
             app_handle: Arc::new(StdMutex::new(None)),
@@ -160,6 +184,60 @@ impl TrackCacheState {
             bulk_cancel: Arc::new(AtomicBool::new(false)),
             temp_max_tracks: Arc::new(AtomicU64::new(MAX_TEMP_TRACKS as u64)),
         })
+    }
+
+    // помечаем трек как используемый: вытеснение и очистка его не тронут
+    pub fn touch(&self, track_id: u64) {
+        if track_id == 0 {
+            return;
+        }
+        let Ok(mut recent) = self.recent.lock() else {
+            return;
+        };
+        let now = std::time::Instant::now();
+        recent.retain(|(id, at)| {
+            *id != track_id && now.duration_since(*at).as_secs() < RECENT_TTL_SECS
+        });
+        recent.push((track_id, now));
+        if recent.len() > RECENT_MAX {
+            let drop_count = recent.len() - RECENT_MAX;
+            recent.drain(0..drop_count);
+        }
+    }
+
+    fn is_recent(&self, track_id: u64) -> bool {
+        let Ok(mut recent) = self.recent.lock() else {
+            return false;
+        };
+        let now = std::time::Instant::now();
+        recent.retain(|(_, at)| now.duration_since(*at).as_secs() < RECENT_TTL_SECS);
+        recent.iter().any(|(id, _)| *id == track_id)
+    }
+
+    fn is_active(&self, track_id: u64) -> bool {
+        self.active_ids
+            .lock()
+            .map(|ids| ids.contains(&track_id))
+            .unwrap_or(false)
+    }
+
+    fn mark_active(&self, track_id: u64, active: bool) {
+        if let Ok(mut ids) = self.active_ids.lock() {
+            if active {
+                ids.insert(track_id);
+            } else {
+                ids.remove(&track_id);
+            }
+        }
+    }
+
+    async fn offline_lock(&self, track_id: u64) -> Arc<Mutex<()>> {
+        self.offline_locks
+            .lock()
+            .await
+            .entry(track_id)
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
     }
 
     pub fn set_app_handle(&mut self, handle: AppHandle) {
@@ -272,6 +350,7 @@ impl TrackCacheState {
                     });
                 }
                 self.mark_played(track_id);
+                self.touch(track_id);
                 return Ok(EnsureCachedResult {
                     entry,
                     stream: None,
@@ -290,10 +369,26 @@ impl TrackCacheState {
             notified.as_mut().enable();
             let mut result = result_slot.lock().await.clone();
             if result.is_none() {
-                notified.await;
+                // лидер мог зависнуть на сети, ждем не бесконечно
+                if tokio::time::timeout(Duration::from_secs(WAIT_DOWNLOAD_SECS), notified)
+                    .await
+                    .is_err()
+                {
+                    return self.existing_or_err(track_id, "ожидание загрузки истекло");
+                }
                 result = result_slot.lock().await.clone();
             }
-            return result.unwrap_or_else(|| Err("download finished without result".into()));
+            let Some(mut result) = result else {
+                return self.existing_or_err(track_id, "download finished without result");
+            };
+            if let Ok(ready) = &result {
+                if req.offline && !ready.entry.offline {
+                    if let Ok(entry) = self.move_to_offline(track_id).await {
+                        result = Ok(EnsureCachedResult { entry, stream: None });
+                    }
+                }
+            }
+            return result;
         }
 
         let notify = Arc::new(Notify::new());
@@ -307,6 +402,7 @@ impl TrackCacheState {
             },
         );
         drop(active);
+        self.mark_active(track_id, true);
 
         let result = self.download_and_store(&req).await;
 
@@ -316,15 +412,49 @@ impl TrackCacheState {
         }
         notify.notify_waiters();
         self.active.lock().await.remove(&urn);
+        self.mark_active(track_id, false);
 
         result
+    }
+
+    // если скачать не вышло, но файл уже есть, играем его вместо ошибки
+    fn existing_or_err(
+        &self,
+        track_id: u64,
+        err: &str,
+    ) -> Result<EnsureCachedResult, String> {
+        match self.get_entry(track_id) {
+            Some(entry) => Ok(EnsureCachedResult {
+                entry,
+                stream: None,
+            }),
+            None => Err(format!("{err} (трек {track_id})")),
+        }
     }
 
     async fn download_and_store(
         &self,
         req: &CacheRequest,
     ) -> Result<EnsureCachedResult, String> {
-        let downloaded = self.fetch_audio(req.track_id, req.quality).await?;
+        let downloaded = match self.fetch_audio(req.track_id, req.quality).await {
+            Ok(downloaded) => downloaded,
+            Err(err) => {
+                // локальная копия лучше ошибки: сеть могла отвалиться
+                if let Some(entry) = self.get_entry(req.track_id) {
+                    if cached_playable(&entry) {
+                        println!("[cache] {} fetch failed, играем из кэша", req.track_id);
+                        return Ok(EnsureCachedResult {
+                            entry,
+                            stream: None,
+                        });
+                    }
+                }
+                return Err(err);
+            }
+        };
+
+        // если копия уже лежит в offline, обновляем ее же: иначе апгрейд качества
+        // каждый раз качал бы трек заново поверх более старой offline версии
         let existing_offline = is_valid_file(&self.offline_dir.join(file_name(req.track_id)));
         let offline = req.offline || existing_offline;
         let entry = self
@@ -337,7 +467,8 @@ impl TrackCacheState {
             )
             .await?;
 
-        // temp может быть открыт плеером, поэтому не удаляем его сразу
+        // трек только что появился: до вызова play_cached его нельзя вытеснять
+        self.touch(req.track_id);
         self.evict_temp();
 
         self.announce_changed(req.track_id, offline);
@@ -432,19 +563,33 @@ impl TrackCacheState {
             .await
             .map_err(|e| format!("cache create: {e}"))?;
         let mut writer = BufWriter::with_capacity(STREAM_WRITE_BUFFER_SIZE, file);
-        writer
-            .write_all(&downloaded.data)
-            .await
-            .map_err(|e| format!("cache write: {e}"))?;
-        writer
-            .flush()
-            .await
-            .map_err(|e| format!("cache flush: {e}"))?;
+        let write_result = async {
+            writer
+                .write_all(&downloaded.data)
+                .await
+                .map_err(|e| format!("cache write: {e}"))?;
+            writer
+                .flush()
+                .await
+                .map_err(|e| format!("cache flush: {e}"))
+        }
+        .await;
         drop(writer);
+        if let Err(err) = write_result {
+            // недописанный part иначе останется на диске навсегда
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            return Err(err);
+        }
 
-        replace_file(&temp_path, &final_path)
-            .await
-            .map_err(|e| format!("cache rename: {e}"))?;
+        if let Err(err) = replace_file(&temp_path, &final_path).await {
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            // файл занят плеером: играем то, что уже есть, вместо ошибки
+            if is_valid_file(&final_path) {
+                println!("[cache] {track_id} занят плеером, оставляем старый файл");
+                return Ok(self.entry_at(track_id, &final_path, offline));
+            }
+            return Err(format!("cache rename: {err}"));
+        }
 
         let meta = TrackCacheMetadata {
             quality: quality.label().to_string(),
@@ -462,24 +607,44 @@ impl TrackCacheState {
         let name = file_name(track_id);
         let temp = self.temp_dir.join(&name);
         let offline = self.offline_dir.join(&name);
+
+        // два одновременных запроса не должны копировать в один путь
+        let lock = self.offline_lock(track_id).await;
+        let _guard = lock.lock().await;
+
+        if is_valid_file(&offline) {
+            return Ok(self.entry_at(track_id, &offline, true));
+        }
         if !is_valid_file(&temp) {
-            if is_valid_file(&offline) {
-                return Ok(self.entry_at(track_id, &offline, true));
-            }
             return Err("трека нет в temp".into());
         }
 
-        std::fs::create_dir_all(&self.offline_dir).map_err(|e| e.to_string())?;
-        let meta = read_metadata(&temp);
-        if offline.exists() {
-            remove_file_and_meta(&offline);
-        }
-        // копируем, а не переносим: файл может быть открыт плеером прямо сейчас
-        tokio::fs::copy(&temp, &offline)
+        tokio::fs::create_dir_all(&self.offline_dir)
             .await
-            .map_err(|e| format!("copy offline: {e}"))?;
+            .map_err(|e| e.to_string())?;
+        let meta = read_metadata(&temp);
+        // копируем в part, чтобы плеер не открыл недописанный offline файл
+        let part = self.offline_dir.join(format!("{}.part", name));
+        let copied = tokio::fs::copy(&temp, &part)
+            .await
+            .map_err(|e| format!("copy offline: {e}"));
+        let copy_result = match copied {
+            Ok(_) => replace_file(&part, &offline).await,
+            Err(err) => {
+                let _ = tokio::fs::remove_file(&part).await;
+                return Err(err);
+            }
+        };
+        if let Err(err) = copy_result {
+            let _ = tokio::fs::remove_file(&part).await;
+            return Err(format!("rename offline: {err}"));
+        }
         if let Some(meta) = meta {
             write_metadata(&offline, &meta);
+        }
+        // temp больше не нужен, но удалим его только если плеер не держит файл
+        if !self.is_recent(track_id) {
+            remove_file_and_meta(&temp);
         }
 
         self.announce_changed(track_id, true);
@@ -492,13 +657,57 @@ impl TrackCacheState {
         track_id: u64,
         quality: AudioQuality,
     ) -> Result<(Bytes, Option<StreamInfo>), String> {
+        let label = quality.label().to_string();
+        if let Some(hit) = self.stream_memo_get(track_id, &label) {
+            return Ok(hit);
+        }
         let downloaded = self.fetch_audio(track_id, quality).await?;
         let total_size = downloaded.data.len() as u64;
         let sniff_len = AUDIO_SNIFF_LEN.min(downloaded.data.len());
         if !is_valid_audio(&downloaded.data[..sniff_len], total_size) {
             return Err("поток не похож на аудио".into());
         }
+        self.stream_memo_put(track_id, label, downloaded.data.clone(), downloaded.stream.clone());
         Ok((downloaded.data, downloaded.stream))
+    }
+
+    fn stream_memo_get(&self, track_id: u64, quality: &str) -> Option<(Bytes, Option<StreamInfo>)> {
+        let Ok(mut memo) = self.stream_memo.lock() else {
+            return None;
+        };
+        let pos = memo
+            .iter()
+            .position(|e| e.track_id == track_id && e.quality == quality)?;
+        let entry = memo.remove(pos)?;
+        let out = (entry.data.clone(), entry.stream.clone());
+        memo.push_front(entry);
+        Some(out)
+    }
+
+    fn stream_memo_put(
+        &self,
+        track_id: u64,
+        quality: String,
+        data: Bytes,
+        stream: Option<StreamInfo>,
+    ) {
+        let Ok(mut memo) = self.stream_memo.lock() else {
+            return;
+        };
+        memo.retain(|e| !(e.track_id == track_id && e.quality == quality));
+        memo.push_front(StreamMemoEntry {
+            track_id,
+            quality,
+            data,
+            stream,
+        });
+        let mut total: usize = memo.iter().map(|e| e.data.len()).sum();
+        while memo.len() > 3 || (total > STREAM_MEMO_MAX_BYTES && memo.len() > 1) {
+            let Some(dropped) = memo.pop_back() else {
+                break;
+            };
+            total = total.saturating_sub(dropped.data.len());
+        }
     }
 
     pub fn preload(&self, tracks: Vec<PreloadTrack>, quality: AudioQuality) {
@@ -526,16 +735,18 @@ impl TrackCacheState {
     }
 
     pub fn remove_cached(&self, track_id: u64, offline_only: bool) -> bool {
+        // играемый трек не удаляем, иначе seek и повторное включение сломаются
+        if self.is_recent(track_id) || self.is_active(track_id) {
+            return false;
+        }
         let mut removed = false;
         let offline = self.offline_dir.join(file_name(track_id));
-        if offline.exists() {
-            remove_file_and_meta(&offline);
+        if offline.exists() && remove_file_and_meta(&offline) {
             removed = true;
         }
         if !offline_only {
             let temp = self.temp_dir.join(file_name(track_id));
-            if temp.exists() {
-                remove_file_and_meta(&temp);
+            if temp.exists() && remove_file_and_meta(&temp) {
                 removed = true;
             }
         }
@@ -572,15 +783,29 @@ impl TrackCacheState {
     }
 
     pub fn clear_cache(&self, scope: &str) {
+        let keep = self.recent_ids();
         match scope {
-            "temp" => clear_dir(&self.temp_dir),
-            "offline" => clear_dir(&self.offline_dir),
+            "temp" => clear_dir(&self.temp_dir, &keep),
+            "offline" => clear_dir(&self.offline_dir, &keep),
             _ => {
-                clear_dir(&self.temp_dir);
-                clear_dir(&self.offline_dir);
+                clear_dir(&self.temp_dir, &keep);
+                clear_dir(&self.offline_dir, &keep);
             }
         }
         self.emit("track:cache-cleared", serde_json::json!({ "scope": scope }));
+    }
+
+    fn recent_ids(&self) -> HashSet<u64> {
+        let mut out = HashSet::new();
+        let Ok(mut recent) = self.recent.lock() else {
+            return out;
+        };
+        let now = std::time::Instant::now();
+        recent.retain(|(_, at)| now.duration_since(*at).as_secs() < RECENT_TTL_SECS);
+        for (id, _) in recent.iter() {
+            out.insert(*id);
+        }
+        out
     }
 
     pub fn enforce_limit(&self, limit_mb: u64) {
@@ -598,33 +823,33 @@ impl TrackCacheState {
             if total <= limit {
                 break;
             }
+            let track_id = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .and_then(track_id_from_name);
+            // играемый трек не трогаем даже под лимитом
+            if let Some(id) = track_id {
+                if self.is_recent(id) || self.is_active(id) {
+                    continue;
+                }
+            }
             if std::fs::remove_file(&path).is_ok() {
                 remove_metadata(&path);
                 total = total.saturating_sub(size);
-                if let Some(track_id) = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .and_then(track_id_from_name)
-                {
-                    self.announce_changed(track_id, false);
+                if let Some(id) = track_id {
+                    self.announce_changed(id, false);
                 }
             }
         }
     }
 
     fn evict_temp(&self) {
-        let active = self.active.try_lock();
-        let active_urns: HashSet<String> = match &active {
-            Ok(map) => map.keys().cloned().collect(),
-            Err(_) => return,
-        };
-
         let max = self.temp_max_tracks.load(Ordering::Relaxed) as usize;
         let mut files: Vec<(PathBuf, u64, SystemTime, u64)> = audio_files(&self.temp_dir)
             .into_iter()
             .filter_map(|(path, size, used)| {
                 let track_id = track_id_from_name(path.file_name()?.to_str()?)?;
-                if active_urns.contains(&urn(track_id)) {
+                if self.is_active(track_id) || self.is_recent(track_id) {
                     return None;
                 }
                 Some((path, size, used, track_id))
@@ -637,8 +862,9 @@ impl TrackCacheState {
         files.sort_by_key(|(_, _, used, _)| *used);
         let remove_count = files.len().saturating_sub(max);
         for (path, _, _, track_id) in files.into_iter().take(remove_count) {
-            remove_file_and_meta(&path);
-            self.announce_changed(track_id, false);
+            if remove_file_and_meta(&path) {
+                self.announce_changed(track_id, false);
+            }
         }
     }
 
@@ -853,9 +1079,13 @@ fn remove_metadata(path: &Path) {
     let _ = std::fs::remove_file(metadata_path(path));
 }
 
-fn remove_file_and_meta(path: &Path) {
-    let _ = std::fs::remove_file(path);
-    remove_metadata(path);
+// true только если аудиофайл реально удален: иначе metadata останется без файла
+fn remove_file_and_meta(path: &Path) -> bool {
+    let removed = std::fs::remove_file(path).is_ok();
+    if removed {
+        remove_metadata(path);
+    }
+    removed
 }
 
 async fn replace_file(temp: &Path, final_path: &Path) -> Result<(), String> {
@@ -871,9 +1101,25 @@ async fn replace_file(temp: &Path, final_path: &Path) -> Result<(), String> {
 }
 
 fn is_valid_file(path: &Path) -> bool {
-    std::fs::metadata(path)
-        .map(|m| m.len() >= MIN_AUDIO_SIZE)
-        .unwrap_or(false)
+    let Ok(meta) = std::fs::metadata(path) else {
+        return false;
+    };
+    if meta.len() < MIN_AUDIO_SIZE {
+        return false;
+    }
+    // заголовок отсекает html страницу прокси, сохраненную как .audio
+    let mut head = [0u8; AUDIO_SNIFF_LEN];
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let Ok(n) = file.read(&mut head) else {
+        return false;
+    };
+    is_valid_audio(&head[..n], meta.len())
+}
+
+fn cached_playable(entry: &TrackCacheEntry) -> bool {
+    entry.size >= MIN_AUDIO_SIZE
 }
 
 fn is_audio_file(path: &Path) -> bool {
@@ -912,11 +1158,8 @@ fn audio_files(dir: &Path) -> Vec<(PathBuf, u64, SystemTime)> {
         let Ok(meta) = entry.metadata() else {
             continue;
         };
-        let used = meta
-            .accessed()
-            .ok()
-            .or_else(|| meta.modified().ok())
-            .unwrap_or(UNIX_EPOCH);
+        // accessed на windows не обновляется, порядок вытеснения только по mtime
+        let used = meta.modified().unwrap_or(UNIX_EPOCH);
         out.push((path, meta.len(), used));
     }
     out
@@ -926,13 +1169,18 @@ fn dir_size(dir: &Path) -> u64 {
     audio_files(dir).iter().map(|(_, size, _)| *size).sum()
 }
 
-fn clear_dir(dir: &Path) {
+fn clear_dir(dir: &Path, keep: &HashSet<u64>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if let Some(track_id) = track_id_from_name(name) {
+            if keep.contains(&track_id) {
+                continue;
+            }
+        }
         if is_audio_file(&path)
             || name.ends_with(".meta.json")
             || name.ends_with(".tmp")

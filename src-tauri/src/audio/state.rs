@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -103,6 +103,8 @@ pub struct Playback {
     // источник и выход в секундах: source = src_anchor + (output - out_anchor) * speed
     pub src_anchor: f64,
     pub out_anchor: f64,
+    // конец трека уже отправлен на фронт, второй раз не шлем
+    pub ended_reported: bool,
 }
 
 impl Playback {
@@ -120,6 +122,7 @@ impl Playback {
             speed: 1.0,
             src_anchor: 0.0,
             out_anchor: 0.0,
+            ended_reported: false,
         }
     }
 
@@ -135,12 +138,12 @@ impl Playback {
         self.source = Some(source);
         self.current_track_id = track_id;
         self.is_playing = true;
-        self.is_muted = false;
         self.duration_ms = 0;
         self.gain = gain;
         self.speed = speed.clamp(0.5, 2.0);
         self.src_anchor = 0.0;
         self.out_anchor = 0.0;
+        self.ended_reported = false;
     }
 
     pub fn set_speed_at(&mut self, speed: f32, output_secs: f64) {
@@ -156,7 +159,9 @@ impl Playback {
 
     pub fn resume(&mut self) {
         self.is_playing = true;
+        // ручной play снимает mute: иначе после сбоя на старте звук останется выключен
         self.is_muted = false;
+        self.ended_reported = false;
     }
 
     pub fn seek(&mut self, target: Duration) -> Duration {
@@ -166,6 +171,7 @@ impl Playback {
         self.src_anchor = actual.as_secs_f64();
         self.out_anchor = 0.0;
         self.seek_skip_tick = 3;
+        self.ended_reported = false;
         actual
     }
 
@@ -175,6 +181,7 @@ impl Playback {
         self.duration_ms = 0;
         self.src_anchor = 0.0;
         self.out_anchor = 0.0;
+        self.ended_reported = false;
     }
 
     pub fn set_volume(&mut self, v: u32) -> f32 {
@@ -215,6 +222,10 @@ pub struct AppState {
     pub analyser_task: Arc<Mutex<Option<JoinHandle<()>>>>,
     // частота position-tick, настраивается из вкладки производительности
     pub position_tick_ms: Arc<AtomicU64>,
+    // последний запрос play с фронта: старые не должны стартовать
+    pub play_seq: Arc<AtomicU64>,
+    // переход уже занял очередь и собирает источник
+    pub transition_starting: Arc<AtomicBool>,
 }
 
 fn device_label(
@@ -337,19 +348,31 @@ impl AppState {
         };
 
         let player = rodio::Player::connect_new(sink.mixer());
+        let mut playback = self.playback.lock().unwrap();
         let mut sink_guard = self._sink_handle.lock().unwrap();
         let mut player_guard = self.player.lock().unwrap();
         player_guard.stop();
         *player_guard = player;
         *sink_guard = sink;
         player_guard.set_speed(1.0);
+        drop(player_guard);
+        drop(sink_guard);
         self.queued_next.lock().unwrap().take();
         self.transition.lock().unwrap().take();
+        self.transition_starting.store(false, Ordering::Relaxed);
         if let Some(old) = self.outgoing.lock().unwrap().take() {
             old.stop();
         }
         self.transition_gen.fetch_add(1, Ordering::Relaxed);
-        self.playback.lock().unwrap().stop();
+        playback.stop();
+        drop(playback);
+        if let Some(app) = self.app_handle.lock().unwrap().as_ref().cloned() {
+            let _ = tauri::Emitter::emit(
+                &app,
+                "playback:state",
+                serde_json::json!({ "state": "stopped", "position": 0.0 }),
+            );
+        }
         Ok(label)
     }
 
@@ -377,6 +400,8 @@ impl AppState {
             analyser: AnalyserBuffer::new(),
             analyser_task: Arc::new(Mutex::new(None)),
             position_tick_ms: Arc::new(AtomicU64::new(100)),
+            play_seq: Arc::new(AtomicU64::new(0)),
+            transition_starting: Arc::new(AtomicBool::new(false)),
         }
     }
 }

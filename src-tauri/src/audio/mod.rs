@@ -13,13 +13,16 @@ use tauri::State;
 #[tauri::command]
 pub fn play_cached(
     track_id: u64,
+    play_seq: Option<u64>,
     cache: State<'_, TrackCacheState>,
     state: State<'_, AppState>,
 ) -> Result<engine::PlaybackSync, String> {
     let path = cache
         .get_cache_path(track_id)
         .ok_or_else(|| "трек не найден в кэше".to_string())?;
-    engine::play_file(std::path::PathBuf::from(path), track_id, state)
+    // пока трек играет, вытеснение не должно его удалить
+    cache.touch(track_id);
+    engine::play_file(std::path::PathBuf::from(path), track_id, play_seq, state)
 }
 
 #[derive(serde::Serialize)]
@@ -33,12 +36,13 @@ pub struct StreamPlayback {
 pub async fn play_stream(
     track_id: u64,
     quality: Option<String>,
+    play_seq: Option<u64>,
     cache: State<'_, TrackCacheState>,
     state: State<'_, AppState>,
 ) -> Result<StreamPlayback, String> {
     let quality = AudioQuality::from_label(quality.as_deref());
     let (bytes, stream) = cache.stream_audio(track_id, quality).await?;
-    let sync = engine::play_bytes(bytes, track_id, state)?;
+    let sync = engine::play_bytes(bytes, track_id, play_seq, state)?;
     Ok(StreamPlayback { sync, stream })
 }
 

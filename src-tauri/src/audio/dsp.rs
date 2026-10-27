@@ -112,6 +112,11 @@ impl Biquad {
         }
     }
 
+    // нулевая полоса не должна крутиться в аудио-колбэке
+    fn is_identity(&self) -> bool {
+        self.b0 == 1.0 && self.b1 == 0.0 && self.b2 == 0.0 && self.a1 == 0.0 && self.a2 == 0.0
+    }
+
     fn for_band(sample_rate: f32, band: &EqBand) -> Self {
         if !band.enabled || sample_rate <= 0.0 {
             return Self::identity();
@@ -214,6 +219,7 @@ pub struct EqSource<S> {
     channel: usize,
     counter: usize,
     sample_rate: f32,
+    preamp: f32,
 }
 
 impl<S> EqSource<S>
@@ -233,6 +239,7 @@ where
             channel: 0,
             counter: 0,
             sample_rate,
+            preamp: 1.0,
         };
         source.current = current;
         source.rebuild_filters();
@@ -240,14 +247,15 @@ where
     }
 
     fn rebuild_filters(&mut self) {
+        // preamp считаем один раз на изменение настроек, а не на каждый сэмпл
+        self.preamp = 10f32.powf(self.current.preamp_db / 20.0);
         self.filters = self
             .current
             .bands
             .iter()
-            .map(|band| {
-                let coeff = Biquad::for_band(self.sample_rate, band);
-                [coeff, coeff]
-            })
+            .map(|band| Biquad::for_band(self.sample_rate, band))
+            .filter(|coeff| !coeff.is_identity())
+            .map(|coeff| [coeff, coeff])
             .collect();
     }
 
@@ -288,7 +296,7 @@ where
             return Some(sample.clamp(-1.0, 1.0));
         }
 
-        let preamp = 10f32.powf(self.current.preamp_db / 20.0);
+        let preamp = self.preamp;
         let mut value = sample * preamp;
         for filter in &mut self.filters {
             value = filter[channel].process(value);

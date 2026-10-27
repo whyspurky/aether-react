@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { api } from '@lib/api';
@@ -60,8 +60,6 @@ export default function PlayerPage() {
     ? duration
     : (currentTrack?.duration ? currentTrack.duration / 1000 : 0);
 
-  const durationRef = useRef(effectiveDuration);
-  durationRef.current = effectiveDuration;
   const seekToRef = useRef<(pos: number) => void>(() => {});
 
   const { isDragging, dragPosRef, handleMouseDown } = useSeekDrag({
@@ -94,38 +92,6 @@ export default function PlayerPage() {
     },
   });
   seekToRef.current = seekTo;
-
-  useEffect(() => {
-    let raf = 0;
-    let timer = 0;
-    let lastPct = -1;
-
-    const draw = () => {
-      const d = durationRef.current;
-      const pos = isDragging ? dragPosRef.current : progressRef.current;
-      const pct = d > 0 ? (pos / d) * 100 : 0;
-      if (pct === lastPct) return;
-      lastPct = pct;
-      if (fillRef.current) fillRef.current.style.width = `${pct}%`;
-      if (knobRef.current) knobRef.current.style.left = `${pct}%`;
-    };
-
-    draw();
-
-    if (isDragging) {
-      const tick = () => {
-        draw();
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    }
-
-    if (!isPlaying) return;
-
-    timer = window.setInterval(draw, 100);
-    return () => window.clearInterval(timer);
-  }, [progressRef, isDragging, dragPosRef, isPlaying]);
 
   if (!currentTrack) {
     return (
@@ -248,6 +214,8 @@ export default function PlayerPage() {
               trackRef={trackRef}
               fillRef={fillRef}
               knobRef={knobRef}
+              progressRef={progressRef}
+              dragPosRef={dragPosRef}
               effectiveDuration={effectiveDuration}
               isPlaying={isPlaying}
               isDragging={isDragging}

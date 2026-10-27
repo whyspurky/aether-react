@@ -6,6 +6,17 @@ use crate::track_cache::state::{
     TrackCacheState,
 };
 
+// обход каталогов и чтение metadata уводим с главного потока: иначе ui замирает
+async fn blocking<T, F>(cache: TrackCacheState, work: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce(TrackCacheState) -> T + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(move || work(cache))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn track_ensure_cached(
     track_id: u64,
@@ -38,48 +49,77 @@ pub fn track_preload(
 }
 
 #[tauri::command]
-pub fn track_remove_cached(
+pub async fn track_remove_cached(
     track_id: u64,
     offline_only: Option<bool>,
     state: State<'_, TrackCacheState>,
-) -> bool {
-    state.remove_cached(track_id, offline_only.unwrap_or(false))
+) -> Result<bool, String> {
+    let offline_only = offline_only.unwrap_or(false);
+    blocking(state.inner().clone(), move |cache| {
+        cache.remove_cached(track_id, offline_only)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn track_cache_info(
+pub async fn track_cache_info(
     track_id: u64,
     state: State<'_, TrackCacheState>,
-) -> Option<TrackCacheEntry> {
-    state.get_cache_entry(track_id)
+) -> Result<Option<TrackCacheEntry>, String> {
+    blocking(state.inner().clone(), move |cache| {
+        cache.get_cache_entry(track_id)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn track_is_cached(track_id: u64, state: State<'_, TrackCacheState>) -> bool {
-    state.is_cached(track_id)
+pub async fn track_is_cached(
+    track_id: u64,
+    state: State<'_, TrackCacheState>,
+) -> Result<bool, String> {
+    blocking(state.inner().clone(), move |cache| cache.is_cached(track_id)).await
 }
 
 #[tauri::command]
-pub fn track_cache_size(state: State<'_, TrackCacheState>) -> CacheSizes {
-    state.sizes()
+pub async fn track_cache_size(
+    state: State<'_, TrackCacheState>,
+) -> Result<CacheSizes, String> {
+    blocking(state.inner().clone(), |cache| cache.sizes()).await
 }
 
 #[tauri::command]
-pub fn track_clear_cache(scope: Option<String>, state: State<'_, TrackCacheState>) {
-    state.clear_cache(scope.as_deref().unwrap_or("all"));
-}
-
-#[tauri::command]
-pub fn track_enforce_cache_limit(limit_mb: u64, state: State<'_, TrackCacheState>) {
-    state.enforce_limit(limit_mb);
-}
-
-#[tauri::command]
-pub fn track_cache_inventory(
+pub async fn track_clear_cache(
     scope: Option<String>,
     state: State<'_, TrackCacheState>,
-) -> Vec<TrackCacheEntry> {
-    state.cache_inventory(scope.as_deref().unwrap_or("all"))
+) -> Result<(), String> {
+    let scope = scope.as_deref().unwrap_or("all").to_string();
+    blocking(state.inner().clone(), move |cache| {
+        cache.clear_cache(&scope)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn track_enforce_cache_limit(
+    limit_mb: u64,
+    state: State<'_, TrackCacheState>,
+) -> Result<(), String> {
+    blocking(state.inner().clone(), move |cache| {
+        cache.enforce_limit(limit_mb)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn track_cache_inventory(
+    scope: Option<String>,
+    state: State<'_, TrackCacheState>,
+) -> Result<Vec<TrackCacheEntry>, String> {
+    let scope = scope.as_deref().unwrap_or("all").to_string();
+    blocking(state.inner().clone(), move |cache| {
+        cache.cache_inventory(&scope)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -110,6 +150,12 @@ pub fn track_bulk_cache_cancel(state: State<'_, TrackCacheState>) {
 }
 
 #[tauri::command]
-pub fn track_mark_played(track_id: u64, state: State<'_, TrackCacheState>) {
-    state.mark_played(track_id);
+pub async fn track_mark_played(
+    track_id: u64,
+    state: State<'_, TrackCacheState>,
+) -> Result<(), String> {
+    blocking(state.inner().clone(), move |cache| {
+        cache.mark_played(track_id)
+    })
+    .await
 }

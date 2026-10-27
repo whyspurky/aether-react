@@ -5,6 +5,8 @@ interface Props {
   trackRef: React.MutableRefObject<HTMLDivElement | null>;
   fillRef: React.MutableRefObject<HTMLDivElement | null>;
   knobRef: React.MutableRefObject<HTMLDivElement | null>;
+  progressRef: React.MutableRefObject<number>;
+  dragPosRef: React.MutableRefObject<number>;
   effectiveDuration: number;
   isPlaying: boolean;
   isDragging: boolean;
@@ -15,6 +17,8 @@ export function PlayerProgressBar({
   trackRef,
   fillRef,
   knobRef,
+  progressRef,
+  dragPosRef,
   effectiveDuration,
   isPlaying,
   isDragging,
@@ -22,37 +26,60 @@ export function PlayerProgressBar({
 }: Props) {
   const timeRef = useRef<HTMLSpanElement>(null);
   const durationRef = useRef(effectiveDuration);
-
-  useEffect(() => { durationRef.current = effectiveDuration; }, [effectiveDuration]);
+  durationRef.current = effectiveDuration;
+  // значения читаем через ref: цикл отрисовки не должен перезапускаться
+  const liveRef = useRef({ isPlaying, isDragging });
+  liveRef.current.isPlaying = isPlaying;
+  liveRef.current.isDragging = isDragging;
 
   useEffect(() => {
+    let raf = 0;
     let timer = 0;
+    let lastPct = -1;
     let lastSec = -1;
 
     const draw = () => {
-      const el = fillRef.current;
-      if (!el || !timeRef.current) return;
-      const pct = parseFloat(el.style.width) || 0;
-      const pos = (pct / 100) * durationRef.current;
+      const duration = durationRef.current;
+      const dragging = liveRef.current.isDragging;
+      const pos = dragging ? dragPosRef.current : progressRef.current;
+
+      // ширину двигаем только при реальном изменении, иначе каждый кадр в дрипе
+      const pct = duration > 0 ? (pos / duration) * 100 : 0;
+      if (pct !== lastPct) {
+        lastPct = pct;
+        if (fillRef.current) fillRef.current.style.width = `${pct}%`;
+        if (knobRef.current) knobRef.current.style.left = `${pct}%`;
+      }
+
       const sec = Math.floor(pos);
-      if (sec === lastSec) return;
-      lastSec = sec;
-      timeRef.current.textContent = formatSec(pos);
+      if (sec !== lastSec && timeRef.current) {
+        lastSec = sec;
+        timeRef.current.textContent = formatSec(pos);
+      }
     };
 
-    draw();
-    if (!isPlaying && !isDragging) return;
+    // на драге кадры, в остальное время редкий опрос: позиция приходит раз в 100 мс
+    const loop = () => {
+      draw();
+      if (liveRef.current.isDragging) {
+        raf = requestAnimationFrame(loop);
+      } else {
+        timer = window.setTimeout(loop, liveRef.current.isPlaying ? 100 : 250);
+      }
+    };
 
-    // текст меняется раз в секунду, кадры ему не нужны
-    timer = window.setInterval(draw, 250);
-    return () => window.clearInterval(timer);
-  }, [fillRef, isPlaying, isDragging]);
+    loop();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, [fillRef, knobRef, progressRef, dragPosRef]);
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm text-text-tertiary">
-        <span ref={timeRef}>0:00</span>
-        <span>{formatSec(effectiveDuration)}</span>
+        <span ref={timeRef} className="tabular-nums">0:00</span>
+        <span className="tabular-nums">{formatSec(effectiveDuration)}</span>
       </div>
 
       <div className="relative group py-1 -my-1">

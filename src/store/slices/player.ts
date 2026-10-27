@@ -106,6 +106,13 @@ function shouldPreloadQueue(remaining: number, repeat: 'none' | 'all' | 'one'): 
 let lastVolumePush = 0;
 let lastTogglePlayAt = 0;
 let lastAutoNextAt = 0;
+// номер запуска воспроизведения: старые запросы не должны перебивать новые
+let playSeq = 0;
+let volumeFlushTimer: number | null = null;
+let pendingVolume: number | null = null;
+let preloadInFlight: Promise<void> | null = null;
+// к какому треку относится pendingSeek: чужой seek нельзя применять к новому
+let pendingSeekTrack: number | null = null;
 
 const TOGGLE_PLAY_DEBOUNCE_MS = 100;
 const AUTO_NEXT_GUARD_MS = 800;
@@ -189,21 +196,22 @@ if (isCurrent) {
       return;
     }
 
+    const seq = ++playSeq;
+    const isValid = () => seq === playSeq && get().player.currentTrack?.id === track.id;
+
     // фиксируем клик по треку (5 баллов)
     get().addTrackClick({ user: track.user, genre: track.genre });
 
-    try { await api.muteAudio(); } catch {}
-    try { await api.stopAudio(); } catch {}
-
-    const savedSeek = get().player.pendingSeek;
+    // seek, сделанный на другом треке, к этому применять нельзя
+    const savedSeek = pendingSeekTrack === track.id ? state.player.pendingSeek : null;
     const startPos = savedSeek && savedSeek > 0 ? savedSeek : 0;
 
-    const { player, queue: currentQueue } = get();
-    const shuffleOn = player.shuffle;
-    const isSameQueue = currentQueue.tracks === tracks;
+    const shuffleOn = state.player.shuffle;
+    const isSameQueue = state.queue.tracks === tracks;
 
     const setup = computeQueue(track, tracks, index, shuffleOn, isSameQueue);
 
+    // состояние пишем до await: иначе два быстрых клика оба успевают стартовать
     set((s: any) => ({
       queue: {
         tracks: setup.tracks,
@@ -224,7 +232,11 @@ if (isCurrent) {
       },
     }));
 
-    const isValid = () => get().player.currentTrack?.id === track.id;
+    try { await api.muteAudio(); } catch {}
+    if (!isValid()) return;
+    try { await api.stopAudio(); } catch {}
+    if (!isValid()) return;
+
     const cacheEnabled = get().offline?.cacheEnabled ?? true;
     const quality = get().offline?.quality ?? 'best';
     const autoSave = cacheEnabled && (get().offline?.autoSave ?? false);
@@ -242,18 +254,16 @@ if (isCurrent) {
           const offlineEntry = get().offline.entries[track.id];
           if (offlineEntry?.offline) {
             try {
-              sync = await api.playCached(track.id);
+              sync = await api.playCached(track.id, seq);
             } catch {
               sync = null;
             }
+            if (!isValid()) return;
           }
 
           if (!sync) {
-            const played = await api.playStream(track.id, quality);
-            if (!isValid()) {
-              await api.stopAudio();
-              return;
-            }
+            const played = await api.playStream(track.id, quality, seq);
+            if (!isValid()) return;
             sync = played.sync;
             if (played.stream) {
               const enriched = enrichTrack(track, played.stream);
@@ -284,7 +294,9 @@ if (isCurrent) {
             }
           }
 
-          sync = await api.playCached(track.id);
+          sync = await api.playCached(track.id, seq);
+          // rust сам отбросит устаревший старт, глушить чужой звук нельзя
+          if (!isValid()) return;
         }
 
         if (sync) {
@@ -292,6 +304,11 @@ if (isCurrent) {
             player: {
               ...s.player,
               position: sync.position_sec,
+              // у части треков duration в ответе sc пустой: берем из файла,
+              // иначе полоса и seek мертвые до конца трека
+              duration: s.player.duration > 0
+                ? s.player.duration
+                : (sync.duration_ms ?? 0) / 1000,
             },
           }));
         }
@@ -299,16 +316,16 @@ if (isCurrent) {
         try {
           await api.setVolume(get().player.volume);
         } catch {}
-        if (!isValid()) {
-          await api.stopAudio();
-          return;
-        }
+        if (!isValid()) return;
 
-        await api.setTrackDuration(track.duration || 0);
+        // длительность могла уже прийти из файла: 0 ее не затирает
+        try { await api.setTrackDuration(track.duration || 0); } catch {}
+        if (!isValid()) return;
 
         const pending = get().player.pendingSeek;
         if (pending !== null && pending > 0) {
           try { await api.seekAudio(pending); } catch {}
+          pendingSeekTrack = null;
           set((s: any) => ({ player: { ...s.player, pendingSeek: null } }));
         }
 
@@ -486,6 +503,7 @@ if (isCurrent) {
       const { queue } = get();
       const tracks = queue.tracks.length ? queue.tracks : [currentTrack];
       const index = queue.tracks.length ? queue.currentIndex : 0;
+      pendingSeekTrack = currentTrack.id;
       set((s: any) => ({ player: { ...s.player, pendingSeek: position > 0 ? position : null } }));
       await get().playTrack(currentTrack, tracks, index, queue.source || 'restore');
       return;
@@ -495,12 +513,29 @@ if (isCurrent) {
 
     if (isPlaying) {
       set((s: any) => ({ player: { ...s.player, isPlaying: false } }));
-      await api.pauseAudio();
+      try {
+        await api.pauseAudio();
+      } catch {
+        set((s: any) => ({ player: { ...s.player, isPlaying: true } }));
+      }
     } else {
       set((s: any) => ({ player: { ...s.player, isPlaying: true } }));
-      const sync = await api.resumeAudio();
-      if (sync) {
-        set((s: any) => ({ player: { ...s.player, position: sync.position_sec } }));
+      try {
+        const sync = await api.resumeAudio();
+        if (sync) {
+          set((s: any) => ({
+            player: {
+              ...s.player,
+              position: sync.position_sec,
+              duration: s.player.duration > 0
+                ? s.player.duration
+                : (sync.duration_ms ?? 0) / 1000,
+            },
+          }));
+        }
+      } catch {
+        // иначе кнопка залипает в play, а звука нет
+        set((s: any) => ({ player: { ...s.player, isPlaying: false } }));
       }
     }
   },
@@ -508,22 +543,33 @@ if (isCurrent) {
   setVolume: (volume: number, force = false) => {
     set((s: any) => ({ player: { ...s.player, volume } }));
 
-    if (force) {
-      lastVolumePush = performance.now();
+    const now = performance.now();
+    if (force || now - lastVolumePush >= VOLUME_RUST_THROTTLE_MS) {
+      lastVolumePush = now;
+      pendingVolume = null;
       api.setVolume(volume).catch(() => {});
       return;
     }
 
-    const now = performance.now();
-    if (now - lastVolumePush < VOLUME_RUST_THROTTLE_MS) return;
-    lastVolumePush = now;
-    api.setVolume(volume).catch(() => {});
+    // последнее значение должно доехать до rust, иначе ползунок и звук расходятся
+    pendingVolume = volume;
+    if (volumeFlushTimer !== null) return;
+    volumeFlushTimer = window.setTimeout(() => {
+      volumeFlushTimer = null;
+      const value = pendingVolume;
+      pendingVolume = null;
+      if (value === null) return;
+      lastVolumePush = performance.now();
+      api.setVolume(value).catch(() => {});
+    }, VOLUME_RUST_THROTTLE_MS);
   },
 
   setPosition: (position: number) => {
-    const { isAudioReady, isLoading } = get().player;
+    const { isAudioReady, isLoading, currentTrack } = get().player;
 
     if (!isAudioReady || isLoading) {
+      // запоминаем, чей это seek: чужой не должен примениться к следующему треку
+      pendingSeekTrack = currentTrack?.id ?? null;
       set((s: any) => ({ player: { ...s.player, position, pendingSeek: position } }));
       return;
     }
@@ -610,12 +656,15 @@ if (isCurrent) {
   },
 
   preloadMoreTracks: async () => {
-    const { queue, player, library, preload, perf } = get();
-    if (preload.isPreloading || player.repeat === 'one' || !perf.prefetchQueue) return;
+    const { player, perf } = get();
+    if (player.repeat === 'one' || !perf.prefetchQueue) return;
+    // один и тот же запрос не дублируем: конец очереди ждет уже начатую подкачку
+    if (preloadInFlight) return preloadInFlight;
 
     set((s: any) => ({ preload: { ...s.preload, isPreloading: true } }));
 
-    try {
+    const run = (async () => {
+      const { queue, library } = get();
       const existing = new Set(queue.tracks.map((t: Track) => t.id));
       let artists = get().getUserTopArtists(PRELOAD_ARTISTS);
 
@@ -628,8 +677,14 @@ if (isCurrent) {
       }
 
       let pool: Track[] = [];
-      for (const a of artists.slice(0, PRELOAD_ARTISTS)) {
-        const rel = await api.getRelatedTracks(queue.tracks, 15, [a]);
+      // запросы параллельно: последовательные пять вешали конец очереди на секунды
+      const related = await Promise.all(
+        artists.slice(0, PRELOAD_ARTISTS).map((a: string) =>
+          api.getRelatedTracks(queue.tracks, 15, [a]).catch(() => [] as Track[])
+        )
+      );
+      for (const rel of related) {
+        if (!rel?.length) continue;
         pool.push(...rel);
         if (pool.length > PRELOAD_POOL_MAX) break;
       }
@@ -681,9 +736,14 @@ if (isCurrent) {
           return { queue: { ...s.queue, tracks, originalTracks } };
         });
       }
-    } catch {
-    } finally {
-      set((s: any) => ({ preload: { ...s.preload, isPreloading: false } }));
-    }
+    })()
+      .catch(() => {})
+      .finally(() => {
+        preloadInFlight = null;
+        set((s: any) => ({ preload: { ...s.preload, isPreloading: false } }));
+      });
+
+    preloadInFlight = run;
+    return run;
   },
 });

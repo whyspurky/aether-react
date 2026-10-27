@@ -306,6 +306,8 @@ impl AnonClient {
     }
 
     async fn invalidate_and_refresh(&self) -> Result<String, String> {
+        // без сброса ретрай уйдет с тем же битым id
+        *self.client_id.write().await = None;
         self.coalesced_refresh().await
     }
 
@@ -313,18 +315,17 @@ impl AnonClient {
         let mut gate = self.refresh_gate.lock().await;
         if let Some(last) = *gate {
             if last.elapsed() < CLIENT_ID_MIN_REFRESH {
-                return self
-                    .client_id
-                    .read()
-                    .await
-                    .clone()
-                    .ok_or_else(|| "client_id refresh failed recently".to_string());
+                if let Some(id) = self.client_id.read().await.clone() {
+                    return Ok(id);
+                }
+                // id нет: держать паузу бессмысленно, загрузка просто не начнется
             }
         }
 
-        *gate = Some(Instant::now());
         let client_id = self.fetch_client_id().await?;
         *self.client_id.write().await = Some(client_id.clone());
+        // время пишем только после успеха, иначе одна ошибка блокирует обновление
+        *gate = Some(Instant::now());
         self.log("INFO", "refreshed public client_id");
         Ok(client_id)
     }

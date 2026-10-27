@@ -5,6 +5,8 @@ import type { AudioQuality, AudioSettings, EqSettings, StreamInfo } from '@store
 export interface PlaybackSync {
   position_sec: number;
   real_offset_ms: number;
+  // длительность, которую движок взял из файла или из очереди
+  duration_ms?: number;
 }
 
 export const playerApi = {
@@ -18,17 +20,18 @@ export const playerApi = {
     return data;
   },
 
-  playCached: async (trackId: number): Promise<PlaybackSync> => {
+  playCached: async (trackId: number, playSeq?: number): Promise<PlaybackSync> => {
     if (!trackId) throw new Error('trackId не указан');
-    return await invoke<PlaybackSync>('play_cached', { trackId });
+    return await invoke<PlaybackSync>('play_cached', { trackId, playSeq: playSeq ?? null });
   },
 
   playStream: async (
     trackId: number,
-    quality: AudioQuality = 'best'
+    quality: AudioQuality = 'best',
+    playSeq?: number
   ): Promise<{ sync: PlaybackSync; stream: StreamInfo | null }> => {
     if (!trackId) throw new Error('trackId не указан');
-    return await invoke('play_stream', { trackId, quality });
+    return await invoke('play_stream', { trackId, quality, playSeq: playSeq ?? null });
   },
 
   listOutputDevices: async (): Promise<

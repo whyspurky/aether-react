@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '@lib/api';
 import { saveNow } from '@lib/store/tauriStorage';
 import { Icon } from '@components/ui/Icon';
 import { useVolumeChannel } from '@hooks/player/useVolumeChannel';
@@ -103,9 +102,8 @@ export function VolumeControl({
     if (!force && now - lastPushRef.current < STORE_THROTTLE_MS) return;
     lastPushRef.current = now;
 
-    const final = Math.round(v);
-    onVolumeChangeRef.current(final);
-    api.setVolume(final).catch(() => {});
+    // в rust значение уходит из стора, один путь вместо двух invoke подряд
+    onVolumeChangeRef.current(Math.round(v));
   }, []);
 
   useEffect(() => {

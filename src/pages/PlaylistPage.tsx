@@ -27,9 +27,9 @@ export function PlaylistPage() {
   const [isLoading, setIsLoading] = useState(!cached);
 
   const playTrack = useStore((s) => s.playTrack);
-  const offline = useStore((s) => s.offline);
   const scope = id ? `playlist:${id}` : 'playlist';
-  const bulk = offline.bulk?.scope === scope ? offline.bulk : null;
+  // узкий селектор: иначе страница перерисовывается на каждый процент загрузки
+  const bulk = useStore((s) => (s.offline.bulk?.scope === scope ? s.offline.bulk : null));
 
   useEffect(() => {
     if (!id) return;
@@ -97,7 +97,7 @@ export function PlaylistPage() {
       .trackBulkStart(
         scope,
         tracks.map((track) => ({ trackId: track.id, durationMs: track.duration })),
-        offline.quality
+        useStore.getState().offline.quality
       )
       .then(() => useStore.getState().refreshCache())
       .catch(() => {});

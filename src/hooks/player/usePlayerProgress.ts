@@ -33,6 +33,7 @@ let lastEndHandledAt = 0;
 export function usePlayerProgress({
   currentTrackId,
   isPlaying,
+  isLoading,
   isAudioReady,
   duration,
   isDragging,
@@ -61,7 +62,13 @@ export function usePlayerProgress({
   const lastStoreSyncRef = useRef(0);
   const lastEndCallRef = useRef(0);
   const currentTrackIdRef = useRef(currentTrackId);
+  const persistSecsRef = useRef(persistSecs);
+  const onTrackEndRef = useRef(onTrackEnd);
+  const isLoadingRef = useRef(isLoading);
   currentTrackIdRef.current = currentTrackId;
+  persistSecsRef.current = persistSecs;
+  onTrackEndRef.current = onTrackEnd;
+  isLoadingRef.current = isLoading;
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -75,11 +82,62 @@ export function usePlayerProgress({
     isDraggingRef.current = isDragging;
   }, [isDragging]);
 
+  // подписки ставим один раз: раньше они пересоздавались на каждый рендер
+  const handleEnd = () => {
+    const now = performance.now();
+    if (now - lastEndCallRef.current < END_CALL_GUARD_MS) return;
+    lastEndCallRef.current = now;
+
+    const handledId = currentTrackIdRef.current ?? null;
+    if (
+      handledId &&
+      lastEndHandledTrackId === handledId &&
+      now - lastEndHandledAt < END_CALL_GUARD_MS
+    ) {
+      endedRef.current = true;
+      return;
+    }
+    lastEndHandledTrackId = handledId;
+    lastEndHandledAt = now;
+
+    endedRef.current = true;
+    const d = durationRef.current;
+    if (d > 0) progressRef.current = d;
+
+    // фиксируем завершение трека
+    const current = useStore.getState().player.currentTrack;
+    if (current) {
+      useStore.getState().addTrackCompleted({
+        user: current.user,
+        duration: current.duration,
+        genre: current.genre,
+      });
+    }
+
+    onTrackEndRef.current();
+  };
+  const endHandlerRef = useRef<() => void>(() => {});
+  endHandlerRef.current = handleEnd;
+
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | null = null;
 
     listen<{ state: string; position: number }>('playback:state', (event) => {
       const { state, position } = event.payload;
+
+      if (state === 'ended') {
+        // rust сам увидел конец файла: метаданные sc могли быть длиннее
+        if (useStore.getState().player.autoAdvancePending) return;
+        if (!isReadyRef.current) return;
+        endHandlerRef.current();
+        return;
+      }
+
+      if (state === 'stopped') {
+        endedRef.current = false;
+        return;
+      }
 
       if (state === 'playing') {
         endedRef.current = false;
@@ -91,14 +149,19 @@ export function usePlayerProgress({
           seekLockUntilRef.current = performance.now() + PLAYBACK_STATE_LOCK_MS;
         }
       }
-    }).then((fn) => { unlisten = fn; });
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
 
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
     };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     let unlisten: (() => void) | null = null;
 
     listen<{ position: number; track_id: number }>('position-tick', (event) => {
@@ -116,38 +179,7 @@ export function usePlayerProgress({
       if (performance.now() < seekLockUntilRef.current) return;
 
       if (d > 0 && pos >= d - END_THRESHOLD && !useStore.getState().player.autoAdvancePending) {
-        const now = performance.now();
-        if (now - lastEndCallRef.current < END_CALL_GUARD_MS) {
-          return;
-        }
-        lastEndCallRef.current = now;
-
-        const handledId = currentTrackIdRef.current ?? null;
-        if (
-          handledId &&
-          lastEndHandledTrackId === handledId &&
-          now - lastEndHandledAt < END_CALL_GUARD_MS
-        ) {
-          endedRef.current = true;
-          return;
-        }
-        lastEndHandledTrackId = handledId;
-        lastEndHandledAt = now;
-
-        endedRef.current = true;
-        progressRef.current = d;
-
-        // фиксируем завершение трека
-        const current = useStore.getState().player.currentTrack;
-        if (current) {
-          useStore.getState().addTrackCompleted({
-            user: current.user,
-            duration: current.duration,
-            genre: current.genre,
-          });
-        }
-
-        onTrackEnd();
+        endHandlerRef.current();
         return;
       }
 
@@ -156,16 +188,20 @@ export function usePlayerProgress({
       }
 
       const now = performance.now();
-      if (now - lastStoreSyncRef.current > persistSecs * 1000) {
+      if (now - lastStoreSyncRef.current > persistSecsRef.current * 1000) {
         lastStoreSyncRef.current = now;
         useStore.getState().setPosition(pos);
       }
-    }).then((fn) => { unlisten = fn; });
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
 
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
     };
-  }, [onTrackEnd, persistSecs]);
+  }, []);
 
   const prevTrackIdRef = useRef<number | null | undefined>(undefined);
 
@@ -190,15 +226,18 @@ export function usePlayerProgress({
 
   useEffect(() => {
     if (!currentTrackId) return;
+    // нужен только для восстановленного трека: при переключении и загрузке
+    // в rust еще лежит позиция прошлого трека
+    if (isLoading || isAudioReady) return;
     (async () => {
       try {
         const rustPos = await api.getPosition();
-        if (rustPos > 0 && !isPlayingRef.current) {
+        if (rustPos > 0 && !isPlayingRef.current && !isLoadingRef.current) {
           progressRef.current = rustPos;
         }
       } catch {}
     })();
-  }, [currentTrackId]);
+  }, [currentTrackId, isLoading, isAudioReady]);
 
   const seekTo = (pos: number) => {
     progressRef.current = pos;

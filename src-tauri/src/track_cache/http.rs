@@ -9,7 +9,8 @@ use crate::api::client::ProxyConfig;
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const CONNECT_TIMEOUT_MS: u64 = 5_000;
 const MEDIA_TIMEOUT_SECS: u64 = 130;
-const ANON_TIMEOUT_SECS: u64 = 20;
+const ANON_READ_TIMEOUT_SECS: u64 = 20;
+const ANON_TOTAL_TIMEOUT_SECS: u64 = 180;
 
 pub struct CacheHttp {
     client: RwLock<Client>,
@@ -51,7 +52,10 @@ fn build_client(anon: bool, proxy: Option<&ProxyConfig>) -> Client {
 
     // у медиа ограничиваем простой чтения, иначе большой трек оборвется по общему таймауту
     builder = if anon {
-        builder.timeout(Duration::from_secs(ANON_TIMEOUT_SECS))
+        // общий таймаут на весь трек, а не на чтение: иначе медленный прокси рвет загрузку
+        builder
+            .timeout(Duration::from_secs(ANON_TOTAL_TIMEOUT_SECS))
+            .read_timeout(Duration::from_secs(ANON_READ_TIMEOUT_SECS))
     } else {
         builder.read_timeout(Duration::from_secs(MEDIA_TIMEOUT_SECS))
     };

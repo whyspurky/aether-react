@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { api } from '@lib/api';
 import { saveNow } from '@lib/store/tauriStorage';
+import { useStore } from '@store/store';
 
 interface Params {
   trackRef: React.MutableRefObject<HTMLElement | null>;
@@ -58,7 +59,11 @@ export function useSeekDrag({ trackRef, effectiveDuration, onSeek }: Params): Re
       setIsDragging(false);
       if (p !== null) {
         onSeek(p);
-        api.seekAudio(p).catch(() => {});
+        // пока трек грузится, rust не может искать: позиция уйдет в pendingSeek
+        const { isAudioReady, isLoading } = useStore.getState().player;
+        if (isAudioReady && !isLoading) {
+          api.seekAudio(p).catch(() => {});
+        }
         saveNow().catch(() => {});
       }
     };

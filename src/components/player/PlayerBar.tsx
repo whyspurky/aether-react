@@ -82,6 +82,12 @@ export function PlayerBar() {
     },
   });
 
+  // в цикле отрисовки читаем через ref, чтобы он не перезапускался на каждый рендер
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const isDraggingRef = useRef(isDragging);
+  isDraggingRef.current = isDragging;
+
   useEffect(() => {
     let raf = 0;
     let timer = 0;
@@ -89,30 +95,30 @@ export function PlayerBar() {
 
     const draw = () => {
       const d = durationRef.current;
-      const pos = isDragging ? dragPosRef.current : progressRef.current;
+      const pos = isDraggingRef.current ? dragPosRef.current : progressRef.current;
       const pct = d > 0 ? (pos / d) * 100 : 0;
       if (pct === lastPct) return;
       lastPct = pct;
       if (fillRef.current) fillRef.current.style.width = `${pct}%`;
     };
 
-    draw();
+    // на драге кадр каждый кадр, иначе редкий опрос: без него полоса
+    // остается на позиции прошлого трека, пока грузится следующий
+    const loop = () => {
+      draw();
+      if (isDraggingRef.current) {
+        raf = requestAnimationFrame(loop);
+      } else {
+        timer = window.setTimeout(loop, isPlayingRef.current ? 100 : 250);
+      }
+    };
 
-    // на драге нужен кадр каждый кадр, в остальное время позиция приходит раз в 100 мс
-    if (isDragging) {
-      const tick = () => {
-        draw();
-        raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    }
-
-    if (!isPlaying) return;
-
-    timer = window.setInterval(draw, 100);
-    return () => window.clearInterval(timer);
-  }, [progressRef, isDragging, dragPosRef, isPlaying]);
+    loop();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, [progressRef, dragPosRef]);
   useEffect(() => {
     const measure = () => {
       const repeatEl = repeatRef.current;

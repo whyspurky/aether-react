@@ -24,7 +24,12 @@ export function useAudioTransition() {
       const { track_id, duration_ms, position } = event.payload;
       const state = useStore.getState();
       const index = state.queue.tracks.findIndex((track) => track.id === track_id);
-      if (index < 0) return;
+      if (index < 0) {
+        // очередь успела измениться: флаг не должен остаться включенным,
+        // иначе детект конца трека замолчит навсегда
+        state.setAutoAdvancePending(false);
+        return;
+      }
 
       const track = state.queue.tracks[index];
       useStore.setState((s: any) => ({

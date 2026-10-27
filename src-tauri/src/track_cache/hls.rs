@@ -23,6 +23,10 @@ pub async fn download_progressive(
     if buf.is_empty() {
         return Err("progressive download returned empty body".into());
     }
+    // оборванное соединение без этой проверки навсегда оседает в кэше как целый трек
+    if total > 0 && buf.len() as u64 != total {
+        return Err(format!("progressive download обрезан: {}/{total}", buf.len()));
+    }
     Ok(buf.freeze())
 }
 
@@ -75,8 +79,19 @@ pub async fn download_hls_full(
                 fetched += 1;
                 progress(fetched as f64 / segment_urls.len() as f64);
             }
-            Ok(Err(e)) => return Err(format!("segment download: {e}")),
-            Err(e) => return Err(format!("segment task panic: {e}")),
+            Ok(Err(e)) => {
+                // остальные сегменты продолжают качаться, если их не остановить
+                for task in inflight.drain(..) {
+                    task.abort();
+                }
+                return Err(format!("segment download: {e}"));
+            }
+            Err(e) => {
+                for task in inflight.drain(..) {
+                    task.abort();
+                }
+                return Err(format!("segment task panic: {e}"));
+            }
         }
         fill(&mut inflight, &mut next);
     }
