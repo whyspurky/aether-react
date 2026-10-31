@@ -8,6 +8,8 @@
 
 ### added
 
+- вкладка аккаунт в настройках: поле своего `client_id` вместо встроенного, когда звук облака отзывает текущий
+- проверка `client_id` живым запросом к api-v2, ошибка показывается карточкой под полем
 - `AGENTS.md` и `docs/ai/skills` - контекст и плейбуки для работы с ии-агентами
 - ci на github actions: typescript, сборка фронта, cargo check
 - issue forms, pr template, dependabot
