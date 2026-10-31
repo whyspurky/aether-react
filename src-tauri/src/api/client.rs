@@ -5,9 +5,10 @@ use serde_json::Value;
 use wreq::Client;
 use wreq_util::{Emulation, Platform, Profile};
 
+use super::sys_proxy;
 use super::ApiError;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ProxyConfig {
     #[serde(rename = "type")]
     pub kind: String,
@@ -95,8 +96,16 @@ pub fn apply_proxy(proxy: Option<ProxyConfig>) -> Result<(), String> {
         }
     }
 
-    let client = build_client(proxy.as_ref(), primary_profile());
-    let alt = build_client(proxy.as_ref(), alt_profile());
+    // явный прокси из настроек важнее системного, системный важнее прямого
+    let effective = proxy.clone().or_else(sys_proxy::detect);
+    if proxy.is_none() {
+        if let Some(p) = &effective {
+            println!("[proxy] системный прокси {}:{}", p.host, p.port);
+        }
+    }
+
+    let client = build_client(effective.as_ref(), primary_profile());
+    let alt = build_client(effective.as_ref(), alt_profile());
     let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None, primary_profile())));
     *lock.write().unwrap() = client;
     let alt_lock = CLIENT_ALT.get_or_init(|| RwLock::new(build_client(None, alt_profile())));
@@ -105,6 +114,17 @@ pub fn apply_proxy(proxy: Option<ProxyConfig>) -> Result<(), String> {
     let proxy_lock = PROXY.get_or_init(|| RwLock::new(None));
     *proxy_lock.write().unwrap() = proxy;
     Ok(())
+}
+
+// действующий прокси: явный из настроек, иначе системный
+pub fn effective_proxy() -> Option<ProxyConfig> {
+    get_proxy_status().or_else(sys_proxy::detect)
+}
+
+// применяет прокси ко всем пулам сразу: api и медиа живут в разных модулях
+pub fn apply_all(explicit: Option<ProxyConfig>) -> Result<(), String> {
+    apply_proxy(explicit)?;
+    crate::track_cache::http::apply_proxy(effective_proxy())
 }
 
 pub fn get_proxy_status() -> Option<ProxyConfig> {

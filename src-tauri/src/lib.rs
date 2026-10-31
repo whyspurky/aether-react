@@ -61,6 +61,11 @@ pub fn run() {
             cache.set_app_handle(app.handle().clone());
             app.manage(cache);
 
+            // системный прокси подхватываем до первого запроса, явный фронт пришлет позже
+            if let Err(err) = api::client::apply_all(None) {
+                eprintln!("[proxy] системный прокси не применился: {err}");
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

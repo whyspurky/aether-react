@@ -4,7 +4,7 @@ use futures::stream::{self, StreamExt};
 use serde_json::{json, Value};
 
 use super::{BASE_URL, CLIENT_ID, MIN_TRACK_MS, MAX_TRACK_MS};
-use super::client::{http, apply_proxy, get_proxy_status, ProxyConfig, fetch_retry};
+use super::client::{http, apply_all, get_proxy_status, ProxyConfig, fetch_retry};
 
 const TRACKS_CHUNK_SIZE: usize = 50;
 const ARTIST_PAGE_LIMIT: u32 = 30;
@@ -63,14 +63,13 @@ pub async fn proxy_set_custom(
     password: String,
 ) -> Result<(), String> {
     let config = ProxyConfig { kind, host, port, username, password };
-    apply_proxy(Some(config.clone()))?;
-    crate::track_cache::http::apply_proxy(Some(config))
+    apply_all(Some(config))
 }
 
 #[tauri::command]
 pub async fn proxy_clear() -> Result<(), String> {
-    apply_proxy(None)?;
-    crate::track_cache::http::apply_proxy(None)
+    // без своего прокси остается системный, если он включен в windows
+    apply_all(None)
 }
 
 #[tauri::command]

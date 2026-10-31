@@ -23,6 +23,7 @@ tauri-plugin-prevent-default = { version = "6", features = [
 ] }
 tauri-plugin-global-shortcut = "2.4.0"
 tauri-plugin-window-state = "2.5.0"
+winreg = "0.56"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 wreq = { version = "0.16.1", default-features = false, features = [
