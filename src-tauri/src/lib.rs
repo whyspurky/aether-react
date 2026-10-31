@@ -39,10 +39,6 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(prevent_default())
         .setup(|app| {
-            let state = AppState::new();
-            *state.app_handle.lock().unwrap() = Some(app.handle().clone());
-            app.manage(state);
-
             let cache_dir = app
                 .path()
                 .app_cache_dir()
@@ -53,6 +49,13 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
                 .join("offline");
+
+            let state = AppState::new();
+            *state.app_handle.lock().unwrap() = Some(app.handle().clone());
+            // замеры громкости лежат рядом с кэшем и переживают рестарт
+            state.loudness.attach(cache_dir.join("loudness.json"));
+            app.manage(state);
+
             let mut cache = track_cache::init(cache_dir, offline_dir)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             cache.set_app_handle(app.handle().clone());

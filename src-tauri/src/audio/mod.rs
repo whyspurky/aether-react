@@ -2,6 +2,8 @@ mod state;
 mod engine;
 mod dsp;
 mod analyser;
+mod loudness;
+mod loudness_store;
 
 pub use state::{AppState, OutputDeviceInfo};
 use crate::api::quality::AudioQuality;

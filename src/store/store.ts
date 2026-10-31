@@ -27,7 +27,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
 
     {
       name: 'aether-storage',
-      version: 17,
+      version: 18,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         // старый плоский perf раскладываем по группам
@@ -196,6 +196,14 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           delete persisted.audio.eqGains;
         }
 
+        if (version < 18) {
+          if (!persisted.audio) persisted.audio = {};
+          // цель нормализации: -14 LUFS как в стриминге
+          if (persisted.audio.normalizationTargetLufs === undefined) {
+            persisted.audio.normalizationTargetLufs = -14;
+          }
+        }
+
         if (version < 13) {
           if (!persisted.audio) persisted.audio = {};
           if (persisted.audio.linked === undefined) persisted.audio.linked = true;
@@ -275,6 +283,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
         audio: {
           outputDevice: s.audio.outputDevice,
           normalization: s.audio.normalization,
+          normalizationTargetLufs: s.audio.normalizationTargetLufs,
           eqEnabled: s.audio.eqEnabled,
           eqPreampDb: s.audio.eqPreampDb,
           eqBands: s.audio.eqBands,

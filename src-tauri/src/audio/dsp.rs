@@ -335,14 +335,26 @@ where
 
 pub struct GainSource<S> {
     inner: S,
-    gain: f32,
+    // усиление в тысячных: можно менять на ходу, например когда замер досчитался
+    target_milli: Arc<AtomicU32>,
+    current: f32,
+    // сглаживание около 50 мс, чтобы смена усиления не щелкала
+    coeff: f32,
 }
 
-impl<S> GainSource<S> {
-    pub fn new(inner: S, gain: f32) -> Self {
+impl<S> GainSource<S>
+where
+    S: Source,
+{
+    pub fn new(inner: S, target_milli: Arc<AtomicU32>) -> Self {
+        let gain = target_milli.load(Ordering::Relaxed) as f32 / 1000.0;
+        let sample_rate = inner.sample_rate().get() as f32;
+        let coeff = 1.0 - (-1.0 / (0.05 * sample_rate.max(8000.0))).exp();
         Self {
             inner,
-            gain: gain.clamp(0.0, 16.0),
+            target_milli,
+            current: gain,
+            coeff,
         }
     }
 }
@@ -354,9 +366,10 @@ where
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner
-            .next()
-            .map(|sample| (sample * self.gain).clamp(-1.0, 1.0))
+        let sample = self.inner.next()?;
+        let target = self.target_milli.load(Ordering::Relaxed) as f32 / 1000.0;
+        self.current += (target - self.current) * self.coeff;
+        Some((sample * self.current).clamp(-1.0, 1.0))
     }
 }
 
@@ -416,6 +429,25 @@ mod tests {
 
     fn pitch_source(ratio: f32) -> Arc<AtomicU32> {
         Arc::new(AtomicU32::new((ratio * 1000.0) as u32))
+    }
+
+    #[test]
+    fn gain_source_applies_and_smooths_gain() {
+        let data = vec![0.5f32; 48_000];
+        let target = Arc::new(AtomicU32::new(500));
+        let mut source = GainSource::new(source(data), target.clone());
+        let first = source.next().unwrap();
+        assert!((first - 0.25).abs() < 1e-6, "first={first}");
+
+        // смена цели должна дойти плавно, без мгновенного скачка
+        target.store(1000, Ordering::Relaxed);
+        let second = source.next().unwrap();
+        assert!(second > first && second < 0.5, "second={second}");
+        for _ in 0..24_000 {
+            let _ = source.next();
+        }
+        let settled = source.next().unwrap();
+        assert!((settled - 0.5).abs() < 0.01, "settled={settled}");
     }
 
     #[test]

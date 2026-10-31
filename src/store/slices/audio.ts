@@ -5,6 +5,7 @@ import { EQ_PRESETS, createBandsFromPreset, createDefaultEqBands } from '@lib/eq
 export interface AudioState {
   outputDevice: string;
   normalization: boolean;
+  normalizationTargetLufs: number;
   eqEnabled: boolean;
   eqPreampDb: number;
   eqBands: EqBand[];
@@ -20,6 +21,7 @@ export interface AudioSlice {
   audio: AudioState;
   setOutputDevice: (id: string) => void;
   setNormalization: (enabled: boolean) => void;
+  setNormalizationTargetLufs: (lufs: number) => void;
   setEqEnabled: (enabled: boolean) => void;
   setEqPreset: (preset: string) => void;
   setEqBand: (id: number, patch: Partial<EqBand>) => void;
@@ -39,6 +41,7 @@ export const createAudioSlice = (set: any) => ({
   audio: {
     outputDevice: '',
     normalization: false,
+    normalizationTargetLufs: -14,
     eqEnabled: false,
     eqPreampDb: 0,
     eqBands: createDefaultEqBands(),
@@ -55,6 +58,14 @@ export const createAudioSlice = (set: any) => ({
 
   setNormalization: (normalization: boolean) =>
     set((s: any) => ({ audio: { ...s.audio, normalization } })),
+
+  setNormalizationTargetLufs: (normalizationTargetLufs: number) =>
+    set((s: any) => ({
+      audio: {
+        ...s.audio,
+        normalizationTargetLufs: Math.max(-18, Math.min(-9, normalizationTargetLufs)),
+      },
+    })),
 
   setEqEnabled: (eqEnabled: boolean) =>
     set((s: any) => ({ audio: { ...s.audio, eqEnabled } })),

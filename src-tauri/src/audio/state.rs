@@ -10,6 +10,7 @@ use tauri::async_runtime::JoinHandle;
 
 use crate::audio::analyser::AnalyserBuffer;
 use crate::audio::dsp::EqSettings;
+use crate::audio::loudness_store::LoudnessStore;
 
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +39,9 @@ pub enum TransitionMode {
 #[serde(rename_all = "camelCase")]
 pub struct AudioSettings {
     pub normalization: bool,
+    // цель нормализации по интегрированной громкости, LUFS
+    #[serde(default = "default_target_lufs")]
+    pub normalization_target_lufs: f32,
     pub speed: f32,
     #[serde(default)]
     pub pitch_semitones: f32,
@@ -51,10 +55,15 @@ fn default_linked() -> bool {
     true
 }
 
+fn default_target_lufs() -> f32 {
+    crate::audio::loudness::DEFAULT_TARGET_LUFS
+}
+
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
             normalization: false,
+            normalization_target_lufs: crate::audio::loudness::DEFAULT_TARGET_LUFS,
             speed: 1.0,
             pitch_semitones: 0.0,
             linked: true,
@@ -69,6 +78,10 @@ impl AudioSettings {
         self.speed = self.speed.clamp(0.5, 2.0);
         self.pitch_semitones = self.pitch_semitones.clamp(-12.0, 12.0);
         self.crossfade_secs = self.crossfade_secs.clamp(0.0, 12.0);
+        self.normalization_target_lufs = self.normalization_target_lufs.clamp(
+            crate::audio::loudness::MIN_TARGET_LUFS,
+            crate::audio::loudness::MAX_TARGET_LUFS,
+        );
         self
     }
 }
@@ -78,7 +91,16 @@ pub struct QueuedTrack {
     pub track_id: u64,
     pub duration_ms: u32,
     pub source: PlaybackSource,
-    pub gain: f32,
+    // усиление нормализации в дБ, слот создается при старте перехода
+    pub gain_db: f32,
+}
+
+// текущий слот усиления: его меняет фоновый замер, когда досчитает громкость
+#[derive(Clone)]
+pub struct GainSlot {
+    pub slot: Arc<AtomicU32>,
+    pub key: String,
+    pub gen: u64,
 }
 
 pub struct TransitionRun {
@@ -98,7 +120,8 @@ pub struct Playback {
     // пропуск tick'ов после seek (3 = 300ms), чтобы rodio успел перемотать
     pub seek_skip_tick: u32,
     pub current_track_id: u64,
-    pub gain: f32,
+    // усиление нормализации живет в слоте, чтобы менять его во время игры
+    pub gain_slot: Option<Arc<AtomicU32>>,
     pub speed: f32,
     // источник и выход в секундах: source = src_anchor + (output - out_anchor) * speed
     pub src_anchor: f64,
@@ -118,7 +141,7 @@ impl Playback {
             source: None,
             seek_skip_tick: 0,
             current_track_id: 0,
-            gain: 1.0,
+            gain_slot: None,
             speed: 1.0,
             src_anchor: 0.0,
             out_anchor: 0.0,
@@ -134,12 +157,18 @@ impl Playback {
         Duration::from_secs_f64(seconds)
     }
 
-    pub fn start(&mut self, source: PlaybackSource, track_id: u64, gain: f32, speed: f32) {
+    pub fn start(
+        &mut self,
+        source: PlaybackSource,
+        track_id: u64,
+        gain_slot: Option<Arc<AtomicU32>>,
+        speed: f32,
+    ) {
         self.source = Some(source);
         self.current_track_id = track_id;
         self.is_playing = true;
         self.duration_ms = 0;
-        self.gain = gain;
+        self.gain_slot = gain_slot;
         self.speed = speed.clamp(0.5, 2.0);
         self.src_anchor = 0.0;
         self.out_anchor = 0.0;
@@ -210,7 +239,11 @@ pub struct AppState {
     pub volume_channel: Arc<Mutex<Option<tauri::ipc::Channel<u32>>>>,
     pub settings: Arc<Mutex<AudioSettings>>,
     pub eq: Arc<Mutex<EqSettings>>,
-    pub gain_cache: Arc<Mutex<HashMap<u64, f32>>>,
+    // замеры громкости по трекам, переживают рестарт
+    pub loudness: Arc<LoudnessStore>,
+    // слот усиления текущего трека и номер запуска, чтобы фоновый замер не попал в чужой трек
+    pub gain_slot: Arc<Mutex<Option<GainSlot>>>,
+    pub loudness_gen: Arc<AtomicU64>,
     pub queued_next: Arc<Mutex<Option<QueuedTrack>>>,
     pub transition: Arc<Mutex<Option<TransitionRun>>>,
     pub outgoing: Arc<Mutex<Option<rodio::Player>>>,
@@ -389,7 +422,9 @@ impl AppState {
             volume_channel: Arc::new(Mutex::new(None)),
             settings: Arc::new(Mutex::new(AudioSettings::default())),
             eq: Arc::new(Mutex::new(EqSettings::default())),
-            gain_cache: Arc::new(Mutex::new(HashMap::new())),
+            loudness: Arc::new(LoudnessStore::new()),
+            gain_slot: Arc::new(Mutex::new(None)),
+            loudness_gen: Arc::new(AtomicU64::new(0)),
             queued_next: Arc::new(Mutex::new(None)),
             transition: Arc::new(Mutex::new(None)),
             outgoing: Arc::new(Mutex::new(None)),
@@ -476,6 +511,7 @@ mod settings_tests {
     fn audio_settings_clamp_out_of_range_values() {
         let settings = AudioSettings {
             normalization: false,
+            normalization_target_lufs: -40.0,
             speed: 5.0,
             pitch_semitones: 20.0,
             linked: false,
@@ -486,5 +522,6 @@ mod settings_tests {
         assert_eq!(settings.speed, 2.0);
         assert_eq!(settings.pitch_semitones, 12.0);
         assert_eq!(settings.crossfade_secs, 12.0);
+        assert_eq!(settings.normalization_target_lufs, -18.0);
     }
 }

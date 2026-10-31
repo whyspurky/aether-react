@@ -241,6 +241,8 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
   const setOutputDevice = useStore((s) => s.setOutputDevice);
   const normalization = useStore((s) => s.audio.normalization);
   const setNormalization = useStore((s) => s.setNormalization);
+  const normalizationTargetLufs = useStore((s) => s.audio.normalizationTargetLufs);
+  const setNormalizationTargetLufs = useStore((s) => s.setNormalizationTargetLufs);
   const eqEnabled = useStore((s) => s.audio.eqEnabled);
   const setEqEnabled = useStore((s) => s.setEqEnabled);
   const eqPreampDb = useStore((s) => s.audio.eqPreampDb);
@@ -494,23 +496,57 @@ export function SettingsTabAudio({ section }: { section: AudioSection }) {
         </div>
 
         <div className="divide-y divide-border-subtle">
-          <div className="flex items-center justify-between gap-4 px-5 py-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-text-tertiary">
-                <Icon name="volume-2" size={14} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm text-text-primary">нормализация громкости</span>
-                <span className="mt-0.5 block text-[11px] leading-snug text-text-tertiary">
-                  выравнивает средний уровень треков и не дает уйти в клиппинг
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-text-tertiary">
+                  <Icon name="volume-2" size={14} />
                 </span>
-              </span>
+                <span className="min-w-0">
+                  <span className="block text-sm text-text-primary">нормализация громкости</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-text-tertiary">
+                    выравнивает громкость по LUFS и держит пик ниже -2 dBTP
+                  </span>
+                </span>
+              </div>
+              <Toggle
+                checked={normalization}
+                onChange={setNormalization}
+                label={normalization ? 'выключить нормализацию' : 'включить нормализацию'}
+              />
             </div>
-            <Toggle
-              checked={normalization}
-              onChange={setNormalization}
-              label={normalization ? 'выключить нормализацию' : 'включить нормализацию'}
-            />
+
+            <div
+              className={`grid transition-all duration-300 ease-out ${
+                normalization
+                  ? 'mt-3 grid-rows-[1fr] opacity-100'
+                  : 'mt-0 grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="rounded-xl border border-border-subtle bg-white/[0.02] px-3 py-3">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span>целевая громкость</span>
+                    <span className="tabular-nums text-text-secondary">
+                      {normalizationTargetLufs.toFixed(0)} LUFS
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <PrecisionSlider
+                      value={normalizationTargetLufs}
+                      min={-18}
+                      max={-9}
+                      step={1}
+                      ariaLabel="целевая громкость в LUFS"
+                      onChange={setNormalizationTargetLufs}
+                    />
+                  </div>
+                  <p className="mt-2 text-[10px] leading-snug text-text-tertiary">
+                    -14 как в стриминге, -16 тише, -9 громче
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="px-5 py-4">

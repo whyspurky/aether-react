@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -12,8 +12,9 @@ use tauri::{Emitter, Manager, State};
 use crate::api::quality::AudioQuality;
 use crate::audio::analyser::{AnalyserBuffer, AnalyserSource};
 use crate::audio::dsp::{EqSettings, EqSource, GainSource, ResampleSource, TempoSource};
+use crate::audio::loudness::{self, TRUE_PEAK_CEILING_DBTP};
 use crate::audio::state::{
-    AppState, AudioSettings, PlaybackSource, QueuedTrack, TransitionMode, TransitionRun,
+    AppState, AudioSettings, GainSlot, PlaybackSource, QueuedTrack, TransitionMode, TransitionRun,
 };
 use crate::track_cache::state::{CacheRequest, Priority};
 use crate::track_cache::TrackCacheState;
@@ -23,16 +24,14 @@ impl<T: Read + Seek + Send + Sync> ReadSeek for T {}
 type BoxedSource = Box<dyn ReadSeek>;
 type PlaybackSourceBox = Box<dyn Source<Item = f32> + Send>;
 
-const TARGET_RMS_DBFS: f32 = -16.0;
-const TARGET_PEAK_DBFS: f32 = -1.0;
 const GAPLESS_FADE_SECS: f32 = 0.04;
 const TRANSITION_TICK_MS: u64 = 20;
 const IDLE_TICK_MS: u64 = 50;
 const STOPPED_TICK_MS: u64 = 200;
 // ближе к концу трека начинаем следить за очередью
 const QUEUE_LOOKAHEAD_SECS: f64 = 30.0;
-// нормализация не должна декодировать весь трек на ipc потоке
-const NORMALIZE_MAX_SAMPLES: usize = 2_400_000;
+// пауза перед фоновым замером, чтобы не мешать первым секундам воспроизведения
+const LOUDNESS_DELAY_MS: u64 = 1200;
 // старый запрос play не должен перебивать новый
 const STALE_PLAY: &str = "stale playback request";
 
@@ -92,7 +91,7 @@ fn build_decoder(source: PlaybackSource) -> Result<rodio::Decoder<BoxedSource>, 
 
 fn build_playback_source(
     source: PlaybackSource,
-    gain: f32,
+    gain_milli: Arc<AtomicU32>,
     eq: Arc<Mutex<EqSettings>>,
     pitch_milli: Arc<std::sync::atomic::AtomicU32>,
     tempo_milli: Arc<std::sync::atomic::AtomicU32>,
@@ -101,54 +100,106 @@ fn build_playback_source(
     let decoder = build_decoder(source)?;
     // длительность из файла: страховка, когда метаданные sc врут или пустые
     let detected = decoder.total_duration();
-    let gain = GainSource::new(decoder, gain);
+    let gain = GainSource::new(decoder, gain_milli);
     let pitch = ResampleSource::new(gain, pitch_milli);
     let tempo = TempoSource::new(pitch, tempo_milli);
     let eq = EqSource::new(tempo, eq);
     Ok((Box::new(AnalyserSource::new(eq, analyser)), detected))
 }
 
-fn analyze_normalization(source: &PlaybackSource) -> f32 {
-    let Ok(decoder) = build_decoder(source.clone()) else {
-        return 1.0;
+// ключ замера: трек плюс размер файла, чтобы смена качества не подхватила чужой замер
+fn loudness_key(source: &PlaybackSource, track_id: u64) -> String {
+    let size = match source {
+        PlaybackSource::File(path) => std::fs::metadata(path).map(|m| m.len()).unwrap_or(0),
+        PlaybackSource::Bytes(bytes) => bytes.len() as u64,
     };
-
-    let mut sum = 0.0f64;
-    let mut peak = 0.0f32;
-    let mut count = 0u64;
-    // первые секунды дают ту же громкость, а полный декод вешает ui
-    for sample in decoder.take(NORMALIZE_MAX_SAMPLES) {
-        let value = sample as f32;
-        peak = peak.max(value.abs());
-        sum += (value as f64) * (value as f64);
-        count += 1;
-    }
-    if count == 0 || peak <= 1e-7 {
-        return 1.0;
-    }
-
-    let rms = (sum / count as f64).sqrt() as f32;
-    let rms_db = 20.0 * rms.max(1e-7).log10();
-    let peak_db = 20.0 * peak.max(1e-7).log10();
-    let rms_gain = TARGET_RMS_DBFS - rms_db;
-    let peak_gain = TARGET_PEAK_DBFS - peak_db;
-    let gain_db = rms_gain.min(peak_gain).clamp(-12.0, 12.0);
-    10f32.powf(gain_db / 20.0)
+    format!("{track_id}:{size}")
 }
 
-fn normalization_gain(source: &PlaybackSource, track_id: u64, state: &AppState) -> f32 {
-    let enabled = state.settings.lock().unwrap().normalization;
-    if !enabled {
-        return 1.0;
-    }
-    if let Some(gain) = state.gain_cache.lock().unwrap().get(&track_id).copied() {
-        return gain;
-    }
-    let gain = analyze_normalization(source);
-    state.gain_cache.lock().unwrap().insert(track_id, gain);
-    gain
+fn settings_snapshot(state: &AppState) -> AudioSettings {
+    state.settings.lock().unwrap().clone()
 }
 
+// усиление в тысячных по готовому замеру, 1000 значит без усиления
+fn gain_milli_for(state: &AppState, key: &str, settings: &AudioSettings) -> u32 {
+    if !settings.normalization {
+        return 1000;
+    }
+    match state.loudness.get(key) {
+        Some(measured) => loudness::db_to_milli(measured.gain_db(
+            settings.normalization_target_lufs,
+            TRUE_PEAK_CEILING_DBTP,
+        )),
+        None => 1000,
+    }
+}
+
+// замер в фоне: старт трека не ждет декода, усиление подъезжает плавно
+fn spawn_loudness_analysis(
+    state: &AppState,
+    source: PlaybackSource,
+    key: String,
+    slot: Arc<AtomicU32>,
+    gen: u64,
+) {
+    let store = state.loudness.clone();
+    let settings = state.settings.clone();
+    let generation = state.loudness_gen.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        std::thread::sleep(Duration::from_millis(LOUDNESS_DELAY_MS));
+        let Ok(decoder) = build_decoder(source) else {
+            return;
+        };
+        let channels = decoder.channels().get() as usize;
+        let sample_rate = decoder.sample_rate().get();
+        let Some(measured) = loudness::analyze(decoder, channels, sample_rate) else {
+            return;
+        };
+        // замер полезен в любом случае, даже если трек уже сменился
+        store.put(&key, measured);
+        if generation.load(Ordering::Relaxed) != gen {
+            return;
+        }
+        let settings = settings.lock().unwrap().clone();
+        if settings.normalization {
+            let value = loudness::db_to_milli(measured.gain_db(
+                settings.normalization_target_lufs,
+                TRUE_PEAK_CEILING_DBTP,
+            ));
+            slot.store(value, Ordering::Relaxed);
+        }
+    });
+}
+
+// пересчитать усиление текущего трека после смены настроек нормализации
+fn refresh_gain(state: &AppState, settings: &AudioSettings) {
+    let current = match state.gain_slot.lock().unwrap().clone() {
+        Some(slot) => slot,
+        None => return,
+    };
+    let value = match (settings.normalization, state.loudness.get(&current.key)) {
+        (false, _) => 1000,
+        (true, Some(measured)) => loudness::db_to_milli(measured.gain_db(
+            settings.normalization_target_lufs,
+            TRUE_PEAK_CEILING_DBTP,
+        )),
+        (true, None) => {
+            // включали без готового замера: считаем в фоне, пока играем без усиления
+            let source = state.playback.lock().unwrap().source.clone();
+            if let Some(source) = source {
+                spawn_loudness_analysis(
+                    state,
+                    source,
+                    current.key.clone(),
+                    current.slot.clone(),
+                    current.gen,
+                );
+            }
+            1000
+        }
+    };
+    current.slot.store(value, Ordering::Relaxed);
+}
 fn emit_state(state: &AppState, name: &str, real_offset_ms: u64) {
     let pos = output_position(state);
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
@@ -271,9 +322,28 @@ fn start_transition(
     next: QueuedTrack,
     length: f32,
 ) -> Result<(), String> {
+    let settings = settings_snapshot(state);
+    let key = loudness_key(&next.source, next.track_id);
+    let measured = state.loudness.get(&key);
+    // замер мог досчитаться, пока играл предыдущий трек: берем самое свежее значение
+    let gain_db = match (settings.normalization, measured) {
+        (true, Some(measured)) => measured.gain_db(
+            settings.normalization_target_lufs,
+            TRUE_PEAK_CEILING_DBTP,
+        ),
+        _ => next.gain_db,
+    };
+    let gen = state.loudness_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let slot = Arc::new(AtomicU32::new(loudness::db_to_milli(gain_db)));
+    *state.gain_slot.lock().unwrap() = Some(GainSlot {
+        slot: slot.clone(),
+        key: key.clone(),
+        gen,
+    });
+
     let (source, _) = build_playback_source(
         next.source.clone(),
-        next.gain,
+        slot.clone(),
         state.eq.clone(),
         state.pitch_milli.clone(),
         state.tempo_milli.clone(),
@@ -305,7 +375,7 @@ fn start_transition(
     };
     {
         let mut pb = state.playback.lock().unwrap();
-        pb.start(next.source.clone(), next.track_id, next.gain, speed);
+        pb.start(next.source.clone(), next.track_id, Some(slot.clone()), speed);
         pb.duration_ms = next.duration_ms;
     }
 
@@ -318,6 +388,11 @@ fn start_transition(
     state.transition_gen.fetch_add(1, Ordering::Relaxed);
     // маркер перехода уже стоит, резерв больше не нужен
     state.transition_starting.store(false, Ordering::Relaxed);
+
+    // если замер не успел, досчитаем уже во время перехода
+    if settings.normalization && measured.is_none() {
+        spawn_loudness_analysis(state, next.source.clone(), key, slot, gen);
+    }
 
     if let Some(app) = state.app_handle.lock().unwrap().as_ref() {
         let _ = app.emit(
@@ -595,12 +670,20 @@ fn start_source(
     }
 
     finish_transition(&state, true);
-    let gain = normalization_gain(&source, track_id, &state);
-    let settings = state.settings.lock().unwrap().clone();
+    let settings = settings_snapshot(&state);
+    let key = loudness_key(&source, track_id);
+    let gen = state.loudness_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let slot = Arc::new(AtomicU32::new(gain_milli_for(&state, &key, &settings)));
+    *state.gain_slot.lock().unwrap() = Some(GainSlot {
+        slot: slot.clone(),
+        key: key.clone(),
+        gen,
+    });
+    let known = !settings.normalization || state.loudness.get(&key).is_some();
     state.set_transport(settings.speed, settings.pitch_semitones, settings.linked);
     let (playback_source, detected) = match build_playback_source(
         source.clone(),
-        gain,
+        slot.clone(),
         state.eq.clone(),
         state.pitch_milli.clone(),
         state.tempo_milli.clone(),
@@ -625,11 +708,16 @@ fn start_source(
 
     {
         let mut pb = state.playback.lock().unwrap();
-        pb.start(source, track_id, gain, settings.speed);
+        pb.start(source.clone(), track_id, Some(slot.clone()), settings.speed);
         // метаданные sc бывают пустыми: берем длительность из самого файла
         if let Some(total) = detected {
             pb.duration_ms = total.as_millis().min(u32::MAX as u128) as u32;
         }
+    }
+
+    // громкость не знаем: считаем в фоне, трек уже играет без задержки
+    if !known {
+        spawn_loudness_analysis(&state, source, key, slot, gen);
     }
 
     let real_offset_ms = started.elapsed().as_millis() as u64;
@@ -752,14 +840,14 @@ pub fn set_track_duration(duration_ms: u32, state: State<AppState>) -> Result<()
 }
 
 pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String> {
-    let (source, max_sec, gain) = {
+    let (source, max_sec, gain_slot) = {
         let pb = state.playback.lock().unwrap();
         let source = pb
             .source
             .clone()
             .ok_or("no track loaded cannot seek")?;
         let max = (pb.duration_ms as f64) / 1000.0;
-        (source, max, pb.gain)
+        (source, max, pb.gain_slot.clone())
     };
 
     if max_sec <= 0.0 {
@@ -768,9 +856,11 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
 
     finish_transition(&state, true);
     let target = seconds.clamp(0.0, max_sec);
+    // слот усиления переиспользуем: иначе после seek нормализация слетит
+    let gain_slot = gain_slot.unwrap_or_else(|| Arc::new(AtomicU32::new(1000)));
     let (mut source, _) = build_playback_source(
         source,
-        gain,
+        gain_slot,
         state.eq.clone(),
         state.pitch_milli.clone(),
         state.tempo_milli.clone(),
@@ -814,10 +904,13 @@ pub fn seek(seconds: f64, state: State<AppState>) -> Result<PlaybackSync, String
 
 pub fn set_audio_settings(settings: AudioSettings, state: State<AppState>) -> Result<(), String> {
     let settings = settings.normalized();
-    {
+    let normalization_changed = {
         let mut current = state.settings.lock().unwrap();
+        let changed = current.normalization != settings.normalization
+            || (current.normalization_target_lufs - settings.normalization_target_lufs).abs() > 0.001;
         *current = settings.clone();
-    }
+        changed
+    };
     state.set_transport(settings.speed, settings.pitch_semitones, settings.linked);
     let speed_changed = {
         let pb = state.playback.lock().unwrap();
@@ -826,6 +919,10 @@ pub fn set_audio_settings(settings: AudioSettings, state: State<AppState>) -> Re
     if speed_changed {
         let output = state.player.lock().unwrap().get_pos().as_secs_f64();
         state.playback.lock().unwrap().set_speed_at(settings.speed, output);
+    }
+    if normalization_changed {
+        // включали или меняли цель: подтягиваем усиление текущего трека
+        refresh_gain(&state, &settings);
     }
     if settings.transition == TransitionMode::Off {
         finish_transition(&state, true);
@@ -897,12 +994,26 @@ pub async fn queue_next_track(
     // трек вот-вот начнется: вытеснение кэша не должно его забрать
     cache.touch(track_id);
     let source = PlaybackSource::File(PathBuf::from(result.entry.path));
-    let gain = normalization_gain(&source, track_id, &state);
+    let key = loudness_key(&source, track_id);
+    let measured = state.loudness.get(&key);
+    let gain_db = match (settings.normalization, measured) {
+        (true, Some(measured)) => measured.gain_db(
+            settings.normalization_target_lufs,
+            TRUE_PEAK_CEILING_DBTP,
+        ),
+        _ => 0.0,
+    };
+    // мерить следующий трек лучше сейчас, пока играет текущий
+    if settings.normalization && measured.is_none() {
+        let slot = Arc::new(AtomicU32::new(loudness::db_to_milli(gain_db)));
+        let gen = state.loudness_gen.load(Ordering::Relaxed);
+        spawn_loudness_analysis(&state, source.clone(), key, slot, gen);
+    }
     let queued = QueuedTrack {
         track_id,
         duration_ms,
         source: source.clone(),
-        gain,
+        gain_db,
     };
 
     *state.queued_next.lock().unwrap() = Some(queued);

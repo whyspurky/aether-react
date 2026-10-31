@@ -4,6 +4,7 @@ import { useStore } from '@store/store';
 
 export function useAudioSettings() {
   const normalization = useStore((s) => s.audio.normalization);
+  const normalizationTargetLufs = useStore((s) => s.audio.normalizationTargetLufs);
   const speed = useStore((s) => s.audio.speed);
   const pitchSemitones = useStore((s) => s.audio.pitchSemitones);
   const linked = useStore((s) => s.audio.linked);
@@ -15,9 +16,25 @@ export function useAudioSettings() {
 
   useEffect(() => {
     api
-      .setAudioSettings({ normalization, speed, pitchSemitones, linked, transition, crossfadeSecs })
+      .setAudioSettings({
+        normalization,
+        normalizationTargetLufs,
+        speed,
+        pitchSemitones,
+        linked,
+        transition,
+        crossfadeSecs,
+      })
       .catch(() => {});
-  }, [normalization, speed, pitchSemitones, linked, transition, crossfadeSecs]);
+  }, [
+    normalization,
+    normalizationTargetLufs,
+    speed,
+    pitchSemitones,
+    linked,
+    transition,
+    crossfadeSecs,
+  ]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

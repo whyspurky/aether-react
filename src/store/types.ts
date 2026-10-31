@@ -123,6 +123,8 @@ export interface EqSettings {
 
 export interface AudioSettings {
   normalization: boolean;
+  // цель нормализации по интегрированной громкости, LUFS
+  normalizationTargetLufs: number;
   speed: number;
   pitchSemitones: number;
   linked: boolean;
