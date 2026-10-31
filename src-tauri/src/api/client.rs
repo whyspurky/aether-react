@@ -2,6 +2,8 @@
 use std::time::Duration;
 use std::sync::{OnceLock, RwLock};
 use serde_json::Value;
+use wreq::Client;
+use wreq_util::{Emulation, Platform, Profile};
 
 use super::ApiError;
 
@@ -15,15 +17,24 @@ pub struct ProxyConfig {
     pub password: String,
 }
 
-static CLIENT: OnceLock<RwLock<reqwest::Client>> = OnceLock::new();
+static CLIENT: OnceLock<RwLock<Client>> = OnceLock::new();
+static CLIENT_ALT: OnceLock<RwLock<Client>> = OnceLock::new();
 static PROXY: OnceLock<RwLock<Option<ProxyConfig>>> = OnceLock::new();
 
-fn build_client(proxy: Option<&ProxyConfig>) -> reqwest::Client {
-    let mut builder = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+// звук облака отличает клиента по отпечатку tls и h2, подмена ua на rustls не помогает
+// alt профиль нужен на 403: смена отпечатка обходит проверку, смена прокси не нужна
+pub(crate) fn emulate(profile: Profile) -> Emulation {
+    Emulation::builder()
+        .profile(profile)
+        .platform(Platform::Windows)
+        .build()
+}
+
+fn build_client(proxy: Option<&ProxyConfig>, profile: Profile) -> Client {
+    let mut builder = Client::builder()
+        .emulation(emulate(profile))
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(10))
-        .gzip(true)
         .pool_max_idle_per_host(20);
 
     if let Some(p) = proxy {
@@ -39,7 +50,7 @@ fn build_client(proxy: Option<&ProxyConfig>) -> reqwest::Client {
             } else {
                 format!("{}://{}:{}@{}:{}", scheme, p.username, p.password, p.host, p.port)
             };
-            if let Ok(proxy) = reqwest::Proxy::all(&url) {
+            if let Ok(proxy) = wreq::Proxy::all(&url) {
                 println!("[proxy] применяю {}", url);
                 builder = builder.proxy(proxy);
             }
@@ -49,8 +60,22 @@ fn build_client(proxy: Option<&ProxyConfig>) -> reqwest::Client {
     builder.build().unwrap()
 }
 
-pub fn http() -> reqwest::Client {
-    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None)));
+fn primary_profile() -> Profile {
+    Profile::Chrome149
+}
+
+fn alt_profile() -> Profile {
+    Profile::Firefox151
+}
+
+pub fn http() -> Client {
+    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None, primary_profile())));
+    lock.read().unwrap().clone()
+}
+
+// второй отпечаток для запросов, которые уперлись в 403
+pub fn http_alt() -> Client {
+    let lock = CLIENT_ALT.get_or_init(|| RwLock::new(build_client(None, alt_profile())));
     lock.read().unwrap().clone()
 }
 
@@ -70,9 +95,12 @@ pub fn apply_proxy(proxy: Option<ProxyConfig>) -> Result<(), String> {
         }
     }
 
-    let client = build_client(proxy.as_ref());
-    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None)));
+    let client = build_client(proxy.as_ref(), primary_profile());
+    let alt = build_client(proxy.as_ref(), alt_profile());
+    let lock = CLIENT.get_or_init(|| RwLock::new(build_client(None, primary_profile())));
     *lock.write().unwrap() = client;
+    let alt_lock = CLIENT_ALT.get_or_init(|| RwLock::new(build_client(None, alt_profile())));
+    *alt_lock.write().unwrap() = alt;
 
     let proxy_lock = PROXY.get_or_init(|| RwLock::new(None));
     *proxy_lock.write().unwrap() = proxy;
@@ -91,14 +119,25 @@ pub(crate) fn truncate(s: &str, max: usize) -> &str {
     &s[..end]
 }
 
-async fn fetch_json_inner(url: &str, validate_ct: bool) -> Result<Value, ApiError> {
-    let resp = http().get(url)
+// браузер дергает json как fetch, не как переход по ссылке: проверки cdn смотрят на sec-fetch
+fn json_request(client: &Client, url: &str) -> wreq::RequestBuilder {
+    client
+        .get(url)
         .header("Accept", "application/json")
+        .header("Referer", "https://soundcloud.com/")
+        .header("sec-fetch-site", "same-site")
+        .header("sec-fetch-dest", "empty")
+        .header("sec-fetch-mode", "cors")
+}
+
+async fn fetch_json_with(client: Client, url: &str, validate_ct: bool) -> Result<Value, ApiError> {
+    let resp = json_request(&client, url)
         .send().await
         .map_err(|e| ApiError::Network(e.to_string()))?;
 
     match resp.status().as_u16() {
         401 => return Err(ApiError::Unauthorized),
+        403 => return Err(ApiError::Forbidden),
         404 => return Err(ApiError::NotFound),
         429 => return Err(ApiError::RateLimited),
         s if s >= 500 => return Err(ApiError::Server(s)),
@@ -120,6 +159,16 @@ async fn fetch_json_inner(url: &str, validate_ct: bool) -> Result<Value, ApiErro
     }
 
     resp.json::<Value>().await.map_err(|e| ApiError::Parse(e.to_string()))
+}
+
+async fn fetch_json_inner(url: &str, validate_ct: bool) -> Result<Value, ApiError> {
+    match fetch_json_with(http(), url, validate_ct).await {
+        Err(ApiError::Forbidden) => {
+            println!("[http] 403 на {}, пробую профиль firefox", truncate(url, 80));
+            fetch_json_with(http_alt(), url, validate_ct).await
+        }
+        other => other,
+    }
 }
 
 async fn retry<F, Fut>(f: F) -> Result<Value, ApiError>

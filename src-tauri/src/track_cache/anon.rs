@@ -331,13 +331,26 @@ impl AnonClient {
     }
 
     async fn fetch_client_id(&self) -> Result<String, String> {
-        let html = self
-            .http
-            .anon()
+        match self.fetch_client_id_with(self.http.anon()).await {
+            Err(e) if e.starts_with("fetch sc home HTTP 403") => {
+                // 403 на главной это отпечаток tls, профиль firefox проходит без смены прокси
+                self.log("WARN", "403 на soundcloud.com, пробую профиль firefox");
+                self.fetch_client_id_with(self.http.anon_alt()).await
+            }
+            other => other,
+        }
+    }
+
+    async fn fetch_client_id_with(&self, client: wreq::Client) -> Result<String, String> {
+        let resp = client
             .get(SC_BASE_URL)
             .send()
             .await
-            .map_err(|e| format!("fetch sc home: {e}"))?
+            .map_err(|e| format!("fetch sc home: {e}"))?;
+        if !resp.status().is_success() {
+            return Err(format!("fetch sc home HTTP {}", resp.status()));
+        }
+        let html = resp
             .text()
             .await
             .map_err(|e| format!("read sc home body: {e}"))?;
@@ -377,10 +390,26 @@ impl AnonClient {
     }
 
     async fn fetch_json<T: serde::de::DeserializeOwned>(&self, url: &str) -> Result<T, String> {
-        let resp = self
-            .http
-            .anon()
+        match self.fetch_json_with(self.http.anon(), url).await {
+            Err(e) if e.starts_with("HTTP 403") => {
+                self.log("WARN", "403 от api-v2, пробую профиль firefox");
+                self.fetch_json_with(self.http.anon_alt(), url).await
+            }
+            other => other,
+        }
+    }
+
+    async fn fetch_json_with<T: serde::de::DeserializeOwned>(
+        &self,
+        client: wreq::Client,
+        url: &str,
+    ) -> Result<T, String> {
+        let resp = client
             .get(url)
+            .header("Referer", "https://soundcloud.com/")
+            .header("sec-fetch-site", "same-site")
+            .header("sec-fetch-dest", "empty")
+            .header("sec-fetch-mode", "cors")
             .send()
             .await
             .map_err(|e| format!("request: {e}"))?;

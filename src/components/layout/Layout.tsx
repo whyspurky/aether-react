@@ -39,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div
-      className={`h-full flex flex-col pt-10 bg-bg-primary p-2 relative ${
+      className={`h-full flex flex-col pt-12 bg-bg-primary p-2 relative ${
         noiseOn ? 'noise-overlay' : ''
       }`}
     >

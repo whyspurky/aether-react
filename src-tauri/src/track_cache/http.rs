@@ -1,12 +1,12 @@
 use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
 
-use reqwest::redirect::Policy;
-use reqwest::Client;
+use wreq::redirect::Policy;
+use wreq::Client;
+use wreq_util::Profile;
 
-use crate::api::client::ProxyConfig;
+use crate::api::client::{emulate, ProxyConfig};
 
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const CONNECT_TIMEOUT_MS: u64 = 5_000;
 const MEDIA_TIMEOUT_SECS: u64 = 130;
 const ANON_READ_TIMEOUT_SECS: u64 = 20;
@@ -15,13 +15,17 @@ const ANON_TOTAL_TIMEOUT_SECS: u64 = 180;
 pub struct CacheHttp {
     client: RwLock<Client>,
     anon: RwLock<Client>,
+    alt: RwLock<Client>,
+    anon_alt: RwLock<Client>,
 }
 
 impl CacheHttp {
     fn new() -> Self {
         Self {
-            client: RwLock::new(build_client(false, None)),
-            anon: RwLock::new(build_client(true, None)),
+            client: RwLock::new(build_client(false, None, Profile::Chrome149)),
+            anon: RwLock::new(build_client(true, None, Profile::Chrome149)),
+            alt: RwLock::new(build_client(false, None, Profile::Firefox151)),
+            anon_alt: RwLock::new(build_client(true, None, Profile::Firefox151)),
         }
     }
 
@@ -33,18 +37,31 @@ impl CacheHttp {
         self.anon.read().unwrap().clone()
     }
 
+    // 403 на sndcdn это чаще отпечаток, чем прокси: второй профиль браузера обходит проверку
+    pub fn alt(&self) -> Client {
+        self.alt.read().unwrap().clone()
+    }
+
+    pub fn anon_alt(&self) -> Client {
+        self.anon_alt.read().unwrap().clone()
+    }
+
     pub fn apply_proxy(&self, proxy: Option<&ProxyConfig>) -> Result<(), String> {
-        let client = build_client(false, proxy);
-        let anon = build_client(true, proxy);
+        let client = build_client(false, proxy, Profile::Chrome149);
+        let anon = build_client(true, proxy, Profile::Chrome149);
+        let alt = build_client(false, proxy, Profile::Firefox151);
+        let anon_alt = build_client(true, proxy, Profile::Firefox151);
         *self.client.write().unwrap() = client;
         *self.anon.write().unwrap() = anon;
+        *self.alt.write().unwrap() = alt;
+        *self.anon_alt.write().unwrap() = anon_alt;
         Ok(())
     }
 }
 
-fn build_client(anon: bool, proxy: Option<&ProxyConfig>) -> Client {
+fn build_client(anon: bool, proxy: Option<&ProxyConfig>, profile: Profile) -> Client {
     let mut builder = Client::builder()
-        .user_agent(USER_AGENT)
+        .emulation(emulate(profile))
         .redirect(Policy::limited(10))
         .tcp_nodelay(true)
         .pool_max_idle_per_host(if anon { 8 } else { 16 })
@@ -77,7 +94,7 @@ fn build_client(anon: bool, proxy: Option<&ProxyConfig>) -> Client {
                     scheme, p.username, p.password, p.host, p.port
                 )
             };
-            if let Ok(proxy) = reqwest::Proxy::all(&url) {
+            if let Ok(proxy) = wreq::Proxy::all(&url) {
                 builder = builder.proxy(proxy);
             }
         }

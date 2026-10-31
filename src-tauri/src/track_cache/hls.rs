@@ -1,7 +1,7 @@
 use bytes::{Bytes, BytesMut};
 use futures::StreamExt;
 use url::Url;
-use reqwest::Client;
+use wreq::Client;
 
 const HLS_PREFETCH_SEGMENTS: usize = 3;
 
@@ -130,17 +130,34 @@ async fn fetch_bytes(client: &Client, url: &str) -> Result<Bytes, String> {
     resp.bytes().await.map_err(|e| format!("body: {e}"))
 }
 
-async fn send_ok(client: &Client, url: &str) -> Result<reqwest::Response, String> {
-    let resp = client
+// браузер тянет медиа как audio: остальные заголовки ставит профиль эмуляции
+async fn media_get(client: &Client, url: &str) -> Result<wreq::Response, String> {
+    client
         .get(url)
+        .header("sec-fetch-site", "cross-site")
+        .header("sec-fetch-dest", "audio")
+        .header("sec-fetch-mode", "no-cors")
         .send()
         .await
-        .map_err(|e| format!("request: {e}"))?;
+        .map_err(|e| format!("request: {e}"))
+}
+
+fn ok_response(resp: wreq::Response) -> Result<wreq::Response, String> {
     let status = resp.status();
     if !status.is_success() {
         return Err(format!("HTTP {status}"));
     }
     Ok(resp)
+}
+
+async fn send_ok(client: &Client, url: &str) -> Result<wreq::Response, String> {
+    let resp = media_get(client, url).await?;
+    if resp.status().as_u16() != 403 {
+        return ok_response(resp);
+    }
+    // 403 на sndcdn чаще отпечаток tls, чем прокси: второй профиль браузера обходит проверку
+    let alt = crate::track_cache::http::shared().alt();
+    ok_response(media_get(&alt, url).await?)
 }
 
 fn best_variant(playlist: &str, base: &str) -> Option<String> {
