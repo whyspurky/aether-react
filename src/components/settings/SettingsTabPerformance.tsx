@@ -151,6 +151,8 @@ function useFps() {
 
 export function SettingsTabPerformance() {
   const perf = useStore((s) => s.perf);
+  const coverEnabled = useStore((s) => s.coverBackground.enabled);
+  const setCoverEnabled = useStore((s) => s.setCoverEnabled);
   const transition = useStore((s) => s.audio.transition);
   const setPerfFlag = useStore((s) => s.setPerfFlag);
   const setPerfGroup = useStore((s) => s.setPerfGroup);
@@ -307,11 +309,11 @@ export function SettingsTabPerformance() {
             ]}
           />
         </Row>
-        <Row title="фоновая обложка" hint="картинка под всем окном и её размытие">
+        <Row title="фоновая обложка" hint="общий тумблер с вкладкой внешний вид">
           <Switch
-            on={perf.bgCover}
+            on={coverEnabled}
             label="переключить фоновую обложку"
-            onToggle={() => setPerfFlag('bgCover', !perf.bgCover)}
+            onToggle={() => setCoverEnabled(!coverEnabled)}
           />
         </Row>
         <Row title="догрузка очереди" hint="похожие треки и популярное в фоне">

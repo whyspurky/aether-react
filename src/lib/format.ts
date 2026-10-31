@@ -9,9 +9,10 @@ export const formatSec = (sec: number): string => {
 
 export const formatMs = (ms: number): string => formatSec(ms / 1000);
 
-type CoverSize = 't200x200' | 't300x300' | 't500x500';
+export type CoverSize = 't200x200' | 't300x300' | 't500x500';
 
 const IMG_SIZE_RE = /-(large|t\d+x\d+|original|crop|mini|tiny|small|badge)(\.[a-z]+)?$/;
+const IMG_EXT_RE = /\.(jpg|jpeg|png|webp)$/i;
 
 const COVER_RANK: Record<CoverSize, number> = {
   't200x200': 200,
@@ -26,8 +27,27 @@ export const setCoverQuality = (quality: CoverSize) => {
   coverQuality = quality;
 };
 
-const clampCover = (size: CoverSize): CoverSize =>
-  COVER_RANK[size] <= COVER_RANK[coverQuality] ? size : coverQuality;
+const clampTo = (size: CoverSize, ceiling: CoverSize): CoverSize =>
+  COVER_RANK[size] <= COVER_RANK[ceiling] ? size : ceiling;
+
+const clampCover = (size: CoverSize): CoverSize => clampTo(size, coverQuality);
+
+// кандидаты одной обложки: от потолка качества вниз, в конце исходный url.
+// запас на 404 и на пропущенные размеры sndcdn
+export const getCoverCandidates = (url: string, ceiling: CoverSize = coverQuality): string[] => {
+  const queryIndex = url.indexOf('?');
+  const query = queryIndex === -1 ? '' : url.slice(queryIndex);
+  let path = queryIndex === -1 ? url : url.slice(0, queryIndex);
+  const ext = path.match(IMG_EXT_RE)?.[0] || '.jpg';
+  if (IMG_EXT_RE.test(path)) path = path.slice(0, -ext.length);
+  if (!IMG_SIZE_RE.test(path)) return [url];
+
+  const base = path.replace(IMG_SIZE_RE, '');
+  const sizes: CoverSize[] = ['t500x500', 't300x300', 't200x200'];
+  const candidates = sizes.map((size) => `${base}-${clampTo(size, ceiling)}${ext}${query}`);
+  candidates.push(url);
+  return Array.from(new Set(candidates));
+};
 
 export const getCoverUrl = (track: Track | null | undefined, size: CoverSize = 't300x300'): string | null => {
   if (!track) return null;

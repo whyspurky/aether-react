@@ -2,15 +2,15 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@components/ui/Icon';
 import { useStore } from '@store/store';
 import { themes } from '@/theme/themes';
-import { BLUR_AMOUNT_MAX, BLUR_OPACITY_MAX, PRESET_NAME_MAX } from '@store/slices/ui';
+import { COVER_AMOUNT_MAX, COVER_OPACITY_MAX, PRESET_NAME_MAX } from '@store/slices/ui';
 
 export function SettingsTabAppearance() {
   const themeId = useStore((s) => s.themeId);
   const setThemeId = useStore((s) => s.setThemeId);
-  const blur = useStore((s) => s.blur);
-  const setBlurEnabled = useStore((s) => s.setBlurEnabled);
-  const setBlurAmount = useStore((s) => s.setBlurAmount);
-  const setBlurOpacity = useStore((s) => s.setBlurOpacity);
+  const cover = useStore((s) => s.coverBackground);
+  const setCoverEnabled = useStore((s) => s.setCoverEnabled);
+  const setCoverAmount = useStore((s) => s.setCoverAmount);
+  const setCoverOpacity = useStore((s) => s.setCoverOpacity);
   const customPresets = useStore((s) => s.customPresets);
   const saveCustomPreset = useStore((s) => s.saveCustomPreset);
   const applyCustomPreset = useStore((s) => s.applyCustomPreset);
@@ -118,56 +118,56 @@ export function SettingsTabAppearance() {
               </div>
             </div>
             <button
-              onClick={() => setBlurEnabled(!blur.enabled)}
+              onClick={() => setCoverEnabled(!cover.enabled)}
               className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
-                blur.enabled
+                cover.enabled
                   ? 'bg-[var(--accent-primary)] shadow-[0_0_20px_var(--accent-muted)]'
                   : 'bg-white/[0.08]'
               }`}
-              aria-label="переключить размытие"
+              aria-label="переключить фоновую обложку"
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-bg-primary shadow-md transition-all duration-300 ${
-                  blur.enabled ? 'translate-x-5' : 'translate-x-0'
+                  cover.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
           </div>
 
-          {blur.enabled && (
+          {cover.enabled && (
             <div className="space-y-4 animate-content-fade-in">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-text-tertiary">сила размытия</p>
                   <span className="px-2 py-0.5 rounded-md text-[10px] tabular-nums bg-white/[0.04] text-text-secondary font-mono">
-                    {blur.amount}px
+                    {cover.amount}px
                   </span>
                 </div>
                 <input
                   type="range"
                   min={0}
-                  max={BLUR_AMOUNT_MAX}
+                  max={COVER_AMOUNT_MAX}
                   step={1}
-                  value={blur.amount}
-                  onChange={(e) => setBlurAmount(parseInt(e.target.value, 10))}
+                  value={cover.amount}
+                  onChange={(e) => setCoverAmount(parseInt(e.target.value, 10))}
                   className="settings-slider"
                 />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-text-tertiary">яркость</p>
+                  <p className="text-xs text-text-tertiary">видимость фона</p>
                   <span className="px-2 py-0.5 rounded-md text-[10px] tabular-nums bg-white/[0.04] text-text-secondary font-mono">
-                    {Math.round(blur.opacity * 100)}%
+                    {Math.round(cover.opacity * 100)}%
                   </span>
                 </div>
                 <input
                   type="range"
                   min={0}
-                  max={BLUR_OPACITY_MAX}
+                  max={COVER_OPACITY_MAX}
                   step={0.001}
-                  value={blur.opacity}
-                  onChange={(e) => setBlurOpacity(parseFloat(e.target.value))}
+                  value={cover.opacity}
+                  onChange={(e) => setCoverOpacity(parseFloat(e.target.value))}
                   className="settings-slider"
                 />
               </div>
@@ -193,7 +193,7 @@ export function SettingsTabAppearance() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-text-tertiary">текущая тема и настройки</p>
+                <p className="text-xs text-text-tertiary">текущая тема и фон</p>
               </div>
             </div>
             <button

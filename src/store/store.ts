@@ -2,7 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { tauriStorage } from '../lib/store/tauriStorage';
 import { createProxySlice, type ProxySlice } from './slices/proxy';
-import { createUiSlice, PERF_DEFAULTS, type UiSlice } from './slices/ui';
+import {
+  createUiSlice,
+  normalizeCoverBackground,
+  PERF_DEFAULTS,
+  type UiSlice,
+} from './slices/ui';
 import { createCacheSlice, type CacheSlice } from './slices/cache';
 import { createLibrarySlice, type LibrarySlice } from './slices/library';
 import { createPlayerSlice, type PlayerSlice } from './slices/player';
@@ -27,7 +32,7 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
 
     {
       name: 'aether-storage',
-      version: 18,
+      version: 19,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         // старый плоский perf раскладываем по группам
@@ -226,11 +231,38 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           if (persisted.audio.crossfadeSecs === undefined) persisted.audio.crossfadeSecs = 4;
         }
 
+        // v19: blur и perf.bgCover сведены в один объект фона
+        if (persisted.coverBackground === undefined) {
+          const legacy = persisted.blur;
+          persisted.coverBackground = normalizeCoverBackground({
+            enabled: legacy?.enabled !== false && persisted.perf?.bgCover !== false,
+            amount: legacy?.amount,
+            opacity: legacy?.opacity,
+          });
+        }
+        persisted.coverBackground = normalizeCoverBackground(persisted.coverBackground);
+        delete persisted.blur;
+        if (persisted.perf) delete persisted.perf.bgCover;
+
+        if (Array.isArray(persisted.customPresets)) {
+          persisted.customPresets = persisted.customPresets.map((preset: any) => {
+            const { blur, ...rest } = preset;
+            return {
+              ...rest,
+              coverBackground: normalizeCoverBackground(preset.coverBackground ?? blur),
+            };
+          });
+        }
+
         return persisted;
       },
       merge: (persisted: any, current: any) => ({
         ...current,
         ...persisted,
+        coverBackground: normalizeCoverBackground(
+          persisted?.coverBackground ?? current.coverBackground
+        ),
+        perf: { ...current.perf, ...(persisted?.perf ?? {}) },
         // offline хранит entries и progress только в памяти, из стора приходят настройки
         offline: { ...current.offline, ...(persisted?.offline ?? {}) },
         player: { ...current.player, ...(persisted?.player ?? {}) },
@@ -258,10 +290,10 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           position: s.player.position,
         },
         themeId: s.themeId,
-        blur: {
-          enabled: s.blur.enabled,
-          amount: s.blur.amount,
-          opacity: s.blur.opacity,
+        coverBackground: {
+          enabled: s.coverBackground.enabled,
+          amount: s.coverBackground.amount,
+          opacity: s.coverBackground.opacity,
         },
         perf: s.perf,
         customPresets: s.customPresets,

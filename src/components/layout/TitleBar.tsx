@@ -28,7 +28,7 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="fixed top-0 left-0 right-0 h-10 flex items-center justify-between px-4 bg-bg-secondary/90 backdrop-blur-xl z-30 border-b border-border-subtle"
+      className="fixed top-0 left-0 right-0 h-10 flex items-center justify-between px-4 bg-bg-primary/40 backdrop-blur-xl z-30 border-b border-border-subtle"
     >
       {/* левая часть — логотип */}
       <div className="flex items-center gap-2.5 pointer-events-none" data-tauri-drag-region>

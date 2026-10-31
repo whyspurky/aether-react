@@ -1,22 +1,43 @@
-export const BLUR_AMOUNT_MAX = 120;
-export const BLUR_OPACITY_MAX = 0.5;
-export const BLUR_AMOUNT_DEFAULT = 60;
-export const BLUR_OPACITY_DEFAULT = 0.25;
+export const COVER_AMOUNT_MIN = 0;
+export const COVER_AMOUNT_MAX = 120;
+export const COVER_OPACITY_MAX = 0.5;
+export const COVER_AMOUNT_DEFAULT = 60;
+export const COVER_OPACITY_DEFAULT = 0.25;
 export const PRESET_NAME_MAX = 24;
+
+export interface CoverBackgroundSettings {
+  enabled: boolean;
+  amount: number;
+  opacity: number;
+}
+
+export const clampCoverAmount = (amount: number): number => {
+  if (!Number.isFinite(amount)) return COVER_AMOUNT_DEFAULT;
+  return Math.max(COVER_AMOUNT_MIN, Math.min(COVER_AMOUNT_MAX, amount));
+};
+
+export const clampCoverOpacity = (opacity: number): number => {
+  if (!Number.isFinite(opacity)) return COVER_OPACITY_DEFAULT;
+  return Math.max(0, Math.min(COVER_OPACITY_MAX, opacity));
+};
+
+// единая нормализация для стора, миграций и пресетов
+export const normalizeCoverBackground = (
+  value?: Partial<CoverBackgroundSettings> | null
+): CoverBackgroundSettings => ({
+  enabled: value?.enabled !== false,
+  amount: clampCoverAmount(value?.amount ?? COVER_AMOUNT_DEFAULT),
+  opacity: clampCoverOpacity(value?.opacity ?? COVER_OPACITY_DEFAULT),
+});
 
 export interface CustomPreset {
   id: string;
   name: string;
   themeId: string;
-  blur: {
-    enabled: boolean;
-    amount: number;
-    opacity: number;
-  };
+  coverBackground: CoverBackgroundSettings;
   createdAt: number;
 }
 
-export const BLUR_AMOUNT_MIN = 0;
 export const POSITION_TICK_OPTIONS = [100, 250];
 export const PERSIST_SECS_OPTIONS = [1, 5];
 
@@ -36,7 +57,6 @@ export interface PerfFlags {
   glow: boolean;
   // данные
   coverQuality: CoverQuality;
-  bgCover: boolean;
   prefetchQueue: boolean;
   nextTrackPrep: boolean;
   // звук и бекенд
@@ -58,7 +78,6 @@ export const PERF_DEFAULTS: PerfFlags = {
   noise: true,
   glow: true,
   coverQuality: 't500x500',
-  bgCover: true,
   prefetchQueue: true,
   nextTrackPrep: true,
   spectrum: true,
@@ -79,7 +98,7 @@ export const PERF_PRESETS: Record<PerfPresetId, { label: string; hint: string; v
   },
   max: {
     label: 'максимум',
-    hint: 'все эффекты выключены, обложки t200, редкие тик и сохранение',
+    hint: 'движение, панели и звук выключены, обложки t200, редкие тик и сохранение',
     values: {
       motionTransitions: false,
       motionPages: false,
@@ -90,7 +109,6 @@ export const PERF_PRESETS: Record<PerfPresetId, { label: string; hint: string; v
       noise: false,
       glow: false,
       coverQuality: 't200x200',
-      bgCover: false,
       prefetchQueue: false,
       nextTrackPrep: false,
       spectrum: false,
@@ -108,23 +126,19 @@ export const MOTION_KEYS: (keyof PerfFlags)[] = [
   'marquee',
 ];
 export const PAINT_KEYS: (keyof PerfFlags)[] = ['panelsBlur', 'noise', 'glow'];
-export const DATA_KEYS: (keyof PerfFlags)[] = ['bgCover', 'prefetchQueue', 'nextTrackPrep'];
+export const DATA_KEYS: (keyof PerfFlags)[] = ['prefetchQueue', 'nextTrackPrep'];
 
 export interface UiSlice {
   themeId: string;
-  blur: {
-    enabled: boolean;
-    amount: number;
-    opacity: number;
-  };
+  coverBackground: CoverBackgroundSettings;
   perf: PerfFlags;
   customPresets: CustomPreset[];
   hideBindsWarning: boolean;
 
   setThemeId: (id: string) => void;
-  setBlurEnabled: (enabled: boolean) => void;
-  setBlurAmount: (amount: number) => void;
-  setBlurOpacity: (opacity: number) => void;
+  setCoverEnabled: (enabled: boolean) => void;
+  setCoverAmount: (amount: number) => void;
+  setCoverOpacity: (opacity: number) => void;
   setPerfFlag: <K extends keyof PerfFlags>(key: K, value: PerfFlags[K]) => void;
   setPerfGroup: (keys: (keyof PerfFlags)[], value: boolean) => void;
   applyPerfPreset: (id: PerfPresetId) => void;
@@ -138,10 +152,10 @@ export interface UiSlice {
 
 export const createUiSlice = (set: any, get: any) => ({
   themeId: 'neutral',
-  blur: {
+  coverBackground: {
     enabled: true,
-    amount: BLUR_AMOUNT_DEFAULT,
-    opacity: BLUR_OPACITY_DEFAULT,
+    amount: COVER_AMOUNT_DEFAULT,
+    opacity: COVER_OPACITY_DEFAULT,
   },
   perf: { ...PERF_DEFAULTS },
   customPresets: [],
@@ -158,12 +172,16 @@ export const createUiSlice = (set: any, get: any) => ({
     }),
   applyPerfPreset: (id: PerfPresetId) => set({ perf: { ...PERF_PRESETS[id].values } }),
 
-  setBlurEnabled: (enabled: boolean) =>
-    set((s: any) => ({ blur: { ...s.blur, enabled } })),
-  setBlurAmount: (amount: number) =>
-    set((s: any) => ({ blur: { ...s.blur, amount: Math.max(0, Math.min(BLUR_AMOUNT_MAX, amount)) } })),
-  setBlurOpacity: (opacity: number) =>
-    set((s: any) => ({ blur: { ...s.blur, opacity: Math.max(0, Math.min(BLUR_OPACITY_MAX, opacity)) } })),
+  setCoverEnabled: (enabled: boolean) =>
+    set((s: any) => ({ coverBackground: { ...s.coverBackground, enabled } })),
+  setCoverAmount: (amount: number) =>
+    set((s: any) => ({
+      coverBackground: { ...s.coverBackground, amount: clampCoverAmount(amount) },
+    })),
+  setCoverOpacity: (opacity: number) =>
+    set((s: any) => ({
+      coverBackground: { ...s.coverBackground, opacity: clampCoverOpacity(opacity) },
+    })),
 
   saveCustomPreset: (name: string) => {
     const s = get();
@@ -171,7 +189,7 @@ export const createUiSlice = (set: any, get: any) => ({
       id: `preset-${Date.now()}`,
       name: name.slice(0, PRESET_NAME_MAX),
       themeId: s.themeId,
-      blur: { ...s.blur },
+      coverBackground: { ...s.coverBackground },
       createdAt: Date.now(),
     };
     set({ customPresets: [preset, ...s.customPresets] });
@@ -183,7 +201,7 @@ export const createUiSlice = (set: any, get: any) => ({
     if (!p) return;
     set({
       themeId: p.themeId,
-      blur: { ...p.blur },
+      coverBackground: normalizeCoverBackground(p.coverBackground),
     });
   },
 
