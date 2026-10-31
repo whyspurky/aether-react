@@ -363,11 +363,12 @@ impl AnonClient {
         let target = format!("{SC_API_V2}/tracks/{track_id}?client_id={client_id}");
         match self.fetch_json::<ResolvedTrack>(&target).await {
             Ok(t) => Ok(t),
-            Err(_) => {
+            Err(e) if stale_client_id(&e) => {
                 let new_id = self.invalidate_and_refresh().await?;
                 let retry = format!("{SC_API_V2}/tracks/{track_id}?client_id={new_id}");
                 self.fetch_json(&retry).await
             }
+            Err(e) => Err(e),
         }
     }
 
@@ -380,12 +381,13 @@ impl AnonClient {
         let target = build_transcoding_target(transcoding_url, &client_id, track_authorization);
         match self.fetch_json::<TranscodingResolveResponse>(&target).await {
             Ok(r) => Ok(r.url),
-            Err(_) => {
+            Err(e) if stale_client_id(&e) => {
                 let new_id = self.invalidate_and_refresh().await?;
                 let retry = build_transcoding_target(transcoding_url, &new_id, track_authorization);
                 let response: TranscodingResolveResponse = self.fetch_json(&retry).await?;
                 Ok(response.url)
             }
+            Err(e) => Err(e),
         }
     }
 
@@ -488,6 +490,11 @@ fn extract_client_id_from_hydration(html: &str) -> Option<String> {
 
 fn looks_like_resource_gone(err: &str) -> bool {
     err.contains("404")
+}
+
+// новый client_id помогает только на 401 и 403, на 404 трек просто недоступен
+fn stale_client_id(err: &str) -> bool {
+    err.starts_with("HTTP 401") || err.starts_with("HTTP 403")
 }
 
 fn build_transcoding_target(

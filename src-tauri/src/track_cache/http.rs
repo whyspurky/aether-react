@@ -5,7 +5,7 @@ use wreq::redirect::Policy;
 use wreq::Client;
 use wreq_util::Profile;
 
-use crate::api::client::{emulate, ProxyConfig};
+use crate::api::client::{emulate, with_dns, ProxyConfig};
 
 const CONNECT_TIMEOUT_MS: u64 = 5_000;
 const MEDIA_TIMEOUT_SECS: u64 = 130;
@@ -60,12 +60,14 @@ impl CacheHttp {
 }
 
 fn build_client(anon: bool, proxy: Option<&ProxyConfig>, profile: Profile) -> Client {
-    let mut builder = Client::builder()
-        .emulation(emulate(profile))
-        .redirect(Policy::limited(10))
-        .tcp_nodelay(true)
-        .pool_max_idle_per_host(if anon { 8 } else { 16 })
-        .connect_timeout(Duration::from_millis(CONNECT_TIMEOUT_MS));
+    let mut builder = with_dns(
+        Client::builder()
+            .emulation(emulate(profile))
+            .redirect(Policy::limited(10))
+            .tcp_nodelay(true)
+            .pool_max_idle_per_host(if anon { 8 } else { 16 })
+            .connect_timeout(Duration::from_millis(CONNECT_TIMEOUT_MS)),
+    );
 
     // у медиа ограничиваем простой чтения, иначе большой трек оборвется по общему таймауту
     builder = if anon {

@@ -40,6 +40,11 @@ wreq = { version = "0.16.1", default-features = false, features = [
     "query",
 ] }
 wreq-util = "0.2"
+hickory-resolver = { version = "0.26", default-features = false, features = [
+    "tokio",
+    "https-ring",
+    "webpki-roots",
+] }
 urlencoding = "2"
 regex = "1"
 cpal = "0.18.2"

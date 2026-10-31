@@ -29,6 +29,8 @@ const RECENT_TTL_SECS: u64 = 120;
 const RECENT_MAX: usize = 16;
 const WAIT_DOWNLOAD_SECS: u64 = 90;
 const STREAM_MEMO_MAX_BYTES: usize = 96 * 1024 * 1024;
+// сколько трек не дергает уровень качества, который уже упал
+const REFUSAL_TTL_SECS: u64 = 600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -153,6 +155,8 @@ pub struct TrackCacheState {
     bulk_status: Arc<StdMutex<Option<BulkStatus>>>,
     bulk_cancel: Arc<AtomicBool>,
     temp_max_tracks: Arc<AtomicU64>,
+    // трек плюс уровень, который для него не отдался: следующая попытка идет уровнем ниже
+    refusals: Arc<StdMutex<HashMap<u64, (AudioQuality, std::time::Instant)>>>,
 }
 
 impl TrackCacheState {
@@ -183,6 +187,7 @@ impl TrackCacheState {
             bulk_status: Arc::new(StdMutex::new(None)),
             bulk_cancel: Arc::new(AtomicBool::new(false)),
             temp_max_tracks: Arc::new(AtomicU64::new(MAX_TEMP_TRACKS as u64)),
+            refusals: Arc::new(StdMutex::new(HashMap::new())),
         })
     }
 
@@ -339,9 +344,10 @@ impl TrackCacheState {
     ) -> Result<EnsureCachedResult, String> {
         let track_id = req.track_id;
         let urn = urn(track_id);
+        let wanted = self.allowed_quality(track_id, req.quality);
 
         if let Some(entry) = self.get_entry(track_id) {
-            if cached_satisfies(&entry, req.quality) {
+            if cached_satisfies(&entry, wanted) {
                 if req.offline && !entry.offline {
                     let entry = self.move_to_offline(track_id).await?;
                     return Ok(EnsureCachedResult {
@@ -417,6 +423,33 @@ impl TrackCacheState {
         result
     }
 
+    // уровень, который упал для трека, не дергаем 10 минут: сразу идем ниже
+    fn allowed_quality(&self, track_id: u64, wanted: AudioQuality) -> AudioQuality {
+        let Ok(mut refusals) = self.refusals.lock() else {
+            return wanted;
+        };
+        let now = std::time::Instant::now();
+        refusals.retain(|_, (_, at)| now.duration_since(*at).as_secs() < REFUSAL_TTL_SECS);
+        refusals
+            .get(&track_id)
+            .map_or(wanted, |(failed, _)| capped(wanted, Some(*failed)))
+    }
+
+    fn note_refusal(&self, track_id: u64, quality: AudioQuality) {
+        if quality == AudioQuality::Low {
+            return;
+        }
+        if let Ok(mut refusals) = self.refusals.lock() {
+            refusals.insert(track_id, (quality, std::time::Instant::now()));
+        }
+    }
+
+    fn clear_refusal(&self, track_id: u64) {
+        if let Ok(mut refusals) = self.refusals.lock() {
+            refusals.remove(&track_id);
+        }
+    }
+
     // если скачать не вышло, но файл уже есть, играем его вместо ошибки
     fn existing_or_err(
         &self,
@@ -436,9 +469,15 @@ impl TrackCacheState {
         &self,
         req: &CacheRequest,
     ) -> Result<EnsureCachedResult, String> {
-        let downloaded = match self.fetch_audio(req.track_id, req.quality).await {
-            Ok(downloaded) => downloaded,
+        let quality = self.allowed_quality(req.track_id, req.quality);
+        let downloaded = match self.fetch_audio(req.track_id, quality).await {
+            Ok(downloaded) => {
+                self.clear_refusal(req.track_id);
+                downloaded
+            }
             Err(err) => {
+                // уровень упал: следующая попытка пойдет ниже и не будет ждать таймаутов
+                self.note_refusal(req.track_id, quality);
                 // локальная копия лучше ошибки: сеть могла отвалиться
                 if let Some(entry) = self.get_entry(req.track_id) {
                     if cached_playable(&entry) {
@@ -461,7 +500,7 @@ impl TrackCacheState {
             .store(
                 req.track_id,
                 &downloaded,
-                req.quality,
+                quality,
                 req.expected_duration_ms,
                 offline,
             )
@@ -657,11 +696,21 @@ impl TrackCacheState {
         track_id: u64,
         quality: AudioQuality,
     ) -> Result<(Bytes, Option<StreamInfo>), String> {
+        let quality = self.allowed_quality(track_id, quality);
         let label = quality.label().to_string();
         if let Some(hit) = self.stream_memo_get(track_id, &label) {
             return Ok(hit);
         }
-        let downloaded = self.fetch_audio(track_id, quality).await?;
+        let downloaded = match self.fetch_audio(track_id, quality).await {
+            Ok(downloaded) => {
+                self.clear_refusal(track_id);
+                downloaded
+            }
+            Err(err) => {
+                self.note_refusal(track_id, quality);
+                return Err(err);
+            }
+        };
         let total_size = downloaded.data.len() as u64;
         let sniff_len = AUDIO_SNIFF_LEN.min(downloaded.data.len());
         if !is_valid_audio(&downloaded.data[..sniff_len], total_size) {
@@ -1034,6 +1083,21 @@ fn cached_satisfies(entry: &TrackCacheEntry, quality: AudioQuality) -> bool {
     AudioQuality::from_label(Some(&entry.quality)).rank() >= quality.rank()
 }
 
+fn below(quality: AudioQuality) -> AudioQuality {
+    match quality {
+        AudioQuality::Best => AudioQuality::High,
+        AudioQuality::High => AudioQuality::Medium,
+        AudioQuality::Medium | AudioQuality::Low => AudioQuality::Low,
+    }
+}
+
+fn capped(wanted: AudioQuality, failed: Option<AudioQuality>) -> AudioQuality {
+    match failed {
+        Some(failed) if wanted.rank() >= failed.rank() => below(failed),
+        _ => wanted,
+    }
+}
+
 fn urn(track_id: u64) -> String {
     format!("soundcloud:tracks:{track_id}")
 }
@@ -1193,7 +1257,10 @@ fn clear_dir(dir: &Path, keep: &HashSet<u64>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{cached_satisfies, file_name, is_valid_audio, track_id_from_name, TrackCacheEntry};
+    use super::{
+        below, cached_satisfies, capped, file_name, is_valid_audio, track_id_from_name,
+        TrackCacheEntry,
+    };
     use crate::api::quality::AudioQuality;
 
     fn entry(track_id: u64, bitrate: Option<u32>, quality: &str) -> TrackCacheEntry {
@@ -1241,6 +1308,26 @@ mod tests {
         let low = entry(3, None, "low");
         assert!(cached_satisfies(&low, AudioQuality::Low));
         assert!(!cached_satisfies(&low, AudioQuality::High));
+    }
+
+    #[test]
+    fn refusal_moves_one_tier_down() {
+        assert_eq!(below(AudioQuality::Best), AudioQuality::High);
+        assert_eq!(below(AudioQuality::High), AudioQuality::Medium);
+        assert_eq!(below(AudioQuality::Medium), AudioQuality::Low);
+        assert_eq!(below(AudioQuality::Low), AudioQuality::Low);
+    }
+
+    #[test]
+    fn refusal_caps_only_at_or_above_failed_tier() {
+        // упал best: просим best, получаем high
+        assert_eq!(capped(AudioQuality::Best, Some(AudioQuality::Best)), AudioQuality::High);
+        // упал medium: high выше падения, тоже отступаем
+        assert_eq!(capped(AudioQuality::High, Some(AudioQuality::Medium)), AudioQuality::Low);
+        // упал high: просим medium, он и так ниже, не трогаем
+        assert_eq!(capped(AudioQuality::Medium, Some(AudioQuality::High)), AudioQuality::Medium);
+        // отказа не было
+        assert_eq!(capped(AudioQuality::Best, None), AudioQuality::Best);
     }
 
 }

@@ -5,6 +5,7 @@ use serde_json::Value;
 use wreq::Client;
 use wreq_util::{Emulation, Platform, Profile};
 
+use super::dns;
 use super::sys_proxy;
 use super::ApiError;
 
@@ -31,12 +32,22 @@ pub(crate) fn emulate(profile: Profile) -> Emulation {
         .build()
 }
 
+// doh нужен обоим пулам, иначе первый же запрос уйдет через подмененный системный dns
+pub(crate) fn with_dns(builder: wreq::ClientBuilder) -> wreq::ClientBuilder {
+    match dns::shared() {
+        Some(resolver) => builder.dns_resolver(resolver),
+        None => builder,
+    }
+}
+
 fn build_client(proxy: Option<&ProxyConfig>, profile: Profile) -> Client {
-    let mut builder = Client::builder()
-        .emulation(emulate(profile))
-        .connect_timeout(Duration::from_secs(5))
-        .timeout(Duration::from_secs(10))
-        .pool_max_idle_per_host(20);
+    let mut builder = with_dns(
+        Client::builder()
+            .emulation(emulate(profile))
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(10))
+            .pool_max_idle_per_host(20),
+    );
 
     if let Some(p) = proxy {
         if !p.host.is_empty() && p.port > 0 {

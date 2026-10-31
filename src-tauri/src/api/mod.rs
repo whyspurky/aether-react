@@ -1,4 +1,5 @@
 pub mod client;
+mod dns;
 mod sys_proxy;
 pub mod hls;
 pub mod quality;
