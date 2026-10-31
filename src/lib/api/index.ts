@@ -4,6 +4,7 @@ import { proxyApi } from './proxy';
 import { zapretApi } from './zapret';
 import { globalBindsApi } from './globalBinds';
 import { trackCacheApi } from './trackCache';
+import { authApi } from './auth';
 
 export const api = {
   ...playerApi,
@@ -12,6 +13,7 @@ export const api = {
   ...zapretApi,
   ...globalBindsApi,
   ...trackCacheApi,
+  ...authApi,
 };
 
 if (typeof window !== 'undefined') {

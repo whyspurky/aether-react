@@ -9,9 +9,10 @@ import { SettingsTabAppearance } from '@components/settings/SettingsTabAppearanc
 import { SettingsTabPerformance } from '@components/settings/SettingsTabPerformance';
 import { SettingsTabAbout } from '@components/settings/SettingsTabAbout';
 import { SettingsTabBinds } from '@components/settings/SettingsTabBinds';
+import { SettingsTabAccount } from '@components/settings/SettingsTabAccount';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('data');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
   const [audioSection, setAudioSection] = useState<AudioSection>('playback');
   const scrollRef = useRef<HTMLElement>(null);
   const zapretStatus = useStore((s) => s.proxy.zapret.status);
@@ -39,6 +40,7 @@ export default function SettingsPage() {
 
       <main ref={scrollRef} className="flex-1 overflow-auto p-6 scrollbar-hidden overscroll-contain">
         <div key={`${activeTab}-${audioSection}`} className="max-w-2xl mx-auto animate-page-in">
+          {activeTab === 'account' && <SettingsTabAccount />}
           {activeTab === 'data' && <SettingsTabData />}
           {activeTab === 'audio' && <SettingsTabAudio section={audioSection} />}
           {activeTab === 'appearance' && <SettingsTabAppearance />}

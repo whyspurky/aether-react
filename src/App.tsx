@@ -5,6 +5,7 @@ import { Layout } from './components/layout/Layout';
 import { useTheme } from './hooks/ui/useTheme';
 import { useKeyboard } from './hooks/ui/useKeyboard';
 import { useProxySync } from './hooks/app/useProxySync';
+import { useAuthSync } from './hooks/app/useAuthSync';
 import { useContextMenuPrevent } from './hooks/app/useContextMenuPrevent';
 import { useWindowShow } from './hooks/app/useWindowShow';
 import { useVolumeRestore } from './hooks/app/useVolumeRestore';
@@ -38,6 +39,7 @@ function AppContent() {
   useColdStartPrefetch();
   useTrackCacheEvents();
   useProxySync();
+  useAuthSync();
   useGlobalBinds();
 
   return (

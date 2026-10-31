@@ -75,6 +75,9 @@ pub fn run() {
             clear_store,
 
             // soundcloud api
+            api::soundcloud::auth_set_client_id,
+            api::soundcloud::auth_client_id,
+            api::soundcloud::auth_check_client_id,
             api::soundcloud::search_tracks,
             api::soundcloud::search_users,
             api::soundcloud::search_playlists,

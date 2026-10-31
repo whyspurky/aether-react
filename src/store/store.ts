@@ -15,8 +15,9 @@ import { createGlobalBindsSlice, type GlobalBindsSlice } from './slices/globalBi
 import { createStatsSlice, type StatsSlice } from './slices/stats';
 import { createOfflineSlice, type OfflineSlice } from './slices/offline';
 import { createAudioSlice, type AudioSlice } from './slices/audio';
+import { createAuthSlice, type AuthSlice } from './slices/auth';
 
-export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice & GlobalBindsSlice & StatsSlice & OfflineSlice & AudioSlice>()(
+export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice & PlayerSlice & GlobalBindsSlice & StatsSlice & OfflineSlice & AudioSlice & AuthSlice>()(
   persist(
     (set, get) => ({
       ...createProxySlice(set),
@@ -28,11 +29,12 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
       ...createStatsSlice(set),
       ...createOfflineSlice(set, get),
       ...createAudioSlice(set),
+      ...createAuthSlice(set),
     }),
 
     {
       name: 'aether-storage',
-      version: 19,
+      version: 20,
       storage: createJSONStorage(() => tauriStorage),
       migrate: (persisted: any, version) => {
         // старый плоский perf раскладываем по группам
@@ -207,6 +209,10 @@ export const useStore = create<ProxySlice & UiSlice & CacheSlice & LibrarySlice 
           if (persisted.audio.normalizationTargetLufs === undefined) {
             persisted.audio.normalizationTargetLufs = -14;
           }
+        }
+
+        if (version < 20) {
+          if (!persisted.auth) persisted.auth = { clientId: '' };
         }
 
         if (version < 13) {

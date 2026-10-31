@@ -3,7 +3,7 @@ use std::time::Duration;
 use futures::stream::{self, StreamExt};
 use serde_json::{json, Value};
 
-use super::{BASE_URL, CLIENT_ID, MIN_TRACK_MS, MAX_TRACK_MS};
+use super::{client_id, BASE_URL, MIN_TRACK_MS, MAX_TRACK_MS};
 use super::client::{http, apply_all, get_proxy_status, ProxyConfig, fetch_retry};
 
 const TRACKS_CHUNK_SIZE: usize = 50;
@@ -72,6 +72,46 @@ pub async fn proxy_clear() -> Result<(), String> {
     apply_all(None)
 }
 
+// пустая строка возвращает встроенный client_id
+#[tauri::command]
+pub async fn auth_set_client_id(client_id: Option<String>) -> Result<(), String> {
+    super::set_client_id(client_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn auth_client_id() -> Result<String, String> {
+    Ok(super::client_id())
+}
+
+// проверяем ключ живым запросом: формат ничего не гарантирует, отозванный ключ тоже выглядит нормально
+#[tauri::command]
+pub async fn auth_check_client_id(client_id: String) -> Result<(), String> {
+    let value = client_id.trim().to_string();
+    if value.is_empty() {
+        return Err("пустой client id".into());
+    }
+
+    let url = format!(
+        "{}/search/tracks?q=a&limit=1&client_id={}",
+        BASE_URL,
+        urlencoding::encode(&value)
+    );
+    let resp = http()
+        .get(&url)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| format!("сеть: {e}"))?;
+
+    match resp.status().as_u16() {
+        200 => Ok(()),
+        401 | 403 => Err("soundcloud не принял этот client id".into()),
+        429 => Err("слишком много запросов, попробуй позже".into()),
+        status => Err(format!("soundcloud ответил {status}")),
+    }
+}
+
 #[tauri::command]
 pub async fn proxy_get_status() -> Result<Option<ProxyConfig>, String> {
     Ok(get_proxy_status())
@@ -135,7 +175,7 @@ pub async fn proxy_test_cdn() -> Result<CdnTestResult, String> {
 pub async fn search_users(query: String, limit: u32, offset: u32) -> Result<Value, String> {
     let url = format!(
         "{}/search/users?client_id={}&q={}&limit={}&offset={}&linked_partitioning=1",
-        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit, offset
+        BASE_URL, client_id(), urlencoding::encode(&query), limit, offset
     );
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
@@ -144,7 +184,7 @@ pub async fn search_users(query: String, limit: u32, offset: u32) -> Result<Valu
 pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Value, String> {
     let url = format!(
         "{}/search/tracks?client_id={}&q={}&limit={}&offset={}",
-        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit, offset
+        BASE_URL, client_id(), urlencoding::encode(&query), limit, offset
     );
 
     match fetch_retry(&url).await {
@@ -163,7 +203,7 @@ pub async fn search_tracks(query: String, limit: u32, offset: u32) -> Result<Val
 pub async fn search_playlists(query: String, limit: u32, offset: u32) -> Result<Value, String> {
     let url = format!(
         "{}/search/playlists?client_id={}&q={}&limit={}&offset={}",
-        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit, offset
+        BASE_URL, client_id(), urlencoding::encode(&query), limit, offset
     );
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
@@ -191,7 +231,7 @@ pub async fn get_user_tracks(
     };
     let url = format!(
         "{}/users/{}/{}?client_id={}&limit={}&offset={}&linked_partitioning=1",
-        BASE_URL, user_id, path, CLIENT_ID, limit, offset_param
+        BASE_URL, user_id, path, client_id(), limit, offset_param
     );
     fetch_page(&url, limit).await
 }
@@ -204,7 +244,7 @@ pub async fn get_user_popular_tracks(
     let limit = clamp_limit(limit, ARTIST_SECTION_LIMIT, 50);
     let url = format!(
         "{}/users/{}/toptracks?client_id={}&limit={}&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID, limit
+        BASE_URL, user_id, client_id(), limit
     );
     fetch_page(&url, limit).await
 }
@@ -220,7 +260,7 @@ pub async fn get_related_artists(
     // на soundcloud это fans also like, порядок это релевантность
     let url = format!(
         "{}/users/{}/related?client_id={}&limit={}&offset={}&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID, limit, offset
+        BASE_URL, user_id, client_id(), limit, offset
     );
     let page = match fetch_page(&url, limit).await {
         Ok(data) => data,
@@ -228,7 +268,7 @@ pub async fn get_related_artists(
         Err(_) => {
             let fallback = format!(
                 "{}/users/{}/related-artists?client_id={}&limit={}&offset={}&linked_partitioning=1",
-                BASE_URL, user_id, CLIENT_ID, limit, offset
+                BASE_URL, user_id, client_id(), limit, offset
             );
             fetch_page(&fallback, limit).await?
         }
@@ -259,7 +299,7 @@ pub async fn get_related_artists(
 
 #[tauri::command]
 pub async fn get_user(user_id: String) -> Result<Value, String> {
-    let url = format!("{}/users/{}?client_id={}", BASE_URL, user_id, CLIENT_ID);
+    let url = format!("{}/users/{}?client_id={}", BASE_URL, user_id, client_id());
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
 
@@ -273,7 +313,7 @@ pub async fn get_user_reposts(
     let offset = offset.unwrap_or(0);
     let url = format!(
         "{}/stream/users/{}/reposts?client_id={}&limit={}&offset={}&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID, limit, offset
+        BASE_URL, user_id, client_id(), limit, offset
     );
     fetch_page(&url, limit).await
 }
@@ -284,7 +324,7 @@ pub async fn get_playlist(url_or_id: String) -> Result<Value, String> {
         .map(|s| s.split('?').next().unwrap_or(s))
         .unwrap_or(&url_or_id);
 
-    let url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID);
+    let url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, client_id());
     fetch_retry(&url).await.map_err(|e| e.to_string())
 }
 
@@ -294,7 +334,7 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
         .map(|s| s.split('?').next().unwrap_or(s))
         .unwrap_or(&url_or_id);
 
-    let pl_url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, CLIENT_ID);
+    let pl_url = format!("{}/playlists/{}?client_id={}", BASE_URL, id, client_id());
     let pl_data = fetch_retry(&pl_url).await.map_err(|e| e.to_string())?;
 
     let ids: Vec<u64> = pl_data["tracks"]
@@ -313,7 +353,7 @@ pub async fn get_playlist_tracks(url_or_id: String) -> Result<Value, String> {
 
     for chunk in ids.chunks(TRACKS_CHUNK_SIZE) {
         let ids_str = chunk.iter().map(|i| i.to_string()).collect::<Vec<_>>().join(",");
-        let url = format!("{}/tracks?ids={}&client_id={}", BASE_URL, ids_str, CLIENT_ID);
+        let url = format!("{}/tracks?ids={}&client_id={}", BASE_URL, ids_str, client_id());
 
         if let Ok(data) = fetch_retry(&url).await {
             if let Some(arr) = data.as_array() {
@@ -341,7 +381,7 @@ pub async fn get_user_playlists(
     let offset = offset.unwrap_or(0);
     let url = format!(
         "{}/users/{}/playlists?client_id={}&limit={}&offset={}&linked_partitioning=1",
-        BASE_URL, user_id, CLIENT_ID, limit, offset
+        BASE_URL, user_id, client_id(), limit, offset
     );
     fetch_page(&url, limit).await
 }
@@ -366,7 +406,7 @@ pub async fn get_popular(limit: Option<usize>, offset: Option<usize>) -> Result<
             cursor += 1;
             format!(
                 "{}/search/tracks?client_id={}&q={}&limit={}&offset={}",
-                BASE_URL, CLIENT_ID, urlencoding::encode(POPULAR_ARTISTS[idx]), POPULAR_BATCH_SIZE, inner_offset
+                BASE_URL, client_id(), urlencoding::encode(POPULAR_ARTISTS[idx]), POPULAR_BATCH_SIZE, inner_offset
             )
         }).collect();
 
@@ -412,7 +452,7 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
     let urls: Vec<String> = history_artists.iter().take(10).map(|artist| {
         format!(
             "{}/search/tracks?client_id={}&q={}&limit={}&offset=0",
-            BASE_URL, CLIENT_ID, urlencoding::encode(artist), MY_WAVE_PER_ARTIST
+            BASE_URL, client_id(), urlencoding::encode(artist), MY_WAVE_PER_ARTIST
         )
     }).collect();
 
@@ -449,7 +489,7 @@ pub async fn get_my_wave(history_artists: Vec<String>) -> Result<Value, String> 
     }
 
     if tracks.is_empty() {
-        let url = format!("{}/search/tracks?client_id={}&q=new&limit=30&offset=0", BASE_URL, CLIENT_ID);
+        let url = format!("{}/search/tracks?client_id={}&q=new&limit=30&offset=0", BASE_URL, client_id());
         if let Ok(data) = fetch_retry(&url).await {
             if let Some(c) = data["collection"].as_array() {
                 for t in c {
@@ -476,7 +516,22 @@ pub async fn fetch_url(url: String) -> Result<Value, String> {
 pub async fn search_suggestions(query: String, limit: u32) -> Result<Value, String> {
     let url = format!(
         "{}/search/queries?client_id={}&q={}&limit={}",
-        BASE_URL, CLIENT_ID, urlencoding::encode(&query), limit
+        BASE_URL, client_id(), urlencoding::encode(&query), limit
     );
     fetch_retry(&url).await.map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // живая проверка команды проверки ключа, гонять вручную: cargo test --lib -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn client_id_check_live() {
+        assert!(auth_check_client_id(client_id()).await.is_ok());
+        assert!(auth_check_client_id("deadbeefdeadbeefdeadbeefdeadbeef".into())
+            .await
+            .is_err());
+    }
 }

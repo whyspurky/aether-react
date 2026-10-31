@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Icon } from '@components/ui/Icon';
 
 export type SettingsTab =
+  | 'account'
   | 'data'
   | 'audio'
   | 'appearance'
@@ -21,6 +22,7 @@ interface Props {
 }
 
 const TABS: { id: SettingsTab; label: string; icon: string }[] = [
+  { id: 'account', label: 'аккаунт', icon: 'circle-user-round' },
   { id: 'data', label: 'данные', icon: 'database' },
   { id: 'audio', label: 'аудио', icon: 'audio-lines' },
   { id: 'appearance', label: 'внешний вид', icon: 'palette' },

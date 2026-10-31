@@ -4,7 +4,7 @@ use serde_json::Value;
 use super::quality::{bitrate_from_preset, AudioQuality, SelectedStream};
 use super::ApiError;
 use super::client::{fetch_retry, fetch_json_retry};
-use super::{add_client_id, BASE_URL, CLIENT_ID};
+use super::{add_client_id, client_id, BASE_URL};
 use super::hls::download_hls;
 
 fn with_auth(url: &str, auth: &str) -> String {
@@ -17,7 +17,7 @@ fn with_auth(url: &str, auth: &str) -> String {
 }
 
 async fn get_track(track_id: &str) -> Result<Value, ApiError> {
-    let url = format!("{}/tracks/{}?client_id={}", BASE_URL, track_id, CLIENT_ID);
+    let url = format!("{}/tracks/{}?client_id={}", BASE_URL, track_id, client_id());
     fetch_retry(&url).await
 }
 
